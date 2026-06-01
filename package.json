@@ -2,7 +2,7 @@
   "name": "peta-orm",
   "type": "module",
   "private": false,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "ORM for Bun, built on Kysely",
   "license": "MIT",
   "module": "src/index.ts",
