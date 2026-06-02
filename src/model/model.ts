@@ -21,6 +21,11 @@ export type ModelClass<T extends Model = Model> = {
   columns: ColumnShape
   relations: RelationMap
   peta: PetaLike | null
+  readonly name: string
+  $casts: Record<string, string>
+  $hidden: string[]
+  $visible: string[]
+  $appends: string[]
   hydrate(row: Record<string, unknown>): T
   query(): ModelQueryBuilder<T>
   find(id: number | string): Promise<T | undefined>
@@ -98,7 +103,7 @@ export class Model {
       return self[accessor]()
     }
     const val = getAttr(this, key)
-    const casts = (modelClass as any).$casts as Record<string, string>
+    const casts = modelClass.$casts
     if (casts?.[key]) {
       return this.#castGet(val, casts[key])
     }
@@ -214,13 +219,13 @@ export class Model {
   // Static methods
   static query<T extends Model>(this: ModelClass<T>, kysely?: Kysely<any>): ModelQueryBuilder<T> {
     const peta = this.peta
-    if (!peta) throw new ModelNotRegisteredError((this as any).name)
+    if (!peta) throw new ModelNotRegisteredError(this.name)
     return new ModelQueryBuilder<T>(this, peta, kysely)
   }
 
   static async transaction<T>(this: ModelClass, fn: (kysely: Kysely<any>) => Promise<T>): Promise<T> {
     const peta = this.peta
-    if (!peta) throw new ModelNotRegisteredError((this as any).name)
+    if (!peta) throw new ModelNotRegisteredError(this.name)
     return await peta.transaction(fn)
   }
 
@@ -239,13 +244,13 @@ export class Model {
     kysely?: Kysely<any>,
   ): Promise<T> {
     const peta = this.peta
-    if (!peta) throw new ModelNotRegisteredError((this as any).name)
+    if (!peta) throw new ModelNotRegisteredError(this.name)
     return new UpdateBuilder(this, peta, kysely).execute(id, data)
   }
 
   static delete<T extends Model>(this: ModelClass<T>, id: number | string, kysely?: Kysely<any>): Promise<void> {
     const peta = this.peta
-    if (!peta) throw new ModelNotRegisteredError((this as any).name)
+    if (!peta) throw new ModelNotRegisteredError(this.name)
     return new DeleteBuilder(this, peta, kysely).execute(id)
   }
 

@@ -72,7 +72,7 @@ export class Peta implements PetaLike {
 
   async destroy(): Promise<void> {
     for (const [, cls] of this.#models) {
-      ;(cls as any).peta = null
+      cls.peta = null
     }
     this.#models.clear()
     await this.kysely.destroy()

@@ -80,7 +80,7 @@ export function getRelation(model: Model, name: string): unknown {
 }
 
 export function setRelation(model: Model, name: string, value: unknown): void {
-  getState(model).relations[name] = value as any
+  getState(model).relations[name] = value
 }
 
 export function hasRelation(model: Model, name: string): boolean {

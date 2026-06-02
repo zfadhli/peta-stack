@@ -112,11 +112,10 @@ ${downTables.join("\n")}
       calls.push("unique()")
     }
 
-    // references constraint — resolves thunk to get target table
     const refConstraint = col.constraints.find((c) => c.type === "references")
     if (refConstraint?.args[0]) {
       const targetClass = typeof refConstraint.args[0] === "function" ? refConstraint.args[0]() : refConstraint.args[0]
-      const targetTable = (targetClass as any)?.table
+      const targetTable = (targetClass as any)?.table as string | undefined
       const targetColumns = refConstraint.args[1] as string[] | undefined
       if (typeof targetTable === "string" && targetTable && targetColumns?.length) {
         calls.push(`references("${targetTable}.${targetColumns[0]}")`)

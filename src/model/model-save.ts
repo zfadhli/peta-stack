@@ -135,7 +135,7 @@ export async function insertManyModel<T extends Model>(
   kysely?: Kysely<any>,
 ): Promise<T[]> {
   const peta = this.peta
-  if (!peta) throw new ModelNotRegisteredError((this as any).name)
+  if (!peta) throw new ModelNotRegisteredError(this.name)
   const trx = kysely ?? peta.kysely
   const results: T[] = []
   for (const data of dataArray) {

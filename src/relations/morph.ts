@@ -76,7 +76,7 @@ export class MorphTo extends BelongsTo {
   }
 
   #resolveType(type: string): ModelClass | null {
-    const peta = (this as any).relatedModelClass.peta
+    const peta = this.relatedModelClass.peta
     if (!peta?.models) return null
     for (const [, cls] of peta.models) {
       if (cls.name === type) return cls

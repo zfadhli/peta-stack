@@ -7,8 +7,8 @@ export function modelToJSON(model: Model, visited?: WeakSet<Model>): Record<stri
   visited.add(model)
 
   const modelClass = model.constructor as ModelClass
-  const hidden = ((modelClass as any).$hidden as string[]) || []
-  const visible = ((modelClass as any).$visible as string[]) || []
+  const hidden = modelClass.$hidden
+  const visible = modelClass.$visible
 
   let keys = Object.keys(getRawAttrs(model))
   if (visible.length > 0) {
@@ -21,7 +21,7 @@ export function modelToJSON(model: Model, visited?: WeakSet<Model>): Record<stri
     data[key] = getAttr(model, key)
   }
 
-  for (const key of (modelClass as any).$appends ?? []) {
+  for (const key of modelClass.$appends) {
     const accessor = `get${key.charAt(0).toUpperCase() + key.slice(1)}Attribute`
     if (typeof (model as any)[accessor] === "function") {
       data[key] = (model as any)[accessor]()

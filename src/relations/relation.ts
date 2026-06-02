@@ -229,12 +229,12 @@ export class ManyToMany<TRelated extends Model = Model> extends Relation<TRelate
 
   query(parent: Model): ModelQueryBuilder<TRelated> {
     const parentKey = parent.get(this.localKey)
-    const peta = (this.relatedModelClass as any).peta as PetaLike | null
+    const peta = this.relatedModelClass.peta
     if (!peta) return this.relatedModelClass.query()
 
     if (this.#hasExtras()) {
       const _relatedTable = this.relatedModelClass.table
-      const peta = (this.relatedModelClass as any).peta as PetaLike | null
+      const peta = this.relatedModelClass.peta
       if (!peta) return this.relatedModelClass.query()
       const subQb = peta.kysely
         .selectFrom(this.throughTable)
@@ -324,7 +324,7 @@ export class HasManyThrough<TRelated extends Model = Model> extends Relation<TRe
 
   query(parent: Model): ModelQueryBuilder<TRelated> {
     const parentKey = parent.get(this.localKey)
-    const peta = (this.relatedModelClass as any).peta as PetaLike | null
+    const peta = this.relatedModelClass.peta
     if (!peta) return this.relatedModelClass.query()
 
     const throughTable = this.throughModelClass.table
@@ -361,7 +361,7 @@ export class HasManyThrough<TRelated extends Model = Model> extends Relation<TRe
 
   async getResults(parent: Model): Promise<Model[]> {
     const parentKey = parent.get(this.localKey)
-    const peta = (this.relatedModelClass as any).peta as PetaLike | null
+    const peta = this.relatedModelClass.peta
     if (!peta) return []
 
     const throughTable = this.throughModelClass.table

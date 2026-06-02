@@ -21,7 +21,7 @@ async function hardDeleteModel(model: Model): Promise<void> {
   const modelClass = model.constructor as ModelClass
   const hooks = modelClass.hooks
   const peta = modelClass.peta
-  if (!peta) throw new ModelNotRegisteredError((modelClass as any).name)
+  if (!peta) throw new ModelNotRegisteredError(modelClass.name)
   const table = modelClass.table
   const id = getAttr(model, "id")
   if (id === undefined) throw new ModelNotFoundError(table)
@@ -87,7 +87,7 @@ export function trashedModel(model: Model): boolean {
 export async function reloadModel(model: Model): Promise<Model> {
   const modelClass = model.constructor as ModelClass
   const peta = modelClass.peta
-  if (!peta) throw new ModelNotRegisteredError((modelClass as any).name)
+  if (!peta) throw new ModelNotRegisteredError(modelClass.name)
   const table = modelClass.table
   const id = getAttr(model, "id")
   if (id === undefined) return model
