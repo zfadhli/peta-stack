@@ -95,25 +95,7 @@ export class Collection<T extends Model> {
     if (this.#items.length === 0) return this
     const modelClass = (this.#items[0] as any).constructor as ModelClass
     const loader = new EagerLoader()
-    for (const name of relations) {
-      const dotIndex = name.indexOf(".")
-      if (dotIndex > 0) {
-        const primary = name.slice(0, dotIndex)
-        const nested = name.slice(dotIndex + 1)
-        await loader.loadRelated(this.#items as Model[], { name: primary, constraints: null }, modelClass)
-        const allRelated: Model[] = []
-        for (const item of this.#items) {
-          const rel = item.$getRelation(primary)
-          if (Array.isArray(rel)) allRelated.push(...rel)
-        }
-        if (allRelated.length > 0) {
-          const nestedModelClass = (allRelated[0] as any).constructor as ModelClass
-          await loader.loadRelated(allRelated, { name: nested, constraints: null }, nestedModelClass)
-        }
-      } else {
-        await loader.loadRelated(this.#items as Model[], { name, constraints: null }, modelClass)
-      }
-    }
+    await loader.load(modelClass, {}, this.#items as Model[], relations)
     return this
   }
 
