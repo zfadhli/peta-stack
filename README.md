@@ -80,6 +80,9 @@ export { peta, User, Post }
 | **Serialization** | — | `$hidden`, `$visible`, `$appends`, accessors |
 | **Pagination** | Manual offset/limit | `.paginate(1, 20)` — returns `{ data, total, perPage, ... }` |
 | **Transactions** | Manual | `Model.transaction(fn)` |
+| **Error handling** | Raw driver codes | `DatabaseError` with `UNIQUE_CONSTRAINT` / `FOREIGN_KEY_CONSTRAINT` |
+| **Conditional queries** | Manual if/else | `.when(condition, qb => ...)`, `.unless(condition, qb => ...)` |
+| **Migrations** | — | Auto-generate from models, CLI, `MigrationRunner` |
 | **Global scopes** | — | `addGlobalScope("active", qb => ...)` |
 
 ---
