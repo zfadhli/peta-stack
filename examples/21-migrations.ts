@@ -4,7 +4,7 @@
 import { Database } from "bun:sqlite"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
 import type { ColumnShape } from "../src"
-import { $t, ArkTypeSchemaConfig, HasMany, Model, Peta } from "../src"
+import { $t, ArkTypeSchemaConfig, HasMany, ManyToMany, Model, Peta } from "../src"
 import { MigrationGenerator, MigrationRunner } from "../src/migrations"
 
 const t = $t({ schema: new ArkTypeSchemaConfig() })
@@ -30,13 +30,31 @@ class Post extends Model {
     slug: t.string().unique(),
     body: t.text().nullable(),
   } satisfies ColumnShape
+  static override relations = {
+    tags: new ManyToMany(() => Tag, { through: "post_tags", foreignPivotKey: "postId", relatedPivotKey: "tagId" }),
+  }
+}
+
+class Tag extends Model {
+  static override table = "tags"
+  static override columns = { id: t.integer().primaryKey(), name: t.string(255) } satisfies ColumnShape
+}
+
+// Pivot tables are regular models — register them for migration generation
+class PostTag extends Model {
+  static override table = "post_tags"
+  static override columns = {
+    id: t.integer().primaryKey(),
+    postId: t.integer().references(() => Post, ["id"]),
+    tagId: t.integer().references(() => Tag, ["id"]),
+  } satisfies ColumnShape
 }
 
 const database = new Database(":memory:")
 database.run("PRAGMA journal_mode = WAL")
 
 const peta = new Peta({ dialect: new BunSqliteDialect({ database }) })
-peta.registerAll(User)
+peta.registerAll(User, Post, Tag, PostTag)
 
 // === Generate initial migration code from model definitions ===
 const gen = new MigrationGenerator()

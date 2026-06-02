@@ -145,6 +145,36 @@ const authors = await User.query().has("posts").execute()
 const active = await User.query().whereHas("posts", (q) => q.where("published", true)).execute()
 ```
 
+### ManyToMany
+
+```ts
+class Post extends Model {
+  static override columns = { id: t.integer().primaryKey(), title: t.string(255) } satisfies ColumnShape
+  static override relations = {
+    tags: new ManyToMany(() => Tag, {
+      through: "post_tags",
+      foreignPivotKey: "postId",
+      relatedPivotKey: "tagId",
+    }),
+  }
+}
+
+class Tag extends Model {
+  static override columns = { id: t.integer().primaryKey(), name: t.string(255) } satisfies ColumnShape
+}
+
+// Pivot tables are regular Models — register them so the migration
+// generator includes the pivot table automatically.
+class PostTag extends Model {
+  static override table = "post_tags"
+  static override columns = {
+    id: t.integer().primaryKey(),
+    postId: t.integer().references(() => Post, ["id"]),
+    tagId: t.integer().references(() => Tag, ["id"]),
+  } satisfies ColumnShape
+}
+```
+
 ### CRUD & Pagination
 
 ```ts
