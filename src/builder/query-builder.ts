@@ -326,11 +326,4 @@ export class ModelQueryBuilder<T extends Model> {
   }
 }
 
-export interface PaginatedResult<T> {
-  data: T[]
-  total: number
-  perPage: number
-  currentPage: number
-  lastPage: number
-  hasMorePages: boolean
-}
+

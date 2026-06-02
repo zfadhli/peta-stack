@@ -1,6 +1,5 @@
 export { DeleteBuilder } from "./delete-builder"
 export type { EagerLoad, WithArg } from "./eager-loader"
 export { EagerLoader } from "./eager-loader"
-export type { PaginatedResult } from "./query-builder"
 export { ModelQueryBuilder } from "./query-builder"
 export { UpdateBuilder } from "./update-builder"
