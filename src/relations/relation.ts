@@ -274,7 +274,7 @@ export class ManyToMany<TRelated extends Model = Model> extends Relation<TRelate
       const items = grouped[key] ?? []
       for (const item of items) {
         const pivotData: Record<string, unknown> = {}
-        for (const ek of Object.keys((item as any).attributes ?? {})) {
+        for (const ek of Object.keys(item.attributes ?? {})) {
           if (ek.startsWith("_pivot_")) {
             pivotData[ek.slice(7)] = item.get(ek)
           }
@@ -371,7 +371,7 @@ export class HasManyThrough<TRelated extends Model = Model> extends Relation<TRe
       .where(this.foreignKey, "=", parentKey)
       .execute()
 
-    const ids = rows.map((r: any) => r[this.throughForeignKey]).filter(Boolean)
+    const ids = rows.map((r: Record<string, unknown>) => r[this.throughForeignKey] as string).filter(Boolean)
     if (ids.length === 0) return []
 
     return await this.relatedModelClass.query().whereIn("id", ids).execute()

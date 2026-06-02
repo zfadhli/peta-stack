@@ -30,10 +30,10 @@ export type ModelClass<T extends Model = Model> = {
   query(): ModelQueryBuilder<T>
   find(id: number | string): Promise<T | undefined>
   findOrFail(id: number | string): Promise<T>
-  on(event: LifecycleEvent, callback: (model: any) => void | Promise<void>): void
+  on(event: LifecycleEvent, callback: (model: T) => void | Promise<void>): void
   readonly hooks: HookManager
-  getGlobalScopes(): Map<string, (qb: any) => void>
-  addGlobalScope(name: string, callback: (qb: any) => void): void
+  getGlobalScopes(): Map<string, (qb: ModelQueryBuilder<any>) => void>
+  addGlobalScope(name: string, callback: (qb: ModelQueryBuilder<any>) => void): void
   removeGlobalScope(name: string): void
   transaction<TResult>(fn: (kysely: Kysely<any>) => Promise<TResult>): Promise<TResult>
   insert(data: Record<string, unknown>): Promise<T>
@@ -70,7 +70,7 @@ export class Model {
     return getHooksFor(this)
   }
 
-  static on(event: LifecycleEvent, callback: (model: any) => void | Promise<void>): void {
+  static on(event: LifecycleEvent, callback: (model: Model) => void | Promise<void>): void {
     this.hooks.on(event, callback)
   }
 
@@ -276,7 +276,7 @@ export class Model {
   }
 
   // Global scopes
-  static addGlobalScope(name: string, callback: (qb: any) => void): void {
+  static addGlobalScope(name: string, callback: (qb: ModelQueryBuilder<any>) => void): void {
     addScope(this, name, callback)
   }
 
@@ -284,7 +284,7 @@ export class Model {
     removeScope(this, name)
   }
 
-  static getGlobalScopes(): Map<string, (qb: any) => void> {
+  static getGlobalScopes(): Map<string, (qb: ModelQueryBuilder<any>) => void> {
     return getScopes(this)
   }
 

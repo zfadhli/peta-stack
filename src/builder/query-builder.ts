@@ -6,6 +6,11 @@ import { type EagerLoad, EagerLoader, type WithArg } from "./eager-loader"
 
 const SAFE_COL = /^[a-zA-Z_][a-zA-Z0-9_.]*$/
 
+interface MutationResult {
+  numUpdatedRows?: bigint
+  numDeletedRows?: bigint
+}
+
 export class ModelQueryBuilder<T extends Model> {
   #modelClass: ModelClass<T>
   #peta: PetaLike
@@ -175,12 +180,12 @@ export class ModelQueryBuilder<T extends Model> {
 
   async updateMany(data: Record<string, unknown>): Promise<number> {
     const result = await this.#kysely.updateTable(this.#modelClass.table).set(data).executeTakeFirst()
-    return Number((result as any).numUpdatedRows ?? 0)
+    return Number((result as MutationResult).numUpdatedRows ?? 0)
   }
 
   async deleteMany(): Promise<number> {
     const result = await this.#kysely.deleteFrom(this.#modelClass.table).executeTakeFirst()
-    return Number((result as any).numDeletedRows ?? 0)
+    return Number((result as MutationResult).numDeletedRows ?? 0)
   }
 
   withTrashed(): this {
@@ -247,15 +252,15 @@ export class ModelQueryBuilder<T extends Model> {
     return ref
   }
 
-  #safeWhere(column: unknown, operator?: unknown, value?: unknown): void {
-    const col = this.#col(String(column))
+  #safeWhere(column: string, operator?: unknown, value?: unknown): void {
+    const col = this.#col(column)
     ;(this.#qb as any) = (this.#qb as any).where(col, operator, value)
   }
 
-  where(column: unknown, operator: unknown, value: unknown): this
-  where(column: unknown, value: unknown): this
+  where(column: string, operator: unknown, value: unknown): this
+  where(column: string, value: unknown): this
   where(...args: unknown[]): this {
-    this.#safeWhere(args[0], args[1], args[2])
+    this.#safeWhere(String(args[0]), args[1], args[2])
     return this
   }
 
@@ -264,10 +269,10 @@ export class ModelQueryBuilder<T extends Model> {
     return this
   }
 
-  orWhere(column: unknown, operator: unknown, value: unknown): this
-  orWhere(column: unknown, value: unknown): this
+  orWhere(column: string, operator: unknown, value: unknown): this
+  orWhere(column: string, value: unknown): this
   orWhere(...args: unknown[]): this {
-    this.#safeWhere(args[0], args[1], args[2])
+    this.#safeWhere(String(args[0]), args[1], args[2])
     return this
   }
 

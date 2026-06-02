@@ -8,12 +8,13 @@ export interface PetaConfig {
 }
 
 export function isModelClass(value: unknown): value is ModelClass {
+  const v = value as { table?: unknown; columns?: unknown }
   return (
     typeof value === "function" &&
-    typeof (value as any).table === "string" &&
-    (value as any).table.length > 0 &&
-    typeof (value as any).columns === "object" &&
-    (value as any).columns !== null
+    typeof v.table === "string" &&
+    v.table.length > 0 &&
+    typeof v.columns === "object" &&
+    v.columns !== null
   )
 }
 

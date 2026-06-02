@@ -97,7 +97,7 @@ async function insertNew(
     }
   }
 
-  let result: any
+  let result: { insertId?: number | bigint } | undefined
   try {
     result = await peta.kysely.insertInto(table).values(getState(model).attributes).executeTakeFirst()
   } catch (e) {
@@ -106,7 +106,7 @@ async function insertNew(
     throw e
   }
 
-  const insertId = (result as { insertId?: number | bigint })?.insertId
+  const insertId = result?.insertId
   if (insertId !== undefined) {
     setAttr(model, "id", Number(insertId))
   }
@@ -141,7 +141,7 @@ export async function insertManyModel<T extends Model>(
   for (const data of dataArray) {
     const instance = this.hydrate(data)
     const state = getState(instance)
-    let result: any
+    let result: { insertId?: number | bigint } | undefined
     try {
       result = await trx
         .insertInto(this.table)
@@ -152,7 +152,7 @@ export async function insertManyModel<T extends Model>(
       if (normalized) throw normalized
       throw e
     }
-    const insertId = (result as { insertId?: number | bigint })?.insertId
+    const insertId = result?.insertId
     if (insertId !== undefined) {
       state.attributes.id = Number(insertId)
     }

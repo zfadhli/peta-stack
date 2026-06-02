@@ -93,7 +93,7 @@ export class Collection<T extends Model> {
 
   async load(...relations: string[]): Promise<this> {
     if (this.#items.length === 0) return this
-    const modelClass = (this.#items[0] as any).constructor as ModelClass
+    const modelClass = (this.#items[0]!.constructor as unknown) as ModelClass
     const loader = new EagerLoader()
     await loader.load(modelClass, {}, this.#items as Model[], relations)
     return this

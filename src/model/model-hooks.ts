@@ -1,5 +1,5 @@
 import { HookManager } from "../hooks/lifecycle"
-import type { ModelClass } from "./model"
+import type { Model, ModelClass } from "./model"
 
 const HOOK_MAP = new WeakMap<object, HookManager>()
 const TS_SET = new WeakSet<object>()
@@ -22,12 +22,12 @@ export function registerTimestampsFor(
   if (TS_SET.has(modelClass)) return
   TS_SET.add(modelClass)
 
-  modelClass.on("beforeCreate", (model: any) => {
+  modelClass.on("beforeCreate", (model: Model) => {
     const now = new Date().toISOString()
     if (!model.get(createdAtColumn)) model.set(createdAtColumn, now)
     model.set(updatedAtColumn, now)
   })
-  modelClass.on("beforeUpdate", (model: any) => {
+  modelClass.on("beforeUpdate", (model: Model) => {
     model.set(updatedAtColumn, new Date().toISOString())
   })
 }
