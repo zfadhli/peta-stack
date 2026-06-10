@@ -1,0 +1,41 @@
+name: Publish
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun test
+      - run: bun run build
+
+      - name: Read version
+        id: version
+        run: echo "version=$(jq -r .version package.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Tag if new version
+        run: |
+          TAG="v${{ steps.version.outputs.version }}"
+          if ! git rev-parse "$TAG" >/dev/null 2>&1; then
+            git config user.name "github-actions"
+            git config user.email "actions@github.com"
+            git tag "$TAG"
+            git push origin "$TAG"
+          fi
+
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          npm config set //registry.npmjs.org/:_authToken=$NODE_AUTH_TOKEN
+          npm publish
