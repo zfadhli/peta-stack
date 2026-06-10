@@ -1,5 +1,5 @@
 // Peta ORM — 10-elysia-integration
-// Elysia plugin
+// Elysia plugin — self-contained test using app.fetch()
 
 import { Database } from "bun:sqlite"
 import { Elysia } from "elysia"
@@ -19,13 +19,17 @@ database.run("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEX
 const peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
 peta.registerAll(User)
 
-const _app = new Elysia()
-  .use(petaPlugin({ peta }))
-  .get("/users", async () => {
-    const users = await User.query().execute()
-    return users.map((u) => u.$toJSON())
-  })
-  .listen(3000)
+const app = new Elysia().use(petaPlugin({ peta })).get("/users", async () => {
+  const users = await User.query().execute()
+  return users.map((u) => u.$toJSON())
+})
 
-console.log("Elysia running on port 3000")
+// ── Self-test using app.fetch() ──
+await User.insert({ name: "Alice" })
+await User.insert({ name: "Bob" })
+
+const res = await app.fetch(new Request("http://localhost/users"))
+const body = await res.json()
+console.log("GET /users →", res.status, JSON.stringify(body))
+
 await peta.destroy()

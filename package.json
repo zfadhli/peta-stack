@@ -39,6 +39,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.4.16",
     "@types/bun": "latest",
+    "elysia": "^1.4.28",
     "hono": "^4.12.25",
     "kysely": "^0.27.0",
     "kysely-bun-sqlite": "^0.4.0",
