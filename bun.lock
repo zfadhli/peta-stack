@@ -40,6 +40,24 @@
         "hono",
       ],
     },
+    "packages/docs": {
+      "name": "peta-docs",
+      "version": "0.2.11",
+      "dependencies": {
+        "hono": "^4",
+      },
+      "devDependencies": {
+        "@biomejs/biome": "^2.4.16",
+        "@types/bun": "^1.3.14",
+        "tsdown": "^0.22.1",
+      },
+      "optionalDependencies": {
+        "arktype": "^2",
+      },
+      "peerDependencies": {
+        "typescript": "^6.0.3",
+      },
+    },
     "packages/orm": {
       "name": "peta-orm",
       "version": "0.2.6",
@@ -265,6 +283,8 @@
     "pathe": ["pathe@2.0.3", "", {}, "sha512-WUjGcAqP1gQacoQe+OBJsFA7Ld4DyXuUIjZ5cc75cLHvJ7dtNsTugphxIADwspS+AraAUePCKrSVtPLFj/F88w=="],
 
     "peta-auth": ["peta-auth@workspace:packages/auth"],
+
+    "peta-docs": ["peta-docs@workspace:packages/docs"],
 
     "peta-orm": ["peta-orm@workspace:packages/orm"],
 
