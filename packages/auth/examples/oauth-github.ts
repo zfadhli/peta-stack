@@ -1,6 +1,6 @@
 import { Hono } from "hono"
-import { session } from "peta-auth/hono"
-import { defineOAuthGitHubEventHandler } from "peta-auth/oauth/github"
+import { session } from "../src/hono.js"
+import { defineOAuthGitHubEventHandler } from "../src/oauth/github.js"
 
 const app = new Hono()
 

@@ -1,6 +1,6 @@
 import { Elysia } from "elysia"
 import { hashPassword, verifyPassword } from "peta-auth"
-import { session } from "peta-auth/elysia"
+import { session } from "../src/elysia.js"
 
 const users = new Map<string, { hash: string; name: string }>()
 

@@ -1,6 +1,6 @@
 import { getRequestHeaders, getRequestURL } from "h3"
-import { useSession } from "peta-auth/nuxt"
-import { defineOAuthGitHubEventHandler } from "peta-auth/oauth/github"
+import { useSession } from "../../../../src/nuxt.js"
+import { defineOAuthGitHubEventHandler } from "../../../../src/oauth/github.js"
 
 export default defineEventHandler(async (event) => {
   const handler = defineOAuthGitHubEventHandler({

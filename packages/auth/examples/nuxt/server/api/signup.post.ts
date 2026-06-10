@@ -1,5 +1,5 @@
 import { hashPassword } from "peta-auth"
-import { useSession } from "peta-auth/nuxt"
+import { useSession } from "../../../../src/nuxt.js"
 
 // In-memory store — use a database in production
 const users = new Map<string, { hash: string; name: string }>()

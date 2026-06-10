@@ -1,6 +1,6 @@
 import { Elysia } from "elysia"
-import { session } from "peta-auth/elysia"
-import { defineOAuthGoogleEventHandler } from "peta-auth/oauth/google"
+import { session } from "../src/elysia.js"
+import { defineOAuthGoogleEventHandler } from "../src/oauth/google.js"
 
 const googleHandler = defineOAuthGoogleEventHandler({
   config: {

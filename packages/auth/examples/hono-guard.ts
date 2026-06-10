@@ -1,5 +1,5 @@
 import { Hono } from "hono"
-import { requireSession, session } from "peta-auth/hono"
+import { requireSession, session } from "../src/hono.js"
 
 const app = new Hono()
 

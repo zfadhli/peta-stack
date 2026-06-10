@@ -1,6 +1,6 @@
 import { getRequestHeaders, getRequestURL } from "h3"
-import { useSession } from "peta-auth/nuxt"
-import { defineOAuthGoogleEventHandler } from "peta-auth/oauth/google"
+import { useSession } from "../../../../src/nuxt.js"
+import { defineOAuthGoogleEventHandler } from "../../../../src/oauth/google.js"
 
 export default defineEventHandler(async (event) => {
   const handler = defineOAuthGoogleEventHandler({

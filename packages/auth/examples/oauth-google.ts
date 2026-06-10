@@ -1,6 +1,6 @@
 import { Hono } from "hono"
-import { session } from "peta-auth/hono"
-import { defineOAuthGoogleEventHandler } from "peta-auth/oauth/google"
+import { session } from "../src/hono.js"
+import { defineOAuthGoogleEventHandler } from "../src/oauth/google.js"
 
 const app = new Hono()
 

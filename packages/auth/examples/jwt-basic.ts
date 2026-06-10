@@ -1,4 +1,4 @@
-import { signJWT, verifyJWT } from "peta-auth/jwt"
+import { signJWT, verifyJWT } from "../src/jwt.js"
 
 const password = { 1: "demo-secret-key-at-least-32-chars!!" }
 

@@ -1,6 +1,6 @@
 import { Hono } from "hono"
 import { createPasswordResetToken, hashPassword, resetPassword, verifyPassword } from "peta-auth"
-import { requireSession, session } from "peta-auth/hono"
+import { requireSession, session } from "../src/hono.js"
 
 const app = new Hono()
 const SECRET = process.env.SESSION_SECRET ?? "demo-secret-key-at-least-32-chars!!"

@@ -1,6 +1,6 @@
 import { Elysia } from "elysia"
-import { session } from "peta-auth/elysia"
-import { defineOAuthGitHubEventHandler } from "peta-auth/oauth/github"
+import { session } from "../src/elysia.js"
+import { defineOAuthGitHubEventHandler } from "../src/oauth/github.js"
 
 const githubHandler = defineOAuthGitHubEventHandler({
   config: {

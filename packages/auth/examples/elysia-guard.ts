@@ -1,5 +1,5 @@
 import { Elysia } from "elysia"
-import { requireSession, session } from "peta-auth/elysia"
+import { requireSession, session } from "../src/elysia.js"
 
 new Elysia()
   .use(

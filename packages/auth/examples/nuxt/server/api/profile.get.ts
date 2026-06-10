@@ -1,4 +1,4 @@
-import { useSession } from "peta-auth/nuxt"
+import { useSession } from "../../../../src/nuxt.js"
 
 export default defineEventHandler(async (event) => {
   const session = await useSession(event, {

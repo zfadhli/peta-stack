@@ -1,6 +1,6 @@
 import { Hono } from "hono"
-import { generateCsrf, validateCsrf } from "peta-auth/csrf"
-import { session } from "peta-auth/hono"
+import { generateCsrf, validateCsrf } from "../src/csrf.js"
+import { session } from "../src/hono.js"
 
 const app = new Hono()
 
