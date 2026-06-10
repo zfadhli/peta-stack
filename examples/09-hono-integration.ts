@@ -1,5 +1,6 @@
 // Peta ORM — 09-hono-integration
 // Hono app + error handling with DatabaseError
+// Runs as a self-contained test using Hono's app.fetch()
 
 import { Database } from "bun:sqlite"
 import { Hono } from "hono"
@@ -18,6 +19,10 @@ database.run("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEX
 
 const peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
 peta.registerAll(User)
+
+// Seed
+await User.insert({ name: "Alice" })
+await User.insert({ name: "Bob" })
 
 const app = new Hono()
 
@@ -47,5 +52,44 @@ app.get("/users/:id", async (c) => {
   if (!user) return c.json({ error: "not_found" }, 404)
   return c.json(user.$toJSON())
 })
+
+// ── Self-test ──────────────────────────────────────────
+
+// GET /users
+let res = await app.fetch(new Request("http://localhost/users"))
+console.log("GET /users →", res.status, JSON.stringify(await res.json()))
+
+// GET /users/:id — found
+res = await app.fetch(new Request("http://localhost/users/1"))
+console.log("GET /users/1 →", res.status, JSON.stringify(await res.json()))
+
+// GET /users/:id — not found
+res = await app.fetch(new Request("http://localhost/users/999"))
+console.log("GET /users/999 →", res.status, JSON.stringify(await res.json()))
+
+// POST /users — created
+res = await app.fetch(
+  new Request("http://localhost/users", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ name: "Charlie" }),
+  }),
+)
+console.log("POST /users →", res.status, JSON.stringify(await res.json()))
+
+// POST /users — validation error (name too short)
+res = await app.fetch(
+  new Request("http://localhost/users", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ name: "X" }),
+  }),
+)
+console.log("POST /users (short name) →", res.status, JSON.stringify(await res.json()))
+
+// Verify total
+res = await app.fetch(new Request("http://localhost/users"))
+const all = (await res.json()) as any[]
+console.log("Total users:", all.length)
 
 await peta.destroy()
