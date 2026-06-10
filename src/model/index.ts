@@ -211,10 +211,25 @@ function createInstance(def: ModelDefinition, config: ModelConfig): ModelInstanc
         self[mutator](value)
         return
       }
+      // Auto-stringify objects for json-cast columns
+      const casts = config.casts ?? {}
+      if (casts[key] === "json" && value !== null && typeof value === "object") {
+        setAttr(instance, key, JSON.stringify(value))
+        return
+      }
       setAttr(instance, key, value)
     },
     fill(data: Partial<Record<string, unknown>>): void {
-      fillAttrs(instance, data as Record<string, unknown>)
+      const casts = config.casts ?? {}
+      const processed: Record<string, unknown> = {}
+      for (const [key, val] of Object.entries(data)) {
+        if (casts[key] === "json" && val !== null && typeof val === "object") {
+          processed[key] = JSON.stringify(val)
+        } else {
+          processed[key] = val
+        }
+      }
+      fillAttrs(instance, processed)
     },
     reset(): void {
       resetAttrs(instance)

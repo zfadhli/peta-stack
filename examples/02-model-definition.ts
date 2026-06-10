@@ -17,6 +17,9 @@ const User = defineModel("users", {
     score: t.float().default(0),
     metadata: t.json().nullable(),
   },
+  casts: {
+    metadata: "json",
+  },
 })
 
 const database = new Database(":memory:")
