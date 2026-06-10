@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "target": "ESNext",
+    "module": "ESNext",
     "moduleResolution": "bundler",
     "strict": true,
     "noEmit": true,
@@ -8,6 +9,7 @@
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "esModuleInterop": true,
-    "declaration": true
+    "declaration": true,
+    "verbatimModuleSyntax": true
   }
 }

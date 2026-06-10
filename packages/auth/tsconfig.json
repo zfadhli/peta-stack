@@ -1,9 +1,7 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "module": "ESNext",
-    "isolatedModules": true,
-    "esModuleInterop": true
+    "module": "ESNext"
   },
   "include": ["src"]
 }

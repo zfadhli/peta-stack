@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { Hono } from "hono"
-import { requireSession, session } from "../src/hono.ts"
+import { requireSession, session } from "../src/hono.js"
 
 const password = { 1: "a".repeat(32) }
 const cookieName = "hono-session"

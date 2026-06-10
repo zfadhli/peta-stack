@@ -1,4 +1,4 @@
-import type { IronSession } from "./session.ts"
+import type { IronSession } from "./session.js"
 
 /** Options for CSRF token generation / validation. */
 export interface CSRFOptions {

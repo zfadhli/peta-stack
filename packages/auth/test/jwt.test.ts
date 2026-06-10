@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { signJWT, verifyJWT } from "../src/jwt.ts"
+import { signJWT, verifyJWT } from "../src/jwt.js"
 
 const password = { 1: "a".repeat(32) }
 

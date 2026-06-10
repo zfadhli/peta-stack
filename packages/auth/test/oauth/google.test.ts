@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { defineOAuthGoogleEventHandler } from "../../src/oauth/google.ts"
+import { defineOAuthGoogleEventHandler } from "../../src/oauth/google.js"
 
 describe("Google OAuth handler", () => {
   it("redirects to Google when no code", async () => {

@@ -1,6 +1,6 @@
 import * as jose from "jose"
-import type { Password } from "./crypto.ts"
-import { PetaAuthError } from "./errors.ts"
+import type { Password } from "./crypto.js"
+import { PetaAuthError } from "./errors.js"
 
 function toPasswordMap(password: Password): Record<string, string> {
   return typeof password === "string" ? { 1: password } : password

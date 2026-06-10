@@ -6,7 +6,7 @@ import {
   handleState,
   redirect,
   requestAccessToken,
-} from "./index.ts"
+} from "./index.js"
 
 /** Configuration for GitHub OAuth. */
 export interface OAuthGitHubConfig {

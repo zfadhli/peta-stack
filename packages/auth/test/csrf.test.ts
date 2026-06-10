@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
-import { generateCsrf, validateCsrf } from "../src/csrf.ts"
-import { createSessionFromAdapter, type IronSession } from "../src/session.ts"
+import { generateCsrf, validateCsrf } from "../src/csrf.js"
+import { createSessionFromAdapter, type IronSession } from "../src/session.js"
 
 const password = { 1: "a".repeat(32) }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { createSessionFromAdapter } from "../src/index.ts"
+import { createSessionFromAdapter } from "../src/index.js"
 
 const password = { 1: "a".repeat(32) }
 const cookieName = "test-session"

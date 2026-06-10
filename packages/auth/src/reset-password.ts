@@ -1,6 +1,6 @@
-import type { Password } from "./crypto.ts"
-import { signJWT, verifyJWT } from "./jwt.ts"
-import { hashPassword } from "./password.ts"
+import type { Password } from "./crypto.js"
+import { signJWT, verifyJWT } from "./jwt.js"
+import { hashPassword } from "./password.js"
 
 const DEFAULT_EXPIRES_IN = 3600
 

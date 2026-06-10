@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { PetaAuthError } from "../src/errors.ts"
+import { PetaAuthError } from "../src/errors.js"
 
 describe("PetaAuthError", () => {
   it("carries code and message", () => {

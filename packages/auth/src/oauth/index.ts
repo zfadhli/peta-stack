@@ -1,5 +1,5 @@
 import { parse, serialize } from "cookie"
-import { PetaAuthError } from "../errors.ts"
+import { PetaAuthError } from "../errors.js"
 
 const IS_DEVELOPMENT = process.env.NODE_ENV === "development"
 const OAUTH_COOKIE_MAX_AGE = 60 * 10

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { Elysia } from "elysia"
-import { requireSession, session } from "../src/elysia.ts"
+import { requireSession, session } from "../src/elysia.js"
 
 const password = { 1: "a".repeat(32) }
 const cookieName = "ely-session"

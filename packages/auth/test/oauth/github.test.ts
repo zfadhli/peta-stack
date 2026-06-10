@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { defineOAuthGitHubEventHandler } from "../../src/oauth/github.ts"
+import { defineOAuthGitHubEventHandler } from "../../src/oauth/github.js"
 
 describe("GitHub OAuth handler", () => {
   it("redirects to GitHub when no code", async () => {

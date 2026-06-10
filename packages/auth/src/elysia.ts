@@ -1,7 +1,7 @@
 import { parse } from "cookie"
 import { Elysia } from "elysia"
-import type { IronSession, SessionOptions } from "./session.ts"
-import { createSessionFromAdapter } from "./session.ts"
+import type { IronSession, SessionOptions } from "./session.js"
+import { createSessionFromAdapter } from "./session.js"
 
 /**
  * Elysia plugin that provides a session via the `session` store property.

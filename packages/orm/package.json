@@ -6,16 +6,16 @@
   "description": "ORM for Bun, built on Kysely",
   "license": "MIT",
   "module": "src/index.ts",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "import": "./dist/index.mjs",
+      "types": "./dist/index.d.mts"
     },
     "./migrator": {
-      "import": "./dist/migrations/index.js",
-      "types": "./dist/migrations/index.d.ts"
+      "import": "./dist/migrations/index.mjs",
+      "types": "./dist/migrations/index.d.mts"
     }
   },
   "bin": {
@@ -43,15 +43,14 @@
     "hono": "^4.12.25",
     "kysely": "^0.27.0",
     "kysely-bun-sqlite": "^0.4.0",
+    "tsdown": "^0.22.2",
     "typescript": "^6.0.0"
   },
   "scripts": {
     "test": "bun test",
     "test:all": "for f in test/*.ts; do echo === $f ===; bun test $f || exit 1; done",
     "typecheck": "bun x tsc --noEmit",
-    "build:js": "bun build ./src/index.ts ./src/migrations/index.ts ./src/migrations/cli.ts --outdir ./dist --target bun --format esm --splitting",
-    "build:types": "bun x tsc -p tsconfig.build.json",
-    "build": "bun run build:js && bun run build:types",
+    "build": "tsdown",
     "lint": "bunx biome check src test examples",
     "lint:fix": "bunx biome check --write --unsafe src test examples",
     "prepublish": "bun run build"

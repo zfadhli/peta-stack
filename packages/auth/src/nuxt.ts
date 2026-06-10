@@ -1,8 +1,8 @@
 import type { H3Event } from "h3"
 import { appendHeader, createError, getCookie } from "h3"
-import { PetaAuthError } from "./errors.ts"
-import type { IronSession, SessionOptions } from "./session.ts"
-import { createSessionFromAdapter } from "./session.ts"
+import { PetaAuthError } from "./errors.js"
+import type { IronSession, SessionOptions } from "./session.js"
+import { createSessionFromAdapter } from "./session.js"
 
 /**
  * Create a session from an h3 event (Nuxt / h3).

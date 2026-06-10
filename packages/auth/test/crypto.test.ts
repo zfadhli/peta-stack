@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { sealData, unsealData } from "../src/index.ts"
+import { sealData, unsealData } from "../src/index.js"
 
 const password = { 1: "a".repeat(32) }
 
