@@ -44,14 +44,14 @@ const post2 = await Post.insert({ title: "Post 2" })
 await Profile.insert({ userId: user.get("id") as number, postId: post1.get("id") as number, bio: "Hi!" })
 await Profile.insert({ userId: user.get("id") as number, postId: post2.get("id") as number, bio: "Hi again!" })
 
-// HasManyThrough query via relation
-const firstUser = await User.query()
-  .execute()
-  .then((r) => r[0])
-const userPosts = await User.relations.posts.query(firstUser!).execute()
-console.log(`${firstUser!.get("name")} has ${userPosts.length} posts via hasManyThrough`)
-for (const p of userPosts) {
-  console.log(`  - ${p.get("title")}`)
+// Eager load via with()
+const users = await User.query().with("posts").execute()
+for (const u of users) {
+  const userPosts = u.$getRelation("posts") as any[]
+  console.log(`${u.get("name")} has ${userPosts.length} posts via hasManyThrough`)
+  for (const p of userPosts) {
+    console.log(`  - ${p.get("title")}`)
+  }
 }
 
 await peta.destroy()

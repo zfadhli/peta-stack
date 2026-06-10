@@ -275,18 +275,21 @@ export function manyToMany(
         `${options.through}.${this.relatedPivotKey!}`,
         `${relatedTable}.${this.localKey}`,
       )
+      // Select the pivot FK so match() can group results by parent
+      query.select(`${options.through}.${this.foreignPivotKey!}`)
       query.whereIn(`${options.through}.${this.foreignPivotKey!}`, keys)
     },
 
     match(models: ModelInstance[], results: ModelInstance[], relationName: string): void {
-      const grouped = groupByArray(results, `_pivot_${this.foreignPivotKey!}`)
+      const grouped = groupByArray(results, this.foreignPivotKey!)
+      const knownKeys = resolveThunk(relatedThunk).columns
       for (const model of models) {
         const key = String(model.get(this.localKey))
         const items = grouped[key] ?? []
         for (const item of items) {
           const pivotData: Record<string, unknown> = {}
           for (const ek of Object.keys(item.attributes ?? {})) {
-            if (ek.startsWith("_pivot_")) pivotData[ek.slice(7)] = item.get(ek)
+            if (!(ek in knownKeys)) pivotData[ek] = item.get(ek)
           }
           if (Object.keys(pivotData).length > 0) item.$setRelation("_pivot", pivotData)
         }
@@ -354,11 +357,13 @@ export function hasManyThrough(
         `${throughDef.table}.${this.throughForeignKey!}`,
         `${relatedDef.table}.${this.localKey}`,
       )
+      // Select the through FK so match() can group results by parent
+      query.select(`${throughDef.table}.${this.foreignKey}`)
       query.whereIn(`${throughDef.table}.${this.foreignKey}`, keys)
     },
 
     match(models: ModelInstance[], results: ModelInstance[], relationName: string): void {
-      const grouped = groupByArray(results, `_through_${this.foreignKey}`)
+      const grouped = groupByArray(results, this.foreignKey)
       for (const model of models) {
         model.$setRelation(relationName, grouped[String(model.get(this.localKey))] ?? [])
       }

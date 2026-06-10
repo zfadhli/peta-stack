@@ -38,11 +38,14 @@ const db = database
 db.prepare("INSERT INTO post_tags (postId, tagId) VALUES (?, ?)").run(post.get("id"), jsTag.get("id"))
 db.prepare("INSERT INTO post_tags (postId, tagId) VALUES (?, ?)").run(post.get("id"), tsTag.get("id"))
 
-// Query relation via the relation descriptor
-const posts = await Post.query().execute()
+// Eager load
+const posts = await Post.query().with("tags").execute()
 for (const p of posts) {
-  const tags = await Post.relations.tags.query(p).execute()
-  console.log(`"${p.get("title")}" tags:`, tags.map((t) => t.get("name")))
+  const tags = p.$getRelation("tags") as any[]
+  console.log(
+    `"${p.get("title")}" tags:`,
+    tags.map((t: any) => t.get("name")),
+  )
 }
 
 await peta.destroy()
