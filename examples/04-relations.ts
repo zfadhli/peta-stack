@@ -47,8 +47,7 @@ await Post.insert({ userId: alice.get("id") as number, title: "Post 1" })
 await Post.insert({ userId: alice.get("id") as number, title: "Post 2" })
 
 // Eager load relations
-const users = await User.query().with("posts", "profile").collect()
-console.log(users.toJSON())
+const users = await User.query().with("posts", "profile").execute()
 for (const u of users) {
   console.log(`${u.get("name")}'s posts:`, (u.$getRelation("posts") as any[]).length)
   console.log(`${u.get("name")}'s profile:`, u.$getRelation("profile"))
