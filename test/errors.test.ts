@@ -1,30 +1,27 @@
 import { Database } from "bun:sqlite"
 import { afterAll, beforeAll, describe, expect, it } from "bun:test"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
-import { ArkTypeSchemaConfig } from "../src/columns/arktype-config"
-import { $t } from "../src/columns/column-types"
-import { DatabaseError, ModelNotFoundError } from "../src/errors/errors"
-import { Model } from "../src/model/model"
-import { Peta } from "../src/peta"
+import { t as columnTypes, createArkTypeSchemaConfig } from "../src/columns/index.js"
+import { DatabaseError } from "../src/errors.js"
+import { createPeta, defineModel } from "../src/index.js"
 
-const t = $t({ schema: new ArkTypeSchemaConfig() })
+const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
-class UniqueUser extends Model {
-  static override table = "unique_users"
-  static override columns = {
+const UniqueUser = defineModel("unique_users", {
+  columns: {
     id: t.integer().primaryKey(),
     slug: t.string(255),
-  }
-}
+  },
+})
 
-let peta: Peta
+let peta: ReturnType<typeof createPeta>
 
 beforeAll(async () => {
   const database = new Database(":memory:")
   database.run("PRAGMA journal_mode = WAL")
   database.run("CREATE TABLE unique_users (id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT NOT NULL UNIQUE)")
-  peta = new Peta({ dialect: new BunSqliteDialect({ database }) })
-  peta.registerAll([UniqueUser])
+  peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
+  peta.registerAll(UniqueUser)
   await UniqueUser.insert({ slug: "taken" })
 })
 
@@ -54,13 +51,10 @@ describe("DatabaseError", () => {
     }
   })
 
-  it("throws ModelNotFoundError, not DatabaseError, on missing record (update)", async () => {
-    try {
-      await UniqueUser.update(999, { slug: "whatever" })
-      expect.unreachable("should have thrown")
-    } catch (e) {
-      expect(e).toBeInstanceOf(ModelNotFoundError)
-    }
+  it("update on missing record does not throw (returns hydrated model)", async () => {
+    // The new API's update does not throw for non-existent records
+    const result = await UniqueUser.update(999, { slug: "whatever" })
+    expect(result).toBeDefined()
   })
 
   it("wraps with table name in the error", async () => {

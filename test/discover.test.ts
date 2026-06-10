@@ -1,35 +1,30 @@
 import { Database } from "bun:sqlite"
 import { afterAll, beforeAll, describe, expect, it } from "bun:test"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
-import { ArkTypeSchemaConfig } from "../src/columns/arktype-config"
-import { $t } from "../src/columns/column-types"
-import { Model } from "../src/model/model"
-import { Peta } from "../src/peta"
+import { t as columnTypes, createArkTypeSchemaConfig } from "../src/columns/index.js"
+import { createPeta, defineModel } from "../src/index.js"
 
-const t = $t({ schema: new ArkTypeSchemaConfig() })
+const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
-class RestA extends Model {
-  static override table = "rest_a"
-  static override columns = { id: t.integer().primaryKey(), name: t.string(255) }
-}
+const RestA = defineModel("rest_a", {
+  columns: { id: t.integer().primaryKey(), name: t.string(255) },
+})
 
-class RestB extends Model {
-  static override table = "rest_b"
-  static override columns = { id: t.integer().primaryKey(), name: t.string(255) }
-}
+const RestB = defineModel("rest_b", {
+  columns: { id: t.integer().primaryKey(), name: t.string(255) },
+})
 
-class EmptyTable extends Model {
-  static override table = ""
-  static override columns = { id: t.integer().primaryKey() }
-}
+const EmptyTable = defineModel("", {
+  columns: { id: t.integer().primaryKey() },
+})
 
-let peta: Peta
+let peta: ReturnType<typeof createPeta>
 
 beforeAll(() => {
   const database = new Database(":memory:")
   database.run("CREATE TABLE rest_a (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
   database.run("CREATE TABLE rest_b (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
-  peta = new Peta({ dialect: new BunSqliteDialect({ database }) })
+  peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
 })
 
 afterAll(async () => {
@@ -44,15 +39,15 @@ describe("registerAll rest params", () => {
   })
 
   it("still accepts array for backward compat", () => {
-    const p = new Peta({ dialect: new BunSqliteDialect({ database: new Database(":memory:") }) })
-    p.registerAll([RestA, RestB])
+    const p = createPeta({ dialect: new BunSqliteDialect({ database: new Database(":memory:") }) })
+    p.registerAll([RestA, RestB] as any)
     expect(p.getModel("rest_a")).toBe(RestA)
     expect(p.getModel("rest_b")).toBe(RestB)
     p.destroy()
   })
 
   it("is idempotent — calling again overrides", () => {
-    const p = new Peta({ dialect: new BunSqliteDialect({ database: new Database(":memory:") }) })
+    const p = createPeta({ dialect: new BunSqliteDialect({ database: new Database(":memory:") }) })
     p.registerAll(RestA)
     p.registerAll(RestA, RestB)
     expect(p.getModel("rest_a")).toBe(RestA)
@@ -70,7 +65,7 @@ describe("discover", () => {
     const database = new Database(":memory:")
     database.run("CREATE TABLE discovered (id INTEGER PRIMARY KEY AUTOINCREMENT, label TEXT NOT NULL)")
 
-    const p = new Peta({ dialect: new BunSqliteDialect({ database }) })
+    const p = createPeta({ dialect: new BunSqliteDialect({ database }) })
 
     await p.discover("./test/fixtures/discoverable-model.ts")
 
@@ -81,11 +76,10 @@ describe("discover", () => {
   })
 
   it("throws clear error in non-Bun runtimes", async () => {
-    // Simulate by temporarily removing Bun.Glob
     const origGlob = (Bun as any).Glob
     ;(Bun as any).Glob = undefined
 
-    const p = new Peta({ dialect: new BunSqliteDialect({ database: new Database(":memory:") }) })
+    const p = createPeta({ dialect: new BunSqliteDialect({ database: new Database(":memory:") }) })
     try {
       await p.discover("./nothing.ts")
       expect.unreachable("should have thrown")

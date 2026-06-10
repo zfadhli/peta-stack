@@ -1,24 +1,42 @@
-export type { WithArg } from "./builder"
-export { DeleteBuilder, EagerLoader, ModelQueryBuilder, UpdateBuilder } from "./builder"
-export { Collection } from "./collection/collection"
-export { ArkTypeSchemaConfig } from "./columns/arktype-config"
-export type { ColumnShape, ColumnValue } from "./columns/column"
-export { Column } from "./columns/column"
-export type { ColumnTypes } from "./columns/column-types"
-export { $t } from "./columns/column-types"
-export type { Constraint, SchemaConfig } from "./columns/schema-config"
-export { DatabaseError, ModelNotFoundError, RelationNotFoundError, ValidationError } from "./errors/errors"
-export type { HookCallback, LifecycleEvent } from "./hooks/lifecycle"
-export { HookManager } from "./hooks/lifecycle"
-export type { ColumnData, ModelClass, RelationMap } from "./model/model"
-export { Model } from "./model/model"
-export type { PaginatedResult, PaginatorJson } from "./pagination/paginator"
-
-export { Paginator } from "./pagination/paginator"
-export type { PetaConfig } from "./peta"
-export { Peta } from "./peta"
-export type { MorphManyOptions, MorphOneOptions, MorphToOptions } from "./relations/morph"
-export { MorphMany, MorphOne, MorphTo } from "./relations/morph"
-export type { Relation, RelationOptions, RelationType } from "./relations/relation"
-export { BelongsTo, HasMany, HasManyThrough, HasOne, ManyToMany } from "./relations/relation"
-export type { ModelId, PetaLike } from "./types"
+export type { DeleteBuilder, EagerLoad, EagerLoaderInstance, QueryBuilder, UpdateBuilder } from "./builder/index.js"
+export { createDeleteBuilder, createEagerLoader, createQueryBuilder, createUpdateBuilder } from "./builder/index.js"
+export type { Collection } from "./collection/index.js"
+export { createCollection } from "./collection/index.js"
+export type { Column, ColumnShape, ColumnTypes, ColumnValue, Constraint, SchemaConfig } from "./columns/index.js"
+export { createArkTypeSchemaConfig, createColumn, t } from "./columns/index.js"
+export type { DatabaseErrorCode } from "./errors.js"
+export {
+  DatabaseError,
+  ModelNotFoundError,
+  ModelNotRegisteredError,
+  normalizeError,
+  RelationNotFoundError,
+  ValidationError,
+} from "./errors.js"
+export type { HookCallback, HookManager, LifecycleEvent } from "./hooks/index.js"
+export { createHookManager } from "./hooks/index.js"
+export type { ModelConfig, ModelDefinition, ModelInstance } from "./model/index.js"
+export { defineModel } from "./model/index.js"
+export type { PaginatedResult, Paginator, PaginatorJson } from "./pagination/index.js"
+export { createPaginator } from "./pagination/index.js"
+export type { PetaConfig } from "./peta/index.js"
+export { createPeta } from "./peta/index.js"
+export type {
+  MorphManyOptions,
+  MorphOneOptions,
+  MorphToOptions,
+  Relation,
+  RelationOptions,
+  RelationType,
+} from "./relations/index.js"
+export {
+  belongsTo,
+  defineMorphMany,
+  defineMorphOne,
+  defineMorphTo,
+  hasMany,
+  hasManyThrough,
+  hasOne,
+  manyToMany,
+} from "./relations/index.js"
+export type { ModelId, PetaLike } from "./types.js"

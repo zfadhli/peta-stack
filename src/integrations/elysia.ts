@@ -1,19 +1,11 @@
-import type { PetaLike } from "../types"
-
-export interface PetaElysiaOptions {
+import type { PetaLike } from "../types.js"
+export interface PetaElysiaPluginOptions {
   peta: PetaLike
 }
-
-export function petaPlugin(options: PetaElysiaOptions) {
+export function petaPlugin(options: PetaElysiaPluginOptions) {
   const { peta } = options
-
-  const store: Record<string, any> = {}
-  for (const [table, modelClass] of peta.models) {
-    store[table] = modelClass
-  }
-
-  return {
-    name: "peta",
-    store: { models: store, peta },
+  return (app: Record<string, unknown>) => {
+    ;(app as Record<string, unknown>).peta = peta
+    return app
   }
 }

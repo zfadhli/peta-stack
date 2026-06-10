@@ -1,5 +1,6 @@
-import { Column } from "./column"
-import type { SchemaConfig } from "./schema-config"
+import type { Column } from "./column.js"
+import { createColumn } from "./column.js"
+import type { SchemaConfig } from "./schema.js"
 
 export interface ColumnTypes {
   integer: () => Column<number>
@@ -20,13 +21,11 @@ export interface ColumnTypes {
   timestamps: () => { createdAt: Column<string>; updatedAt: Column<string> }
 }
 
-export function $t(config: { schema: SchemaConfig }): ColumnTypes {
+export function t(config: { schema: SchemaConfig }): ColumnTypes {
   const schema = config.schema
-
   function col<T>(dataType: string, args?: unknown[]): Column<T> {
-    return new Column<T>(schema, dataType, args)
+    return createColumn<T>(schema, dataType, args)
   }
-
   return {
     integer: () => col<number>("integer"),
     smallint: () => col<number>("smallint"),

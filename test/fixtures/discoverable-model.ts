@@ -1,11 +1,11 @@
-import { $t, ArkTypeSchemaConfig, Model } from "../../src"
+import { t as columnTypes, createArkTypeSchemaConfig } from "../../src/columns/index.js"
+import { defineModel } from "../../src/index.js"
 
-const t = $t({ schema: new ArkTypeSchemaConfig() })
+const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
-export class Discovered extends Model {
-  static override table = "discovered"
-  static override columns = {
+export const Discovered = defineModel("discovered", {
+  columns: {
     id: t.integer().primaryKey(),
     label: t.string(255),
-  }
-}
+  },
+})

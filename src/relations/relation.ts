@@ -1,6 +1,6 @@
-import type { ModelQueryBuilder } from "../builder"
-import type { Model, ModelClass } from "../model/model"
-import type { PetaLike } from "../types"
+import type { QueryBuilder } from "../builder/query.js"
+import { createQueryBuilder } from "../builder/query.js"
+import type { ModelDefinition, ModelInstance } from "../model/index.js"
 
 export type RelationType = "hasMany" | "belongsTo" | "hasOne" | "manyToMany" | "hasManyThrough"
 
@@ -15,25 +15,46 @@ export interface RelationOptions {
   pivotExtras?: string[]
 }
 
-const thunkCache = new WeakMap<object, ModelClass>()
+export interface Relation {
+  readonly type: RelationType
+  readonly relatedModelClass: ModelDefinition
+  readonly foreignKey: string
+  readonly localKey: string
+  readonly throughTable?: string
+  readonly foreignPivotKey?: string
+  readonly relatedPivotKey?: string
+  readonly throughForeignKey?: string
+  readonly throughLocalKey?: string
+  query(parent: ModelInstance): QueryBuilder
+  addEagerConstraints(query: QueryBuilder, models: ModelInstance[]): void
+  match(models: ModelInstance[], results: ModelInstance[], relationName: string): void
+  getResults(parent: ModelInstance): Promise<ModelInstance | ModelInstance[] | null>
+  loadEager(
+    models: ModelInstance[],
+    relationName: string,
+    constraints?: ((qb: QueryBuilder) => void) | null,
+  ): Promise<void>
+}
 
-function resolve(thunk: () => ModelClass): ModelClass {
-  let cls = thunkCache.get(thunk)
+const THUNK_CACHE = new WeakMap<object, ModelDefinition>()
+
+function resolveThunk(thunk: () => ModelDefinition): ModelDefinition {
+  let cls = THUNK_CACHE.get(thunk)
   if (!cls) {
     cls = thunk()
-    thunkCache.set(thunk, cls)
+    THUNK_CACHE.set(thunk, cls)
   }
   return cls
 }
 
-function guessForeignKey(modelClass: ModelClass): string {
-  const table = modelClass.table
+function guessForeignKey(modelDef: ModelDefinition): string {
+  const table = modelDef.table
   const singular = table.endsWith("s") ? table.slice(0, -1) : table
   return `${singular}Id`
 }
 
-function groupByArray(items: Model[], key: string): Record<string, Model[]> {
-  const result: Record<string, Model[]> = {}
+function groupByArray(items: ModelInstance[], key: string): Record<string, ModelInstance[]> {
+  const result: Record<string, ModelInstance[]> = {}
   for (const item of items) {
     const v = item.get(key)
     if (v == null) continue
@@ -44,337 +65,279 @@ function groupByArray(items: Model[], key: string): Record<string, Model[]> {
   return result
 }
 
-export abstract class Relation<TRelated extends Model = Model> {
-  readonly type: RelationType
-  readonly #relatedThunk: () => ModelClass<TRelated>
-
-  constructor(type: RelationType, relatedThunk: () => ModelClass<TRelated>) {
-    this.type = type
-    this.#relatedThunk = relatedThunk
-  }
-
-  get relatedModelClass(): ModelClass<TRelated> {
-    return resolve(this.#relatedThunk) as ModelClass<TRelated>
-  }
-
-  abstract get foreignKey(): string
-  abstract get localKey(): string
-  abstract query(parent: Model): ModelQueryBuilder<TRelated>
-  abstract addEagerConstraints(query: ModelQueryBuilder<TRelated>, models: Model[]): void
-  abstract match(models: Model[], results: Model[], relationName: string): void
-  abstract getResults(parent: Model): Promise<Model | Model[] | null>
-
-  async loadEager(models: Model[], relationName: string, constraints?: ((qb: ModelQueryBuilder<any>) => void) | null): Promise<void> {
-    const qb = this.relatedModelClass.query()
-    this.addEagerConstraints(qb, models)
-    if (constraints) constraints(qb)
-    const results = await qb.execute()
-    this.match(models, results, relationName)
-  }
-}
-
-export class HasMany<TRelated extends Model = Model> extends Relation<TRelated> {
-  readonly #options: RelationOptions
-
-  constructor(relatedThunk: () => ModelClass<TRelated>, options: RelationOptions = {}) {
-    super("hasMany", relatedThunk)
-    this.#options = options
-  }
-
-  get foreignKey(): string {
-    return this.#options.foreignKey ?? guessForeignKey(this.relatedModelClass)
-  }
-
-  get localKey(): string {
-    return this.#options.localKey ?? "id"
-  }
-
-  query(parent: Model): ModelQueryBuilder<TRelated> {
-    return this.relatedModelClass.query().where(this.foreignKey, "=", parent.get(this.localKey))
-  }
-
-  addEagerConstraints(query: ModelQueryBuilder<TRelated>, models: Model[]): void {
-    const keys = models.map((m) => m.get(this.localKey)).filter((k) => k != null)
-    if (keys.length > 0) {
-      query.whereIn(this.foreignKey, keys)
-    }
-  }
-
-  match(models: Model[], results: Model[], relationName: string): void {
-    const grouped = groupByArray(results, this.foreignKey)
-    for (const model of models) {
-      const key = String(model.get(this.localKey))
-      model.$setRelation(relationName, grouped[key] ?? [])
-    }
-  }
-
-  async getResults(parent: Model): Promise<TRelated[]> {
-    return await this.query(parent).execute()
+function createRelation(type: RelationType, relatedThunk: () => ModelDefinition): Relation {
+  return {
+    type,
+    get relatedModelClass(): ModelDefinition {
+      return resolveThunk(relatedThunk)
+    },
+    get foreignKey(): string {
+      return ""
+    },
+    get localKey(): string {
+      return "id"
+    },
+    query(_parent: ModelInstance): QueryBuilder {
+      return createQueryBuilder(resolveThunk(relatedThunk), null as never)
+    },
+    addEagerConstraints(_query: QueryBuilder, _models: ModelInstance[]): void {},
+    match(_models: ModelInstance[], _results: ModelInstance[], _relationName: string): void {},
+    async getResults(_parent: ModelInstance): Promise<ModelInstance | ModelInstance[] | null> {
+      return null
+    },
+    async loadEager(
+      models: ModelInstance[],
+      relationName: string,
+      constraints?: ((qb: QueryBuilder) => void) | null,
+    ): Promise<void> {
+      const relatedDef = resolveThunk(relatedThunk)
+      const peta = relatedDef._peta
+      if (!peta) return
+      const qb = createQueryBuilder(relatedDef, peta)
+      this.addEagerConstraints(qb, models)
+      if (constraints) constraints(qb)
+      const results = await qb.execute()
+      this.match(models, results, relationName)
+    },
   }
 }
 
-export class BelongsTo<TRelated extends Model = Model> extends Relation<TRelated> {
-  readonly #options: RelationOptions
-
-  constructor(relatedThunk: () => ModelClass<TRelated>, options: RelationOptions = {}) {
-    super("belongsTo", relatedThunk)
-    this.#options = options
-  }
-
-  get foreignKey(): string {
-    return this.#options.foreignKey ?? guessForeignKey(this.relatedModelClass)
-  }
-
-  get localKey(): string {
-    return this.#options.localKey ?? "id"
-  }
-
-  query(parent: Model): ModelQueryBuilder<TRelated> {
-    return this.relatedModelClass.query().where(this.localKey, "=", parent.get(this.foreignKey))
-  }
-
-  addEagerConstraints(query: ModelQueryBuilder<TRelated>, models: Model[]): void {
-    const keys = models.map((m) => m.get(this.foreignKey)).filter((k) => k != null)
-    if (keys.length > 0) {
-      query.whereIn(this.localKey, keys)
-    }
-  }
-
-  match(models: Model[], results: Model[], relationName: string): void {
-    const grouped = groupByArray(results, this.localKey)
-    for (const model of models) {
-      const key = String(model.get(this.foreignKey))
-      model.$setRelation(relationName, grouped[key]?.[0] ?? null)
-    }
-  }
-
-  async getResults(parent: Model): Promise<TRelated | null> {
-    return (await this.query(parent).executeTakeFirst()) ?? null
+export function hasMany(relatedThunk: () => ModelDefinition, options: RelationOptions = {}): Relation {
+  const base = createRelation("hasMany", relatedThunk)
+  return {
+    ...base,
+    get foreignKey(): string {
+      return options.foreignKey ?? guessForeignKey(resolveThunk(relatedThunk))
+    },
+    get localKey(): string {
+      return options.localKey ?? "id"
+    },
+    query(parent: ModelInstance): QueryBuilder {
+      const relatedDef = resolveThunk(relatedThunk)
+      const peta = relatedDef._peta
+      if (!peta) return createQueryBuilder(relatedDef, null as never)
+      return createQueryBuilder(relatedDef, peta).where(this.foreignKey, "=", parent.get(this.localKey))
+    },
+    addEagerConstraints(query: QueryBuilder, models: ModelInstance[]): void {
+      const keys = models.map((m) => m.get(this.localKey)).filter((k) => k != null)
+      if (keys.length > 0) query.whereIn(this.foreignKey, keys)
+    },
+    match(models: ModelInstance[], results: ModelInstance[], relationName: string): void {
+      const grouped = groupByArray(results, this.foreignKey)
+      for (const model of models) model.$setRelation(relationName, grouped[String(model.get(this.localKey))] ?? [])
+    },
+    async getResults(parent: ModelInstance): Promise<ModelInstance[]> {
+      return this.query(parent).execute()
+    },
   }
 }
 
-export class HasOne<TRelated extends Model = Model> extends Relation<TRelated> {
-  readonly #options: RelationOptions
-
-  constructor(relatedThunk: () => ModelClass<TRelated>, options: RelationOptions = {}) {
-    super("hasOne", relatedThunk)
-    this.#options = options
-  }
-
-  get foreignKey(): string {
-    return this.#options.foreignKey ?? guessForeignKey(this.relatedModelClass)
-  }
-
-  get localKey(): string {
-    return this.#options.localKey ?? "id"
-  }
-
-  query(parent: Model): ModelQueryBuilder<TRelated> {
-    return this.relatedModelClass.query().where(this.foreignKey, "=", parent.get(this.localKey))
-  }
-
-  addEagerConstraints(query: ModelQueryBuilder<TRelated>, models: Model[]): void {
-    const keys = models.map((m) => m.get(this.localKey)).filter((k) => k != null)
-    if (keys.length > 0) {
-      query.whereIn(this.foreignKey, keys)
-    }
-  }
-
-  match(models: Model[], results: Model[], relationName: string): void {
-    const grouped = groupByArray(results, this.foreignKey)
-    for (const model of models) {
-      const key = String(model.get(this.localKey))
-      model.$setRelation(relationName, grouped[key]?.[0] ?? null)
-    }
-  }
-
-  async getResults(parent: Model): Promise<TRelated | null> {
-    return (await this.query(parent).executeTakeFirst()) ?? null
+export function belongsTo(relatedThunk: () => ModelDefinition, options: RelationOptions = {}): Relation {
+  const base = createRelation("belongsTo", relatedThunk)
+  return {
+    ...base,
+    get foreignKey(): string {
+      return options.foreignKey ?? guessForeignKey(resolveThunk(relatedThunk))
+    },
+    get localKey(): string {
+      return options.localKey ?? "id"
+    },
+    query(parent: ModelInstance): QueryBuilder {
+      const relatedDef = resolveThunk(relatedThunk)
+      const peta = relatedDef._peta
+      if (!peta) return createQueryBuilder(relatedDef, null as never)
+      return createQueryBuilder(relatedDef, peta).where(this.localKey, "=", parent.get(this.foreignKey))
+    },
+    addEagerConstraints(query: QueryBuilder, models: ModelInstance[]): void {
+      const keys = models.map((m) => m.get(this.foreignKey)).filter((k) => k != null)
+      if (keys.length > 0) query.whereIn(this.localKey, keys)
+    },
+    match(models: ModelInstance[], results: ModelInstance[], relationName: string): void {
+      const grouped = groupByArray(results, this.localKey)
+      for (const model of models)
+        model.$setRelation(relationName, grouped[String(model.get(this.foreignKey))]?.[0] ?? null)
+    },
+    async getResults(parent: ModelInstance): Promise<ModelInstance | null> {
+      return (await this.query(parent).executeTakeFirst()) ?? null
+    },
   }
 }
 
-export class ManyToMany<TRelated extends Model = Model> extends Relation<TRelated> {
-  readonly #options: RelationOptions & { through: string }
-  readonly #pivotExtras: string[]
-
-  constructor(relatedThunk: () => ModelClass<TRelated>, options: RelationOptions & { through: string }) {
-    super("manyToMany", relatedThunk)
-    this.#options = options
-    this.#pivotExtras = options.pivotExtras ?? []
+export function hasOne(relatedThunk: () => ModelDefinition, options: RelationOptions = {}): Relation {
+  const base = createRelation("hasOne", relatedThunk)
+  return {
+    ...base,
+    get foreignKey(): string {
+      return options.foreignKey ?? guessForeignKey(resolveThunk(relatedThunk))
+    },
+    get localKey(): string {
+      return options.localKey ?? "id"
+    },
+    query(parent: ModelInstance): QueryBuilder {
+      const relatedDef = resolveThunk(relatedThunk)
+      const peta = relatedDef._peta
+      if (!peta) return createQueryBuilder(relatedDef, null as never)
+      return createQueryBuilder(relatedDef, peta).where(this.foreignKey, "=", parent.get(this.localKey))
+    },
+    addEagerConstraints(query: QueryBuilder, models: ModelInstance[]): void {
+      const keys = models.map((m) => m.get(this.localKey)).filter((k) => k != null)
+      if (keys.length > 0) query.whereIn(this.foreignKey, keys)
+    },
+    match(models: ModelInstance[], results: ModelInstance[], relationName: string): void {
+      const grouped = groupByArray(results, this.foreignKey)
+      for (const model of models)
+        model.$setRelation(relationName, grouped[String(model.get(this.localKey))]?.[0] ?? null)
+    },
+    async getResults(parent: ModelInstance): Promise<ModelInstance | null> {
+      return (await this.query(parent).executeTakeFirst()) ?? null
+    },
   }
+}
 
-  get foreignKey(): string {
-    return this.#options.foreignKey ?? guessForeignKey(this.relatedModelClass)
-  }
-
-  get localKey(): string {
-    return this.#options.localKey ?? "id"
-  }
-
-  get throughTable(): string {
-    return this.#options.through
-  }
-
-  get foreignPivotKey(): string {
-    return this.#options.foreignPivotKey ?? snakeCase(this.foreignKey)
-  }
-
-  get relatedPivotKey(): string {
-    return this.#options.relatedPivotKey ?? snakeCase(guessForeignKey(this.relatedModelClass))
-  }
-
-  #hasExtras(): boolean {
-    return this.#pivotExtras.length > 0
-  }
-
-  query(parent: Model): ModelQueryBuilder<TRelated> {
-    const parentKey = parent.get(this.localKey)
-    const peta = this.relatedModelClass.peta
-    if (!peta) return this.relatedModelClass.query()
-
-    if (this.#hasExtras()) {
-      const _relatedTable = this.relatedModelClass.table
-      const peta = this.relatedModelClass.peta
-      if (!peta) return this.relatedModelClass.query()
-      const subQb = peta.kysely
-        .selectFrom(this.throughTable)
-        .select(this.relatedPivotKey)
-        .where(this.foreignPivotKey, "=", parentKey)
-
-      return this.relatedModelClass.query().whereIn("id", subQb as any)
-    }
-
-    const subquery = peta.kysely
-      .selectFrom(this.throughTable)
-      .select(this.relatedPivotKey)
-      .where(this.foreignPivotKey, "=", parentKey)
-
-    return this.relatedModelClass.query().whereIn("id", subquery as any)
-  }
-
-  addEagerConstraints(query: ModelQueryBuilder<TRelated>, models: Model[]): void {
-    const keys = models.map((m) => m.get(this.localKey)).filter((k) => k != null)
-    if (keys.length === 0) {
-      query.whereIn("id", [])
-      return
-    }
-    const relatedTable = this.relatedModelClass.table
-    query.innerJoin(
-      this.throughTable,
-      `${this.throughTable}.${this.relatedPivotKey}`,
-      `${relatedTable}.${this.localKey}`,
-    )
-    query.whereIn(`${this.throughTable}.${this.foreignPivotKey}`, keys)
-  }
-
-  match(models: Model[], results: Model[], relationName: string): void {
-    const grouped = groupByArray(results, `_pivot_${this.foreignPivotKey}`)
-    for (const model of models) {
-      const key = String(model.get(this.localKey))
-      const items = grouped[key] ?? []
-      for (const item of items) {
-        const pivotData: Record<string, unknown> = {}
-        for (const ek of Object.keys(item.attributes ?? {})) {
-          if (ek.startsWith("_pivot_")) {
-            pivotData[ek.slice(7)] = item.get(ek)
-          }
-        }
-        if (Object.keys(pivotData).length > 0) {
-          item.$setRelation("_pivot", pivotData)
-        }
+export function manyToMany(
+  relatedThunk: () => ModelDefinition,
+  options: RelationOptions & { through: string },
+): Relation {
+  const base = createRelation("manyToMany", relatedThunk)
+  const pivotExtras = options.pivotExtras ?? []
+  return {
+    ...base,
+    get foreignKey(): string {
+      return options.foreignKey ?? guessForeignKey(resolveThunk(relatedThunk))
+    },
+    get localKey(): string {
+      return options.localKey ?? "id"
+    },
+    get throughTable(): string {
+      return options.through
+    },
+    get foreignPivotKey(): string {
+      return options.foreignPivotKey ?? snakeCase(this.foreignKey)
+    },
+    get relatedPivotKey(): string {
+      return options.relatedPivotKey ?? snakeCase(guessForeignKey(resolveThunk(relatedThunk)))
+    },
+    query(parent: ModelInstance): QueryBuilder {
+      const relatedDef = resolveThunk(relatedThunk)
+      const peta = relatedDef._peta
+      if (!peta) return createQueryBuilder(relatedDef, null as never)
+      const parentKey = parent.get(this.localKey)
+      if (pivotExtras.length > 0) {
+        const subQb = peta.kysely
+          .selectFrom(options.through)
+          .select(this.relatedPivotKey!)
+          .where(this.foreignPivotKey!, "=", parentKey as never)
+        return createQueryBuilder(relatedDef, peta).whereIn("id", subQb as never as unknown[])
       }
-      model.$setRelation(relationName, items)
-    }
-  }
-
-  async getResults(parent: Model): Promise<Model[]> {
-    return await this.query(parent).execute()
+      const subquery = peta.kysely
+        .selectFrom(options.through)
+        .select(this.relatedPivotKey!)
+        .where(this.foreignPivotKey!, "=", parentKey as never)
+      return createQueryBuilder(relatedDef, peta).whereIn("id", subquery as never as unknown[])
+    },
+    addEagerConstraints(query: QueryBuilder, models: ModelInstance[]): void {
+      const keys = models.map((m) => m.get(this.localKey)).filter((k) => k != null)
+      if (keys.length === 0) {
+        query.whereIn("id", [])
+        return
+      }
+      const relatedDef = resolveThunk(relatedThunk)
+      const relatedTable = relatedDef.table
+      query.innerJoin(
+        options.through,
+        `${options.through}.${this.relatedPivotKey!}`,
+        `${relatedTable}.${this.localKey}`,
+      )
+      query.whereIn(`${options.through}.${this.foreignPivotKey!}`, keys)
+    },
+    match(models: ModelInstance[], results: ModelInstance[], relationName: string): void {
+      const grouped = groupByArray(results, `_pivot_${this.foreignPivotKey!}`)
+      for (const model of models) {
+        const key = String(model.get(this.localKey))
+        const items = grouped[key] ?? []
+        for (const item of items) {
+          const pivotData: Record<string, unknown> = {}
+          for (const ek of Object.keys(item.attributes ?? {})) {
+            if (ek.startsWith("_pivot_")) pivotData[ek.slice(7)] = item.get(ek)
+          }
+          if (Object.keys(pivotData).length > 0) item.$setRelation("_pivot", pivotData)
+        }
+        model.$setRelation(relationName, items)
+      }
+    },
+    async getResults(parent: ModelInstance): Promise<ModelInstance[]> {
+      return this.query(parent).execute()
+    },
   }
 }
 
-export class HasManyThrough<TRelated extends Model = Model> extends Relation<TRelated> {
-  readonly #options: RelationOptions
-  readonly #throughThunk: () => ModelClass
-
-  constructor(relatedThunk: () => ModelClass<TRelated>, throughThunk: () => ModelClass, options: RelationOptions = {}) {
-    super("hasManyThrough", relatedThunk)
-    this.#throughThunk = throughThunk
-    this.#options = options
-  }
-
-  get foreignKey(): string {
-    return this.#options.foreignKey ?? guessForeignKey(resolve(this.#throughThunk))
-  }
-
-  get localKey(): string {
-    return this.#options.localKey ?? "id"
-  }
-
-  get throughModelClass(): ModelClass {
-    return resolve(this.#throughThunk)
-  }
-
-  get throughForeignKey(): string {
-    return this.#options.throughForeignKey ?? guessForeignKey(this.relatedModelClass)
-  }
-
-  get throughLocalKey(): string {
-    return this.#options.throughLocalKey ?? guessForeignKey(this.throughModelClass)
-  }
-
-  query(parent: Model): ModelQueryBuilder<TRelated> {
-    const parentKey = parent.get(this.localKey)
-    const peta = this.relatedModelClass.peta
-    if (!peta) return this.relatedModelClass.query()
-
-    const throughTable = this.throughModelClass.table
-    const _relatedTable = this.relatedModelClass.table
-
-    const subquery = peta.kysely
-      .selectFrom(throughTable)
-      .select(this.throughForeignKey)
-      .where(this.foreignKey, "=", parentKey)
-
-    return this.relatedModelClass.query().whereIn("id", subquery as any)
-  }
-
-  addEagerConstraints(query: ModelQueryBuilder<TRelated>, models: Model[]): void {
-    const keys = models.map((m) => m.get(this.localKey)).filter((k) => k != null)
-    if (keys.length === 0) {
-      query.whereIn("id", [])
-      return
-    }
-    const throughTable = this.throughModelClass.table
-    const relatedTable = this.relatedModelClass.table
-    query.innerJoin(throughTable, `${throughTable}.${this.throughForeignKey}`, `${relatedTable}.${this.localKey}`)
-    query.whereIn(`${throughTable}.${this.foreignKey}`, keys)
-  }
-
-  match(models: Model[], results: Model[], relationName: string): void {
-    const _throughTable = this.throughModelClass.table
-    const grouped = groupByArray(results, `_through_${this.foreignKey}`)
-    for (const model of models) {
-      const key = String(model.get(this.localKey))
-      model.$setRelation(relationName, grouped[key] ?? [])
-    }
-  }
-
-  async getResults(parent: Model): Promise<Model[]> {
-    const parentKey = parent.get(this.localKey)
-    const peta = this.relatedModelClass.peta
-    if (!peta) return []
-
-    const throughTable = this.throughModelClass.table
-    const rows = await peta.kysely
-      .selectFrom(throughTable)
-      .select(this.throughForeignKey)
-      .where(this.foreignKey, "=", parentKey)
-      .execute()
-
-    const ids = rows.map((r: Record<string, unknown>) => r[this.throughForeignKey] as string).filter(Boolean)
-    if (ids.length === 0) return []
-
-    return await this.relatedModelClass.query().whereIn("id", ids).execute()
+export function hasManyThrough(
+  relatedThunk: () => ModelDefinition,
+  throughThunk: () => ModelDefinition,
+  options: RelationOptions = {},
+): Relation {
+  const base = createRelation("hasManyThrough", relatedThunk)
+  return {
+    ...base,
+    get foreignKey(): string {
+      return options.foreignKey ?? guessForeignKey(resolveThunk(throughThunk))
+    },
+    get localKey(): string {
+      return options.localKey ?? "id"
+    },
+    get throughForeignKey(): string {
+      return options.throughForeignKey ?? guessForeignKey(resolveThunk(relatedThunk))
+    },
+    get throughLocalKey(): string {
+      return options.throughLocalKey ?? guessForeignKey(resolveThunk(throughThunk))
+    },
+    query(parent: ModelInstance): QueryBuilder {
+      const relatedDef = resolveThunk(relatedThunk)
+      const throughDef = resolveThunk(throughThunk)
+      const peta = relatedDef._peta
+      if (!peta) return createQueryBuilder(relatedDef, null as never)
+      const parentKey = parent.get(this.localKey)
+      const throughTable = throughDef.table
+      const subquery = peta.kysely
+        .selectFrom(throughTable)
+        .select(this.throughForeignKey!)
+        .where(this.foreignKey, "=", parentKey as never)
+      return createQueryBuilder(relatedDef, peta).whereIn("id", subquery as never as unknown[])
+    },
+    addEagerConstraints(query: QueryBuilder, models: ModelInstance[]): void {
+      const keys = models.map((m) => m.get(this.localKey)).filter((k) => k != null)
+      if (keys.length === 0) {
+        query.whereIn("id", [])
+        return
+      }
+      const relatedDef = resolveThunk(relatedThunk)
+      const throughDef = resolveThunk(throughThunk)
+      query.innerJoin(
+        throughDef.table,
+        `${throughDef.table}.${this.throughForeignKey!}`,
+        `${relatedDef.table}.${this.localKey}`,
+      )
+      query.whereIn(`${throughDef.table}.${this.foreignKey}`, keys)
+    },
+    match(models: ModelInstance[], results: ModelInstance[], relationName: string): void {
+      const grouped = groupByArray(results, `_through_${this.foreignKey}`)
+      for (const model of models) model.$setRelation(relationName, grouped[String(model.get(this.localKey))] ?? [])
+    },
+    async getResults(parent: ModelInstance): Promise<ModelInstance[]> {
+      const relatedDef = resolveThunk(relatedThunk)
+      const throughDef = resolveThunk(throughThunk)
+      const peta = relatedDef._peta
+      if (!peta) return []
+      const parentKey = parent.get(this.localKey)
+      const rows = await peta.kysely
+        .selectFrom(throughDef.table)
+        .select(this.throughForeignKey!)
+        .where(this.foreignKey, "=", parentKey as never)
+        .execute()
+      const ids = rows.map((r: Record<string, unknown>) => r[this.throughForeignKey!] as string).filter(Boolean)
+      if (ids.length === 0) return []
+      return createQueryBuilder(relatedDef, peta).whereIn("id", ids).execute()
+    },
   }
 }
 

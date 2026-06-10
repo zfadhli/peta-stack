@@ -1,9 +1,8 @@
 import { describe, expect, it } from "bun:test"
-import { ArkTypeSchemaConfig } from "../src/columns/arktype-config"
-import { ValidationError } from "../src/errors/errors"
-import { $t } from "../src/columns/column-types"
+import { t as columnTypes, createArkTypeSchemaConfig } from "../src/columns/index.js"
+import { ValidationError } from "../src/errors.js"
 
-const t = $t({ schema: new ArkTypeSchemaConfig() })
+const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
 describe("column types", () => {
   describe("basic types", () => {

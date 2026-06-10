@@ -6,15 +6,15 @@
       "recommended": true,
       "style": {
         "noNonNullAssertion": "off",
-        "useConst": "off"
+        "useConst": "warn"
       },
       "complexity": {
-        "noBannedTypes": "off",
-        "noForEach": "off",
+        "noBannedTypes": "warn",
+        "noForEach": "warn",
         "noThisInStatic": "off"
       },
       "suspicious": {
-        "noExplicitAny": "off"
+        "noExplicitAny": "warn"
       }
     }
   },
