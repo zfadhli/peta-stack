@@ -18,8 +18,8 @@ const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 const User = defineModel("users", {
   columns: { id: t.integer().primaryKey(), name: t.string(255) },
   relations: {
-    posts: hasMany(() => Post),
-    profile: hasOne(() => Profile),
+    posts: hasMany(() => Post, { foreignKey: "userId" }),
+    profile: hasOne(() => Profile, { foreignKey: "userId" }),
   },
 })
 
@@ -47,7 +47,8 @@ await Post.insert({ userId: alice.get("id") as number, title: "Post 1" })
 await Post.insert({ userId: alice.get("id") as number, title: "Post 2" })
 
 // Eager load relations
-const users = await User.query().with("posts", "profile").execute()
+const users = await User.query().with("posts", "profile").collect()
+console.log(users.toJSON())
 for (const u of users) {
   console.log(`${u.get("name")}'s posts:`, (u.$getRelation("posts") as any[]).length)
   console.log(`${u.get("name")}'s profile:`, u.$getRelation("profile"))

@@ -9,7 +9,7 @@ const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
 const User = defineModel("users", {
   columns: { id: t.integer().primaryKey(), name: t.string(255), email: t.text() },
-  relations: { posts: hasMany(() => Post) },
+  relations: { posts: hasMany(() => Post, { foreignKey: "userId" }) },
 })
 
 const Post = defineModel("posts", {

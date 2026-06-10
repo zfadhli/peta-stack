@@ -8,44 +8,50 @@ import { t as columnTypes, createArkTypeSchemaConfig, createPeta, defineModel, h
 const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
 // HasManyThrough: User → Profile → Post
+// The through table (profiles) carries the FK to the related table (posts).
 const User = defineModel("users", {
   columns: { id: t.integer().primaryKey(), name: t.string(255) },
   relations: {
     posts: hasManyThrough(
       () => Post,
       () => Profile,
+      { foreignKey: "userId", throughForeignKey: "postId" },
     ),
   },
 })
 
 const Profile = defineModel("profiles", {
-  columns: { id: t.integer().primaryKey(), userId: t.integer(), bio: t.text() },
+  columns: { id: t.integer().primaryKey(), userId: t.integer(), postId: t.integer(), bio: t.text() },
 })
 
 const Post = defineModel("posts", {
-  columns: { id: t.integer().primaryKey(), profileId: t.integer(), title: t.string(255) },
+  columns: { id: t.integer().primaryKey(), title: t.string(255) },
 })
 
 const database = new Database(":memory:")
 database.run("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
-database.run("CREATE TABLE profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, bio TEXT)")
 database.run(
-  "CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, profileId INTEGER NOT NULL, title TEXT NOT NULL)",
+  "CREATE TABLE profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, postId INTEGER NOT NULL, bio TEXT)",
 )
+database.run("CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL)")
 
 const peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
 peta.registerAll(User, Profile, Post)
 
 const user = await User.insert({ name: "Alice" })
-const profile = await Profile.insert({ userId: user.get("id") as number, bio: "Hi!" })
-await Post.insert({ profileId: profile.get("id") as number, title: "Post 1" })
-await Post.insert({ profileId: profile.get("id") as number, title: "Post 2" })
+const post1 = await Post.insert({ title: "Post 1" })
+const post2 = await Post.insert({ title: "Post 2" })
+await Profile.insert({ userId: user.get("id") as number, postId: post1.get("id") as number, bio: "Hi!" })
+await Profile.insert({ userId: user.get("id") as number, postId: post2.get("id") as number, bio: "Hi again!" })
 
-// HasManyThrough should retrieve posts via profile
-const users = await User.query().with("posts").execute()
-for (const u of users) {
-  const posts = u.$getRelation("posts") as any[]
-  console.log(`${u.get("name")} has ${posts?.length ?? 0} posts`)
+// HasManyThrough query via relation
+const firstUser = await User.query()
+  .execute()
+  .then((r) => r[0])
+const userPosts = await User.relations.posts.query(firstUser!).execute()
+console.log(`${firstUser!.get("name")} has ${userPosts.length} posts via hasManyThrough`)
+for (const p of userPosts) {
+  console.log(`  - ${p.get("title")}`)
 }
 
 await peta.destroy()
