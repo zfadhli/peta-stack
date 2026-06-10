@@ -3,6 +3,16 @@ import type { MiddlewareHandler } from "hono"
 import { createMiddleware } from "hono/factory"
 import { createSessionFromAdapter, type IronSession, type SessionOptions } from "./session.ts"
 
+/**
+ * Hono middleware that creates a session and makes it available
+ * via `c.var.session`.
+ *
+ * @example
+ * ```ts
+ * app.use("*", session({ password: "...", cookieName: "my-session" }))
+ * app.get("/me", (c) => c.json(c.var.session))
+ * ```
+ */
 export function session<T extends Record<string, unknown> = Record<string, unknown>>(
   options: SessionOptions,
 ): MiddlewareHandler<{ Variables: { session: T & IronSession } }> {
@@ -12,7 +22,7 @@ export function session<T extends Record<string, unknown> = Record<string, unkno
       await createSessionFromAdapter<T>(
         {
           getCookie: (name) => parse(c.req.header("cookie") ?? "")[name],
-          setCookie: (v) => c.res.headers.append("Set-Cookie", v),
+          setCookie: (value) => c.res.headers.append("Set-Cookie", value),
         },
         options,
       ),
@@ -21,6 +31,17 @@ export function session<T extends Record<string, unknown> = Record<string, unkno
   })
 }
 
+/**
+ * Hono middleware that guards a route by requiring session data.
+ *
+ * Returns 401 when the session is empty.
+ *
+ * @example
+ * ```ts
+ * app.use("/admin", requireSession())
+ * app.use("/admin", requireSession("role"))
+ * ```
+ */
 export function requireSession(): MiddlewareHandler
 export function requireSession<K extends string>(key: K): MiddlewareHandler
 export function requireSession(key?: string): MiddlewareHandler {

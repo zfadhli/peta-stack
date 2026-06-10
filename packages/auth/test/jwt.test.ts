@@ -35,7 +35,7 @@ describe("signJWT / verifyJWT", () => {
   })
 
   it("rejects expired token", async () => {
-    const token = await signJWT({ data: "test" }, { password, exp: -3600 })
+    const token = await signJWT({ data: "test" }, { password, expiresIn: -3600 })
     const result = await verifyJWT(token, { password })
     expect(result).toBeNull()
   })

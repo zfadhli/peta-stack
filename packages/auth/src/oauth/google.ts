@@ -9,6 +9,7 @@ import {
   requestAccessToken,
 } from "./index.ts"
 
+/** Configuration for Google OAuth. */
 export interface OAuthGoogleConfig {
   clientId?: string
   clientSecret?: string
@@ -20,28 +21,12 @@ export interface OAuthGoogleConfig {
   redirectURL?: string
 }
 
-interface ResolvedOAuthGoogleConfig {
-  clientId: string
-  clientSecret: string
-  scope: string[]
-  authorizationURL: string
-  tokenURL: string
-  userInfoURL: string
-  authorizationParams: Record<string, string>
-  redirectURL?: string
-}
-
-function resolveGoogleConfig(config: OAuthGoogleConfig): ResolvedOAuthGoogleConfig {
-  return {
-    authorizationURL: config.authorizationURL ?? "https://accounts.google.com/o/oauth2/v2/auth",
-    tokenURL: config.tokenURL ?? "https://oauth2.googleapis.com/token",
-    userInfoURL: config.userInfoURL ?? "https://www.googleapis.com/oauth2/v3/userinfo",
-    clientId: config.clientId ?? process.env.PETA_OAUTH_GOOGLE_CLIENT_ID ?? "",
-    clientSecret: config.clientSecret ?? process.env.PETA_OAUTH_GOOGLE_CLIENT_SECRET ?? "",
-    scope: config.scope ?? ["openid", "email", "profile"],
-    authorizationParams: config.authorizationParams ?? {},
-    redirectURL: config.redirectURL,
-  }
+interface GoogleTokens {
+  access_token: string
+  id_token: string
+  scope: string
+  token_type: string
+  expires_in: number
 }
 
 interface GoogleUser {
@@ -55,14 +40,31 @@ interface GoogleUser {
   locale: string
 }
 
-interface GoogleTokens {
-  access_token: string
-  id_token: string
-  scope: string
-  token_type: string
-  expires_in: number
+function resolveConfig(config: OAuthGoogleConfig) {
+  return {
+    authorizationURL: config.authorizationURL ?? "https://accounts.google.com/o/oauth2/v2/auth",
+    tokenURL: config.tokenURL ?? "https://oauth2.googleapis.com/token",
+    userInfoURL: config.userInfoURL ?? "https://www.googleapis.com/oauth2/v3/userinfo",
+    clientId: config.clientId ?? process.env.PETA_OAUTH_GOOGLE_CLIENT_ID ?? "",
+    clientSecret: config.clientSecret ?? process.env.PETA_OAUTH_GOOGLE_CLIENT_SECRET ?? "",
+    scope: config.scope ?? ["openid", "email", "profile"],
+    authorizationParams: config.authorizationParams ?? {},
+    redirectURL: config.redirectURL,
+  }
 }
 
+/**
+ * Define a Google OAuth event handler.
+ *
+ * @example
+ * ```ts
+ * const handle = defineOAuthGoogleEventHandler({
+ *   onSuccess: async ({ user }) =>
+ *     new Response(`Welcome ${user.name}!`),
+ * })
+ * serve(handle)
+ * ```
+ */
 export function defineOAuthGoogleEventHandler(options: {
   config?: OAuthGoogleConfig
   onSuccess: (event: { user: GoogleUser; tokens: GoogleTokens; request: Request }) => Response | Promise<Response>
@@ -71,7 +73,7 @@ export function defineOAuthGoogleEventHandler(options: {
   const { config: userConfig = {}, onSuccess, onError } = options
 
   return async (request: Request): Promise<Response> => {
-    const config = resolveGoogleConfig(userConfig)
+    const config = resolveConfig(userConfig)
 
     const url = new URL(request.url)
     const queryCode = url.searchParams.get("code")
@@ -79,16 +81,16 @@ export function defineOAuthGoogleEventHandler(options: {
     const queryState = url.searchParams.get("state")
 
     if (queryError) {
-      const err = new Error(`Google login failed: ${queryError}`)
-      if (onError) return onError(err)
-      return new Response(JSON.stringify({ error: err.message }), {
+      const error = new Error(`Google login failed: ${queryError}`)
+      if (onError) return onError(error)
+      return new Response(JSON.stringify({ error: error.message }), {
         status: 401,
         headers: { "Content-Type": "application/json" },
       })
     }
 
     if (!config.clientId || !config.clientSecret) {
-      const missing = []
+      const missing: string[] = []
       if (!config.clientId) missing.push("clientId")
       if (!config.clientSecret) missing.push("clientSecret")
       return handleMissingConfiguration("google", missing, onError)
@@ -111,8 +113,8 @@ export function defineOAuthGoogleEventHandler(options: {
         authUrl.searchParams.set("code_challenge_method", pkce.codeChallengeMethod ?? "S256")
       }
 
-      for (const [k, v] of Object.entries(config.authorizationParams)) {
-        authUrl.searchParams.set(k, v)
+      for (const [key, value] of Object.entries(config.authorizationParams)) {
+        authUrl.searchParams.set(key, value)
       }
 
       const cookies = [state.setCookie, pkce.setCookie].filter(Boolean).join("; ")
@@ -123,7 +125,7 @@ export function defineOAuthGoogleEventHandler(options: {
       return handleInvalidState("google", onError)
     }
 
-    const tokens = await requestAccessToken<GoogleTokens & { error?: string }>(config.tokenURL, {
+    const tokens = await requestAccessToken<GoogleTokens>(config.tokenURL, {
       body: {
         grant_type: "authorization_code",
         client_id: config.clientId,
@@ -134,9 +136,8 @@ export function defineOAuthGoogleEventHandler(options: {
       },
     })
 
-    const tokensRecord = tokens as unknown as Record<string, string | undefined>
-    if (tokensRecord.error) {
-      return handleAccessTokenError("google", tokensRecord as Record<string, string>, onError)
+    if ((tokens as unknown as Record<string, string | undefined>).error) {
+      return handleAccessTokenError("google", tokens as unknown as Record<string, string>, onError)
     }
 
     const userResponse = await fetch(config.userInfoURL, {
@@ -144,9 +145,9 @@ export function defineOAuthGoogleEventHandler(options: {
     })
 
     if (!userResponse.ok) {
-      const err = new Error(`Google user fetch failed: ${userResponse.status}`)
-      if (onError) return onError(err)
-      throw err
+      const error = new Error(`Google user fetch failed: ${userResponse.status}`)
+      if (onError) return onError(error)
+      throw error
     }
 
     const user: GoogleUser = await userResponse.json()

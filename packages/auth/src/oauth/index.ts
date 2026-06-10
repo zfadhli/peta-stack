@@ -1,6 +1,7 @@
 import { parse, serialize } from "cookie"
+import { PetaAuthError } from "../errors.ts"
 
-const isDevelopment = process.env.NODE_ENV === "development"
+const IS_DEVELOPMENT = process.env.NODE_ENV === "development"
 const OAUTH_COOKIE_MAX_AGE = 60 * 10
 
 function encodeBase64Url(input: Uint8Array): string {
@@ -19,16 +20,25 @@ function oauthCookieOptions(maxAge: number) {
     path: "/" as const,
     httpOnly: true as const,
     sameSite: "lax" as const,
-    secure: !isDevelopment,
+    secure: !IS_DEVELOPMENT,
     maxAge,
   }
 }
 
+/**
+ * Extract the OAuth redirect URL from a request.
+ */
 export function getOAuthRedirectURL(request: Request): string {
   const url = new URL(request.url)
   return `${url.protocol}//${url.host}${url.pathname}`
 }
 
+/**
+ * Handle PKCE (Proof Key for Code Exchange) for OAuth flows.
+ *
+ * On the initial redirect leg it generates a code verifier + challenge.
+ * On the callback leg it extracts the stored verifier from the cookie.
+ */
 export async function handlePKCE(request: Request): Promise<{
   codeChallenge?: string
   codeChallengeMethod?: string
@@ -37,8 +47,8 @@ export async function handlePKCE(request: Request): Promise<{
 }> {
   const url = new URL(request.url)
   const code = url.searchParams.get("code")
-  const cookieStr = request.headers.get("cookie") ?? ""
-  const cookies = parse(cookieStr)
+  const cookieString = request.headers.get("cookie") ?? ""
+  const cookies = parse(cookieString)
 
   if (code) {
     const verifier = cookies["peta-auth-pkce"]
@@ -58,6 +68,9 @@ export async function handlePKCE(request: Request): Promise<{
   }
 }
 
+/**
+ * Handle OAuth state parameter for CSRF protection.
+ */
 export function handleState(request: Request): {
   state?: string
   expectedState?: string
@@ -65,8 +78,8 @@ export function handleState(request: Request): {
 } {
   const url = new URL(request.url)
   const queryState = url.searchParams.get("state")
-  const cookieStr = request.headers.get("cookie") ?? ""
-  const cookies = parse(cookieStr)
+  const cookieString = request.headers.get("cookie") ?? ""
+  const cookies = parse(cookieString)
 
   if (queryState) {
     return {
@@ -84,12 +97,16 @@ export function handleState(request: Request): {
   }
 }
 
+/** Options for {@link requestAccessToken}. */
 export interface RequestAccessTokenOptions {
   body?: Record<string, string | undefined>
   params?: Record<string, string | undefined>
   headers?: Record<string, string>
 }
 
+/**
+ * Exchange an authorization code for an access token.
+ */
 export async function requestAccessToken<T = unknown>(url: string, options: RequestAccessTokenOptions): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/x-www-form-urlencoded",
@@ -112,55 +129,70 @@ export async function requestAccessToken<T = unknown>(url: string, options: Requ
     if (response.status === 401) {
       return response.json() as Promise<T>
     }
-    throw new Error(`OAuth token request failed: ${response.status} ${response.statusText}`)
+    throw new PetaAuthError(
+      "OAUTH_TOKEN_FAILED",
+      `OAuth token request failed: ${response.status} ${response.statusText}`,
+    )
   }
 
   return response.json() as Promise<T>
 }
 
+/**
+ * Create a 302 redirect response, optionally with a cookie.
+ */
 export function redirect(url: string, cookie?: string): Response {
   const headers = new Headers({ Location: url })
   if (cookie) headers.append("Set-Cookie", cookie)
   return new Response(null, { status: 302, headers })
 }
 
+/**
+ * Handle missing OAuth configuration.
+ */
 export function handleMissingConfiguration(
   provider: string,
   missingKeys: string[],
   onError?: (err: Error) => Response | Promise<Response>,
 ): Response | Promise<Response> {
   const envVars = missingKeys.map(
-    (k) => `PETA_OAUTH_${provider.toUpperCase()}_${k.replace(/([A-Z])/g, "_$1").toUpperCase()}`,
+    (key) => `PETA_OAUTH_${provider.toUpperCase()}_${key.replace(/([A-Z])/g, "_$1").toUpperCase()}`,
   )
-  const err = new Error(`Missing ${envVars.join(" or ")} env ${missingKeys.length > 1 ? "variables" : "variable"}.`)
-  if (onError) return onError(err)
-  return new Response(JSON.stringify({ error: err.message }), {
+  const error = new Error(`Missing ${envVars.join(" or ")} env ${missingKeys.length > 1 ? "variables" : "variable"}.`)
+  if (onError) return onError(error)
+  return new Response(JSON.stringify({ error: error.message }), {
     status: 500,
     headers: { "Content-Type": "application/json" },
   })
 }
 
+/**
+ * Handle OAuth access token errors.
+ */
 export function handleAccessTokenError(
   provider: string,
   errorData: Record<string, string>,
   onError?: (err: Error) => Response | Promise<Response>,
 ): Response | Promise<Response> {
   const message = `${provider} login failed: ${errorData.error_description || errorData.error || "Unknown error"}`
-  const err = new Error(message)
-  if (onError) return onError(err)
-  return new Response(JSON.stringify({ error: err.message }), {
+  const error = new Error(message)
+  if (onError) return onError(error)
+  return new Response(JSON.stringify({ error: error.message }), {
     status: 401,
     headers: { "Content-Type": "application/json" },
   })
 }
 
+/**
+ * Handle OAuth state mismatch.
+ */
 export function handleInvalidState(
   provider: string,
   onError?: (err: Error) => Response | Promise<Response>,
 ): Response | Promise<Response> {
-  const err = new Error(`${provider} login failed: state mismatch`)
-  if (onError) return onError(err)
-  return new Response(JSON.stringify({ error: err.message }), {
+  const error = new Error(`${provider} login failed: state mismatch`)
+  if (onError) return onError(error)
+  return new Response(JSON.stringify({ error: error.message }), {
     status: 500,
     headers: { "Content-Type": "application/json" },
   })

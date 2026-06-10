@@ -14,7 +14,7 @@ describe("createPasswordResetToken / verifyPasswordResetToken", () => {
   })
 
   it("rejects expired token", async () => {
-    const token = await createPasswordResetToken("user-42", { password: secret, exp: -1 })
+    const token = await createPasswordResetToken("user-42", { password: secret, expiresIn: -1 })
     const result = await verifyPasswordResetToken(token, secret)
     expect(result).toBeNull()
   })

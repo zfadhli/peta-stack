@@ -8,6 +8,7 @@ import {
   requestAccessToken,
 } from "./index.ts"
 
+/** Configuration for GitHub OAuth. */
 export interface OAuthGitHubConfig {
   clientId?: string
   clientSecret?: string
@@ -20,19 +21,23 @@ export interface OAuthGitHubConfig {
   redirectURL?: string
 }
 
-interface ResolvedOAuthGitHubConfig {
-  clientId: string
-  clientSecret: string
-  scope: string[]
-  emailRequired: boolean
-  authorizationURL: string
-  tokenURL: string
-  apiURL: string
-  authorizationParams: Record<string, string>
-  redirectURL?: string
+interface GitHubTokens {
+  access_token: string
+  scope: string
+  token_type: string
 }
 
-function resolveGitHubConfig(config: OAuthGitHubConfig): ResolvedOAuthGitHubConfig {
+interface GitHubUser {
+  login: string
+  id: number
+  node_id: string
+  avatar_url: string
+  name: string
+  email: string | null
+  email_verified?: boolean
+}
+
+function resolveConfig(config: OAuthGitHubConfig) {
   return {
     authorizationURL: config.authorizationURL ?? "https://github.com/login/oauth/authorize",
     tokenURL: config.tokenURL ?? "https://github.com/login/oauth/access_token",
@@ -46,22 +51,18 @@ function resolveGitHubConfig(config: OAuthGitHubConfig): ResolvedOAuthGitHubConf
   }
 }
 
-interface GitHubUser {
-  login: string
-  id: number
-  node_id: string
-  avatar_url: string
-  name: string
-  email: string | null
-  email_verified?: boolean
-}
-
-interface GitHubTokens {
-  access_token: string
-  scope: string
-  token_type: string
-}
-
+/**
+ * Define a GitHub OAuth event handler.
+ *
+ * @example
+ * ```ts
+ * const handle = defineOAuthGitHubEventHandler({
+ *   onSuccess: async ({ user, tokens }) =>
+ *     new Response(`Welcome ${user.login}!`),
+ * })
+ * serve(handle)
+ * ```
+ */
 export function defineOAuthGitHubEventHandler(options: {
   config?: OAuthGitHubConfig
   onSuccess: (event: { user: GitHubUser; tokens: GitHubTokens; request: Request }) => Response | Promise<Response>
@@ -70,7 +71,7 @@ export function defineOAuthGitHubEventHandler(options: {
   const { config: userConfig = {}, onSuccess, onError } = options
 
   return async (request: Request): Promise<Response> => {
-    const config = resolveGitHubConfig(userConfig)
+    const config = resolveConfig(userConfig)
 
     const url = new URL(request.url)
     const queryCode = url.searchParams.get("code")
@@ -78,16 +79,16 @@ export function defineOAuthGitHubEventHandler(options: {
     const queryState = url.searchParams.get("state")
 
     if (queryError) {
-      const err = new Error(`GitHub login failed: ${queryError}`)
-      if (onError) return onError(err)
-      return new Response(JSON.stringify({ error: err.message }), {
+      const error = new Error(`GitHub login failed: ${queryError}`)
+      if (onError) return onError(error)
+      return new Response(JSON.stringify({ error: error.message }), {
         status: 401,
         headers: { "Content-Type": "application/json" },
       })
     }
 
     if (!config.clientId || !config.clientSecret) {
-      const missing = []
+      const missing: string[] = []
       if (!config.clientId) missing.push("clientId")
       if (!config.clientSecret) missing.push("clientSecret")
       return handleMissingConfiguration("github", missing, onError)
@@ -107,8 +108,8 @@ export function defineOAuthGitHubEventHandler(options: {
       authUrl.searchParams.set("scope", config.scope.join(" "))
       authUrl.searchParams.set("state", state.state ?? "")
 
-      for (const [k, v] of Object.entries(config.authorizationParams)) {
-        authUrl.searchParams.set(k, v)
+      for (const [key, value] of Object.entries(config.authorizationParams)) {
+        authUrl.searchParams.set(key, value)
       }
 
       return redirect(authUrl.toString(), state.setCookie)
@@ -118,7 +119,7 @@ export function defineOAuthGitHubEventHandler(options: {
       return handleInvalidState("github", onError)
     }
 
-    const tokens = await requestAccessToken<GitHubTokens & { error?: string }>(config.tokenURL, {
+    const tokens = await requestAccessToken<GitHubTokens>(config.tokenURL, {
       body: {
         grant_type: "authorization_code",
         client_id: config.clientId,
@@ -128,9 +129,8 @@ export function defineOAuthGitHubEventHandler(options: {
       },
     })
 
-    const tokensRecord = tokens as unknown as Record<string, string | undefined>
-    if (tokensRecord.error) {
-      return handleAccessTokenError("github", tokensRecord as Record<string, string>, onError)
+    if ((tokens as unknown as Record<string, string | undefined>).error) {
+      return handleAccessTokenError("github", tokens as unknown as Record<string, string>, onError)
     }
 
     const accessToken = tokens.access_token
@@ -142,9 +142,9 @@ export function defineOAuthGitHubEventHandler(options: {
     })
 
     if (!userResponse.ok) {
-      const err = new Error(`GitHub user fetch failed: ${userResponse.status}`)
-      if (onError) return onError(err)
-      throw err
+      const error = new Error(`GitHub user fetch failed: ${userResponse.status}`)
+      if (onError) return onError(error)
+      throw error
     }
 
     const user: GitHubUser = await userResponse.json()
@@ -158,8 +158,12 @@ export function defineOAuthGitHubEventHandler(options: {
       })
 
       if (emailsResponse.ok) {
-        const emails: Array<{ email: string; primary: boolean; verified: boolean }> = await emailsResponse.json()
-        const primaryEmail = emails.find((e) => e.primary)
+        const emails: Array<{
+          email: string
+          primary: boolean
+          verified: boolean
+        }> = await emailsResponse.json()
+        const primaryEmail = emails.find((entry) => entry.primary)
         if (primaryEmail) {
           user.email = primaryEmail.email
           user.email_verified = primaryEmail.verified

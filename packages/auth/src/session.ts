@@ -1,56 +1,107 @@
 import type { SerializeOptions } from "cookie"
 import { serialize } from "cookie"
-import type { Password } from "./crypto.ts"
-import { sealData, unsealData } from "./crypto.ts"
+import { type Password, sealData, unsealData } from "./crypto.ts"
+import { PetaAuthError } from "./errors.ts"
 
-const timestampSkewSec = 60
-const defaults = {
-  ttl: 14 * 24 * 3600,
-  cookieOptions: { httpOnly: true as const, secure: true as const, sameSite: "lax" as const, path: "/" as const },
-}
-function computeMaxAge(ttl: number): number {
-  if (ttl === 0) return 2_147_483_647
-  return ttl - timestampSkewSec
+const TIMESTAMP_SKEW_SECONDS = 60
+
+const DEFAULTS = {
+  timeToLive: 14 * 24 * 3600,
+  cookieOptions: {
+    httpOnly: true as const,
+    secure: true as const,
+    sameSite: "lax" as const,
+    path: "/" as const,
+  },
 }
 
+function computeMaxAge(timeToLive: number): number {
+  if (timeToLive === 0) return 2_147_483_647
+  return timeToLive - TIMESTAMP_SKEW_SECONDS
+}
+
+/** Options for creating a cookie session. */
 export interface SessionOptions {
+  /** Password(s) used to encrypt the session cookie. */
   password: Password
+  /** Name of the cookie. */
   cookieName: string
-  ttl?: number
+  /** Session lifetime in seconds (default 14 days). */
+  timeToLive?: number
+  /** Extra cookie serialization options. */
   cookieOptions?: Omit<SerializeOptions, "encode">
 }
 
+/** A session instance returned by {@link createSessionFromAdapter}. */
 export interface IronSession {
+  /** Persist the session to the response cookie. */
   save(): Promise<void>
+  /** Clear the session cookie. */
   destroy(): void
+  /** Update session config at runtime. */
   updateConfig(options: SessionOptions): void
+  /** Arbitrary session data keys. */
   [key: string]: unknown
 }
 
-export function resolveConfig(opts: SessionOptions) {
-  const ttl = opts.ttl ?? defaults.ttl
-  const cookieOptions = { ...defaults.cookieOptions, ...opts.cookieOptions }
-
-  if (!("maxAge" in (opts.cookieOptions ?? {}))) {
-    cookieOptions.maxAge = computeMaxAge(ttl)
-  }
-
-  const passwordsMap = typeof opts.password === "string" ? { 1: opts.password } : opts.password
-
-  for (const pw of Object.values(passwordsMap)) {
-    if (pw.length < 32) throw new Error("peta-auth: password must be at least 32 characters")
-  }
-
-  return { ttl, cookieName: opts.cookieName, password: opts.password, cookieOptions }
+/** @internal */
+export type ResolvedConfig = {
+  timeToLive: number
+  cookieName: string
+  password: Password
+  cookieOptions: SerializeOptions
 }
 
-export type ResolvedConfig = ReturnType<typeof resolveConfig>
+/** @internal */
+export function resolveConfig(options: SessionOptions): ResolvedConfig {
+  const timeToLive = options.timeToLive ?? DEFAULTS.timeToLive
+  const cookieOptions = { ...DEFAULTS.cookieOptions, ...options.cookieOptions }
 
+  if (!("maxAge" in (options.cookieOptions ?? {}))) {
+    cookieOptions.maxAge = computeMaxAge(timeToLive)
+  }
+
+  const passwordsMap = typeof options.password === "string" ? { 1: options.password } : options.password
+
+  for (const secret of Object.values(passwordsMap)) {
+    if (secret.length < 32) {
+      throw new PetaAuthError("PASSWORD_TOO_SHORT", "peta-auth: password must be at least 32 characters")
+    }
+  }
+
+  return {
+    timeToLive,
+    cookieName: options.cookieName,
+    password: options.password,
+    cookieOptions,
+  }
+}
+
+/** An adapter between the framework and the session cookie store. */
 export interface SessionAdapter {
+  /** Read a cookie by name from the incoming request. */
   getCookie(name: string): string | undefined
+  /** Set a cookie on the outgoing response. */
   setCookie(cookie: string): void
 }
 
+/**
+ * Create a session from a framework adapter.
+ *
+ * Reads the session cookie (if present), hydrates the data, and
+ * returns a session object with {@link IronSession.save},
+ * {@link IronSession.destroy}, and {@link IronSession.updateConfig}.
+ *
+ * @example
+ * ```ts
+ * const session = await createSessionFromAdapter(adapter, {
+ *   password: "my-32-char-password...",
+ *   cookieName: "my-session",
+ * })
+ * session.userId = 42
+ * await session.save()
+ * ```
+ */
 export async function createSessionFromAdapter<T extends Record<string, unknown> = Record<string, unknown>>(
   adapter: SessionAdapter,
   options: SessionOptions,
@@ -58,16 +109,16 @@ export async function createSessionFromAdapter<T extends Record<string, unknown>
   let config = resolveConfig(options)
 
   const seal = adapter.getCookie(config.cookieName)
-  const data: T = seal ? await unsealData<T>(seal, { password: config.password, ttl: config.ttl }) : ({} as T)
+  const data: T = seal ? await unsealData<T>(seal, { password: config.password, ttl: config.timeToLive }) : ({} as T)
 
   const session = data as T & IronSession
 
   session.save = async () => {
-    const s = await sealData(session, { password: config.password, ttl: config.ttl })
+    const s = await sealData(session, { password: config.password, ttl: config.timeToLive })
     const cookieValue = serialize(config.cookieName, s, config.cookieOptions)
 
     if (cookieValue.length > 4096) {
-      throw new Error(`peta-auth: cookie too large (${cookieValue.length} bytes)`)
+      throw new PetaAuthError("COOKIE_TOO_LARGE", `peta-auth: cookie too large (${cookieValue.length} bytes)`)
     }
 
     adapter.setCookie(cookieValue)
@@ -76,7 +127,7 @@ export async function createSessionFromAdapter<T extends Record<string, unknown>
   session.destroy = () => {
     for (const key of Object.keys(session)) {
       if (key !== "save" && key !== "destroy" && key !== "updateConfig") {
-        delete (session as Record<string, unknown>)[key]
+        delete session[key]
       }
     }
 
@@ -88,8 +139,8 @@ export async function createSessionFromAdapter<T extends Record<string, unknown>
     )
   }
 
-  session.updateConfig = (opts: SessionOptions) => {
-    config = resolveConfig(opts)
+  session.updateConfig = (updatedOptions: SessionOptions) => {
+    config = resolveConfig(updatedOptions)
   }
 
   return session
