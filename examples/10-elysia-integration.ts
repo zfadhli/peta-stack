@@ -1,41 +1,31 @@
 // Peta ORM — 10-elysia-integration
-// Requires: bun add elysia
-// Peta plugin for Elysia — models available in store
+// Elysia plugin
 
 import { Database } from "bun:sqlite"
+import { Elysia } from "elysia"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
-import { $t, ArkTypeSchemaConfig, BelongsTo, HasMany, Model, Peta } from "../src"
+import { t as columnTypes, createArkTypeSchemaConfig, createPeta, defineModel } from "../src/index.js"
+import { petaPlugin } from "../src/integrations/elysia.js"
 
-try {
-  await import("elysia")
-} catch {
-  console.log("Skipping: requires 'bun add elysia'")
-  process.exit(0)
-}
+const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
-const t = $t({ schema: new ArkTypeSchemaConfig() })
-
-class Post extends Model {
-  static override table = "posts"
-  static override columns = { id: t.integer().primaryKey(), userId: t.integer(), title: t.string(255) }
-  static override relations = { author: new BelongsTo(() => User, { foreignKey: "userId" }) }
-}
-
-class User extends Model {
-  static override table = "users"
-  static override columns = { id: t.integer().primaryKey(), name: t.string(255) }
-  static override relations = { posts: new HasMany(() => Post, { foreignKey: "userId" }) }
-}
+const User = defineModel("users", {
+  columns: { id: t.integer().primaryKey(), name: t.string(255) },
+})
 
 const database = new Database(":memory:")
 database.run("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
-database.run("CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, title TEXT NOT NULL)")
 
-const peta = new Peta({ dialect: new BunSqliteDialect({ database }) })
-peta.registerAll([User, Post])
+const peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
+peta.registerAll(User)
 
-const alice = await User.insert({ name: "Alice" })
-await Post.insert({ userId: alice.get("id") as number, title: "Post 1" })
+const _app = new Elysia()
+  .use(petaPlugin({ peta }))
+  .get("/users", async () => {
+    const users = await User.query().execute()
+    return users.map((u) => u.$toJSON())
+  })
+  .listen(3000)
 
-console.log("Elysia integration ready (bun add elysia to run)")
+console.log("Elysia running on port 3000")
 await peta.destroy()

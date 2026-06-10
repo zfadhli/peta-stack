@@ -1,58 +1,46 @@
 // Peta ORM — 06-hooks-timestamps
-// beforeCreate, afterCreate, registerTimestamps, custom hooks that modify data
+// beforeCreate, afterCreate, registerTimestamps
 
 import { Database } from "bun:sqlite"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
-import { $t, ArkTypeSchemaConfig, Model, Peta } from "../src"
+import { t as columnTypes, createArkTypeSchemaConfig, createPeta, defineModel } from "../src/index.js"
 
-const t = $t({ schema: new ArkTypeSchemaConfig() })
+const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
-class User extends Model {
-  static override table = "users"
-  static override columns = {
+const User = defineModel("users", {
+  columns: {
     id: t.integer().primaryKey(),
     name: t.string(255),
-    ...t.timestamps(),
-  }
-}
+    slug: t.string(255),
+    createdAt: t.timestamp(),
+    updatedAt: t.timestamp(),
+  },
+})
 
 const database = new Database(":memory:")
 database.run(
-  "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, createdAt TEXT, updatedAt TEXT)",
+  "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, slug TEXT, createdAt TEXT, updatedAt TEXT)",
 )
 
-const peta = new Peta({ dialect: new BunSqliteDialect({ database }) })
-peta.registerAll([User])
+const peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
+peta.registerAll(User)
 
 // Register timestamp hooks
 User.registerTimestamps()
 
-// Insert auto-sets createdAt + updatedAt
-const user = await User.insert({ name: "Alice" })
+// Custom beforeCreate hook
+User.on("beforeCreate", (user) => {
+  const name = user.get("name") as string
+  user.set("slug", name.toLowerCase().replace(/\s+/g, "-"))
+})
+
+const user = await User.insert({ name: "Alice Johnson" })
+console.log("Slug:", user.get("slug"))
 console.log("Created at:", user.get("createdAt"))
-console.log("Updated at:", user.get("updatedAt"))
 
-// Wait a tick then update
-await new Promise((r) => setTimeout(r, 10))
-user.set("name", "Alice Updated")
+// Update triggers updatedAt
+user.set("name", "Alice J.")
 await user.$save()
-console.log("Updated at changed:", user.get("updatedAt"))
-console.log("Created at same:", user.get("createdAt"))
-
-// Custom hook: log all creates
-User.on("afterCreate", (model) => {
-  console.log(`[AUDIT] User created: ${model.get("name")} at ${model.get("createdAt")}`)
-})
-
-await User.insert({ name: "Bob" })
-
-// Hook that modifies data before save
-User.on("beforeCreate", (model) => {
-  const name = model.get("name") as string
-  model.set("name", name.trim())
-})
-
-await User.insert({ name: "  Charlie  " })
-console.log("Trimmed name:", (await User.find(3))?.get("name"))
+console.log("Updated at:", user.get("updatedAt"))
 
 await peta.destroy()

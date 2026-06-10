@@ -1,108 +1,72 @@
 // Peta ORM — 21-migrations
-// MigrationRunner + MigrationGenerator — track and apply schema changes
+// MigrationRunner, MigrationGenerator, CLI
 
 import { Database } from "bun:sqlite"
+import { Kysely } from "kysely"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
-import type { ColumnShape } from "../src"
-import { $t, ArkTypeSchemaConfig, HasMany, ManyToMany, Model, Peta } from "../src"
-import { MigrationGenerator, MigrationRunner } from "../src/migrations"
+import { t as columnTypes, createArkTypeSchemaConfig, defineModel } from "../src/index.js"
+import { createMigrationGenerator, createMigrationRunner } from "../src/migrations/index.js"
 
-const t = $t({ schema: new ArkTypeSchemaConfig() })
+const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
-class User extends Model {
-  static override table = "users"
-  static override columns = {
+// Define models for migration generation
+const User = defineModel("users", {
+  columns: {
     id: t.integer().primaryKey(),
     name: t.string(255),
     email: t.text().unique(),
-  } satisfies ColumnShape
-  static override relations = {
-    posts: new HasMany(() => Post, { foreignKey: "userId" }),
-  }
-}
+  },
+})
 
-class Post extends Model {
-  static override table = "posts"
-  static override columns = {
+const Post = defineModel("posts", {
+  columns: {
     id: t.integer().primaryKey(),
-    userId: t.integer().references(() => User, ["id"]),
+    userId: t.integer(),
     title: t.string(255),
-    slug: t.string().unique(),
-    body: t.text().nullable(),
-  } satisfies ColumnShape
-  static override relations = {
-    tags: new ManyToMany(() => Tag, { through: "post_tags", foreignPivotKey: "postId", relatedPivotKey: "tagId" }),
-  }
+  },
+})
+
+// Migration Runner
+const db = new Database(":memory:")
+const kysely = new Kysely<Record<string, never>>({
+  dialect: new BunSqliteDialect({ database: db }),
+})
+
+const runner = createMigrationRunner(kysely)
+await runner.ensureTable()
+
+const migration = {
+  name: "001_create_users",
+  up: async (k: Kysely<unknown>) => {
+    await k.schema
+      .createTable("users")
+      .addColumn("id", "integer", (c) => c.autoIncrement().primaryKey())
+      .addColumn("name", "varchar(255)", (c) => c.notNull())
+      .execute()
+  },
+  down: async (k: Kysely<unknown>) => {
+    await k.schema.dropTable("users").execute()
+  },
 }
 
-class Tag extends Model {
-  static override table = "tags"
-  static override columns = { id: t.integer().primaryKey(), name: t.string(255) } satisfies ColumnShape
-}
+await runner.up([migration])
+console.log("Completed:", (await runner.getCompleted()).length)
 
-// Pivot tables are regular models — register them for migration generation
-class PostTag extends Model {
-  static override table = "post_tags"
-  static override columns = {
-    id: t.integer().primaryKey(),
-    postId: t.integer().references(() => Post, ["id"]),
-    tagId: t.integer().references(() => Tag, ["id"]),
-  } satisfies ColumnShape
-}
+const status = await runner.status([migration])
+console.log("Pending:", status.pending.length)
 
-const database = new Database(":memory:")
-database.run("PRAGMA journal_mode = WAL")
+await runner.down([migration])
+console.log("After rollback, completed:", (await runner.getCompleted()).length)
 
-const peta = new Peta({ dialect: new BunSqliteDialect({ database }) })
-peta.registerAll(User, Post, Tag, PostTag)
+// Migration Generator
+const models = new Map<string, any>()
+models.set("users", { table: "users", columns: User.columns, relations: User.relations, name: "User" })
+models.set("posts", { table: "posts", columns: Post.columns, relations: Post.relations, name: "Post" })
 
-// === Generate initial migration code from model definitions ===
-const gen = new MigrationGenerator()
-const code = gen.generateInitialMigration(peta.models)
-console.log("=== Generated migration ===")
+const gen = createMigrationGenerator()
+const code = gen.generateInitialMigration(models as any)
+console.log("Generated migration:")
 console.log(code)
 
-// === Run migrations using runner ===
-// Migration files are objects with up/down functions
-// In a real project these would live in separate .ts files
-const migrations = [
-  {
-    name: "001_create_users",
-    up: async (k: any) => {
-      await k.schema
-        .createTable("users")
-        .addColumn("id", "integer", (c: any) => c.autoIncrement().primaryKey())
-        .addColumn("name", "varchar(255)", (c: any) => c.notNull())
-        .addColumn("email", "varchar(255)", (c: any) => c.notNull().unique())
-        .execute()
-    },
-    down: async (k: any) => {
-      await k.schema.dropTable("users").execute()
-    },
-  },
-]
-
-const runner = new MigrationRunner(peta.kysely)
-
-// Check status before
-console.log("\n=== Before ===")
-const before = await runner.status(migrations)
-console.log("Pending:", before.pending.map((m) => m.name))
-console.log("Completed:", before.completed.map((m) => m.name))
-
-// Apply pending
-await runner.up(migrations)
-console.log("\n=== After up ===")
-const after = await runner.status(migrations)
-console.log("Pending:", after.pending.map((m) => m.name))
-console.log("Completed:", after.completed.map((m) => m.name))
-
-// Rollback
-await runner.down(migrations)
-console.log("\n=== After down ===")
-const final = await runner.status(migrations)
-console.log("Pending:", final.pending.map((m) => m.name))
-console.log("Completed:", final.completed.map((m) => m.name))
-
-await peta.destroy()
-console.log("\nDone.")
+await kysely.destroy()
+db.close()

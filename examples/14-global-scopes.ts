@@ -3,46 +3,49 @@
 
 import { Database } from "bun:sqlite"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
-import { $t, ArkTypeSchemaConfig, Model, Peta } from "../src"
+import { t as columnTypes, createArkTypeSchemaConfig, createPeta, defineModel } from "../src/index.js"
 
-const t = $t({ schema: new ArkTypeSchemaConfig() })
+const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
-class User extends Model {
-  static override table = "users"
-  static override columns = {
+const User = defineModel("users", {
+  columns: {
     id: t.integer().primaryKey(),
     name: t.string(255),
     active: t.integer().default(1),
-  }
-}
+  },
+})
 
 const database = new Database(":memory:")
 database.run("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, active INTEGER DEFAULT 1)")
 
-const peta = new Peta({ dialect: new BunSqliteDialect({ database }) })
-peta.registerAll([User])
+const peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
+peta.registerAll(User)
 
-// Register a global scope — applied automatically to all queries
+// Add a global scope that filters to active users only
 User.addGlobalScope("active", (qb) => qb.where("active", "=", 1))
 
 await User.insert({ name: "Alice", active: 1 })
 await User.insert({ name: "Bob", active: 0 })
 await User.insert({ name: "Charlie", active: 1 })
 
-// Global scope filters out inactive users automatically
+// Global scope applied automatically
 const active = await User.query().orderBy("id", "asc").execute()
 console.log(
-  "Active users (scope applied):",
-  active.map((u: any) => u.get("name")),
+  "Active users (scoped):",
+  active.length,
+  "—",
+  active.map((u) => u.get("name")),
 )
-// → ["Alice", "Charlie"]
+// → 2: Alice, Charlie
 
-// Bypass global scope with withoutGlobalScope()
+// Bypass scope
 const all = await User.query().withoutGlobalScope("active").orderBy("id", "asc").execute()
 console.log(
-  "All users (scope bypassed):",
-  all.map((u: any) => u.get("name")),
+  "All users (unscoped):",
+  all.length,
+  "—",
+  all.map((u) => u.get("name")),
 )
-// → ["Alice", "Bob", "Charlie"]
+// → 3: Alice, Bob, Charlie
 
 await peta.destroy()

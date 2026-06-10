@@ -1,50 +1,45 @@
 // Peta ORM — 02-model-definition
-// Column types, modifiers (email, min, nullable, default), validation, timestamps
+// Column types, modifiers, validation, timestamps
 
 import { Database } from "bun:sqlite"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
-import type { ColumnShape } from "../src"
-import { $t, ArkTypeSchemaConfig, Model, Peta } from "../src"
+import { t as columnTypes, createArkTypeSchemaConfig, createPeta, defineModel, ValidationError } from "../src/index.js"
 
-const t = $t({ schema: new ArkTypeSchemaConfig() })
+const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
-class User extends Model {
-  static override table = "users"
-  static override columns = {
+const User = defineModel("users", {
+  columns: {
     id: t.integer().primaryKey(),
     name: t.string(255).min(2),
     email: t.text().email().unique(),
-    age: t.integer().nullable().min(0).max(150).default(0),
-    role: t.enum("admin", "user").default("user"),
-    score: t.double().nullable(),
-    ...t.timestamps(),
-  } satisfies ColumnShape
-}
+    age: t.integer().nullable().min(0).max(150),
+    role: t.enum("admin", "user", "guest"),
+    score: t.float().default(0),
+    metadata: t.json().nullable(),
+  },
+})
 
 const database = new Database(":memory:")
 database.run(
-  "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, age INTEGER DEFAULT 0, role TEXT DEFAULT 'user', score REAL, createdAt TEXT, updatedAt TEXT)",
+  "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, age INTEGER, role TEXT DEFAULT 'user', score REAL DEFAULT 0, metadata TEXT)",
 )
 
-const peta = new Peta({ dialect: new BunSqliteDialect({ database }) })
-peta.registerAll([User])
-User.registerTimestamps()
+const peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
+peta.registerAll(User)
 
-const user = await User.insert({
-  name: "Alice",
-  email: "alice@example.com",
-  age: 30,
-  role: "admin",
-})
+// Valid insert
+const alice = await User.insert({ name: "Alice", email: "a@b.com", age: 30, role: "admin" })
+console.log("Inserted:", alice.$toJSON())
 
-console.log("User:", user.$toJSON())
-console.log("Defaults:", user.get("role"), user.get("age"))
-
-// Validation catches bad data
+// Validation error: name too short
 try {
-  await User.insert({ name: "X", email: "bad" })
-} catch (e: any) {
-  console.log("Validation error:", e.message)
+  await User.insert({ name: "X", email: "x@y.com" })
+} catch (e) {
+  console.log("Validation caught:", e instanceof ValidationError ? e.message : e)
 }
+
+// JSON column
+const bob = await User.insert({ name: "Bob", email: "b@c.com", metadata: { foo: 1, bar: [2, 3] } })
+console.log("JSON metadata:", bob.get("metadata"))
 
 await peta.destroy()

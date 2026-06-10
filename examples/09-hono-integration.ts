@@ -1,69 +1,51 @@
 // Peta ORM — 09-hono-integration
-// Requires: bun add hono
-// Peta middleware for Hono — model binding and error handling
+// Hono app + error handling with DatabaseError
 
 import { Database } from "bun:sqlite"
+import { Hono } from "hono"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
-import { $t, ArkTypeSchemaConfig, DatabaseError, Model, Peta } from "../src"
-import { petaMiddleware } from "../src/integrations/hono"
+import { t as columnTypes, createArkTypeSchemaConfig, createPeta, DatabaseError, defineModel } from "../src/index.js"
+import { petaMiddleware } from "../src/integrations/hono.js"
 
-let Hono: any
-try {
-  Hono = (await import("hono")).Hono
-} catch {
-  console.log("Skipping: requires 'bun add hono'")
-  process.exit(0)
-}
+const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
-const t = $t({ schema: new ArkTypeSchemaConfig() })
-
-class User extends Model {
-  static override table = "users"
-  static override columns = { id: t.integer().primaryKey(), name: t.string(255), email: t.text().email() }
-}
-
-class Page extends Model {
-  static override table = "pages"
-  static override columns = { id: t.integer().primaryKey(), slug: t.string(255).unique(), title: t.string(255) }
-}
-
-const database = new Database(":memory:")
-database.run("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL)")
-database.run("CREATE TABLE pages (id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT NOT NULL UNIQUE, title TEXT NOT NULL)")
-
-const peta = new Peta({ dialect: new BunSqliteDialect({ database }) })
-peta.registerAll([User, Page])
-
-await User.insert({ name: "Alice", email: "alice@example.com" })
-await User.insert({ name: "Bob", email: "bob@example.com" })
-
-const app = new Hono()
-app.use("*", petaMiddleware({ peta }))
-
-app.get("/users", async (c: any) => {
-  const page = Number(c.req.query("page") || 1)
-  const perPage = Number(c.req.query("perPage") || 10)
-  const result = await User.query().orderBy("id", "asc").paginate(page, perPage)
-  return c.json({
-    data: result.data.map((u: any) => u.$toJSON()),
-    total: result.total,
-    page: result.currentPage,
-    perPage: result.perPage,
-  })
+const User = defineModel("users", {
+  columns: { id: t.integer().primaryKey(), name: t.string(255) },
 })
 
-app.post("/pages", async (c: any) => {
-  const { slug, title } = await c.req.json()
+const database = new Database(":memory:")
+database.run("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
+
+const peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
+peta.registerAll(User)
+
+const app = new Hono()
+
+app.use("*", petaMiddleware({ peta }))
+
+app.get("/users", async (c) => {
+  const users = await User.query().execute()
+  return c.json(users.map((u) => u.$toJSON()))
+})
+
+app.post("/users", async (c) => {
   try {
-    const page = await Page.insert({ slug, title })
-    return c.json({ id: page.get("id"), slug: page.get("slug") }, 201)
+    const body = await c.req.json()
+    const user = await User.insert(body)
+    return c.json(user.$toJSON(), 201)
   } catch (e) {
-    if (e instanceof DatabaseError && e.code === "UNIQUE_CONSTRAINT") {
-      return c.json({ error: "Slug already taken" }, 400)
+    if (e instanceof DatabaseError) {
+      return c.json({ error: e.code, message: e.message }, 409)
     }
     throw e
   }
 })
 
-console.log("Hono integration ready (bun add hono to run)")
+app.get("/users/:id", async (c) => {
+  const id = Number(c.req.param("id"))
+  const user = await User.find(id)
+  if (!user) return c.json({ error: "not_found" }, 404)
+  return c.json(user.$toJSON())
+})
+
 await peta.destroy()

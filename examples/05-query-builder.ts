@@ -1,86 +1,62 @@
 // Peta ORM — 05-query-builder
-// where, orderBy, limit, offset, innerJoin, has, whereHas, whereDoesntHave, when/unless, count
+// where, orderBy, join, has, whereHas, whereDoesntHave, count
 
 import { Database } from "bun:sqlite"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
-import type { ColumnShape } from "../src"
-import { $t, ArkTypeSchemaConfig, HasMany, Model, Peta } from "../src"
+import { t as columnTypes, createArkTypeSchemaConfig, createPeta, defineModel, hasMany } from "../src/index.js"
 
-const t = $t({ schema: new ArkTypeSchemaConfig() })
+const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
-class Post extends Model {
-  static override table = "posts"
-  static override columns = {
+const User = defineModel("users", {
+  columns: { id: t.integer().primaryKey(), name: t.string(255) },
+  relations: { posts: hasMany(() => Post) },
+})
+
+const Post = defineModel("posts", {
+  columns: {
     id: t.integer().primaryKey(),
-    userId: t.integer().references(() => User, ["id"]),
+    userId: t.integer(),
     title: t.string(255),
-    published: t.integer().default(0),
-  } satisfies ColumnShape
-}
-
-class User extends Model {
-  static override table = "users"
-  static override columns = { id: t.integer().primaryKey(), name: t.string(255) } satisfies ColumnShape
-  static override relations = { posts: new HasMany(() => Post, { foreignKey: "userId" }) }
-}
+    published: t.integer().default(1),
+  },
+  relations: { author: hasMany(() => User) },
+})
 
 const database = new Database(":memory:")
 database.run("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
 database.run(
-  "CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, title TEXT NOT NULL, published INTEGER DEFAULT 0)",
+  "CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, title TEXT NOT NULL, published INTEGER DEFAULT 1)",
 )
 
-const peta = new Peta({ dialect: new BunSqliteDialect({ database }) })
-peta.registerAll([User, Post])
+const peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
+peta.registerAll(User, Post)
 
 const alice = await User.insert({ name: "Alice" })
 const bob = await User.insert({ name: "Bob" })
+await Post.insert({ userId: alice.get("id") as number, title: "A1", published: 1 })
+await Post.insert({ userId: alice.get("id") as number, title: "A2", published: 0 })
+await Post.insert({ userId: bob.get("id") as number, title: "B1", published: 1 })
 
-await Post.insert({ userId: alice.get("id") as number, title: "Public", published: 1 })
-await Post.insert({ userId: alice.get("id") as number, title: "Draft", published: 0 })
-await Post.insert({ userId: bob.get("id") as number, title: "Bobs Post", published: 1 })
+// Where
+const active = await Post.query().where("published", "=", 1).execute()
+console.log("Active posts:", active.length)
 
-// where
-const adults = await User.query().where("name", "=", "Alice").execute()
-console.log("Found:", adults[0]?.get("name"))
+// Order by
+const ordered = await Post.query().orderBy("title", "asc").execute()
+console.log("First by title:", ordered[0]?.get("title"))
 
-// orderBy + limit + offset
-const page = await User.query().orderBy("id", "asc").limit(1).offset(0).execute()
-console.log("First user:", page[0]?.get("name"))
+// Has
+const withPosts = await User.query().has("posts").execute()
+console.log("Users with posts:", withPosts.length)
 
-// has — filter by relation existence
-const withPosts = await User.query().has("posts").orderBy("id", "asc").execute()
-console.log(
-  "Users with posts:",
-  withPosts.map((u: any) => u.get("name")),
-)
-
-// whereHas — filter with constraints on the related query
-const withPublished = await User.query()
-  .whereHas("posts", (q) => q.where("published", "=", 1))
-  .orderBy("id", "asc")
+// WhereHas
+const filtered = await User.query()
+  .whereHas("posts", (qb) => qb.where("published", "=", 1))
   .execute()
-console.log("Users with published posts:", withPublished.map((u: any) => u.get("name")))
+console.log("Users with published posts:", filtered.length)
 
-// whereDoesntHave — exclude by relation existence
-const withoutPosts = await User.query().whereDoesntHave("posts").execute()
-console.log("Users without posts:", withoutPosts.map((u: any) => u.get("name")))
-
-// count
-const total = await Post.query().count()
-console.log("Total posts:", total)
-
-// innerJoin
-const usersWithPosts = await User.query().innerJoin("posts", "posts.userId", "users.id").selectAll("users").execute()
-console.log("Users via join:", usersWithPosts.length)
-
-// when / unless — conditional chaining
-const sortParam = "name"
-const result = await User.query()
-  .where("name", "!=", "")
-  .when(sortParam, (q) => q.orderBy(sortParam, "asc"))
-  .unless(sortParam, (q) => q.orderBy("id", "asc"))
-  .execute()
-console.log("when/unless sort:", result.map((u: any) => u.get("name")))
+// WhereDoesntHave
+const without = await User.query().whereDoesntHave("posts").execute()
+console.log("Users without posts:", without.length)
 
 await peta.destroy()

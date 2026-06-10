@@ -1,58 +1,41 @@
 // Peta ORM — 08-collection-paginator
-// Collection methods (pluck, groupBy, keyBy, first, last, isEmpty)
-// collect() — query results as Collection
-// Paginator (paginate, hasMorePages, perPage, total)
+// Collection, Paginator, .collect()
 
 import { Database } from "bun:sqlite"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
-import { $t, ArkTypeSchemaConfig, Collection, Model, Peta } from "../src"
+import { t as columnTypes, createArkTypeSchemaConfig, createCollection, createPeta, defineModel } from "../src/index.js"
 
-const t = $t({ schema: new ArkTypeSchemaConfig() })
+const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
-class User extends Model {
-  static override table = "users"
-  static override columns = { id: t.integer().primaryKey(), name: t.string(255), role: t.string(50) }
-}
+const User = defineModel("users", {
+  columns: { id: t.integer().primaryKey(), name: t.string(255), role: t.string(50) },
+})
 
 const database = new Database(":memory:")
 database.run("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, role TEXT NOT NULL)")
 
-const peta = new Peta({ dialect: new BunSqliteDialect({ database }) })
-peta.registerAll([User])
+const peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
+peta.registerAll(User)
 
-const roles = ["admin", "user", "user", "admin", "user", "user", "admin"]
-for (let i = 0; i < roles.length; i++) {
-  await User.insert({ name: `User ${i}`, role: roles[i]! })
+for (const name of ["Alice", "Bob", "Charlie", "Diana"]) {
+  await User.insert({ name, role: name === "Alice" || name === "Diana" ? "admin" : "user" })
 }
 
-const users = await User.query().orderBy("id", "asc").execute()
+// Collection from query
+const users = await User.query().orderBy("id", "asc").collect()
+console.log("Total:", users.length)
+console.log("First:", users.first()?.get("name"))
+console.log("Pluck names:", users.pluck("name"))
+console.log("Grouped by role:", Object.keys(users.groupBy("role")))
 
-// Wrap in Collection
-const col = new Collection(users)
-
-// Collection methods
-console.log("First:", col.first()?.get("name"))
-console.log("Last:", col.last()?.get("name"))
-console.log("Pluck names:", col.pluck("name"))
-console.log("Grouped by role:", JSON.stringify(Object.keys(col.groupBy("role"))))
-console.log("Keyed:", Object.keys(col.keyBy("name")).length, "entries")
-console.log("Is empty:", col.isEmpty())
-console.log("Names via get():", col.get("name"))
-
-// collect() — query results directly as Collection
-const collected = await User.query().orderBy("id", "asc").collect()
-console.log("\ncollect().toJSON():", collected.toJSON())
-console.log("collect().pluck('name'):", collected.pluck("name"))
-console.log("collect().first()?.get('name'):", collected.first()?.get("name"))
+// Manual collection
+const col = createCollection(users.all())
+console.log("Admins only:", col.filter((u) => u.get("role") === "admin").length)
 
 // Paginator
-const page1 = await User.query().orderBy("id", "asc").paginate(1, 3)
-console.log(`\nPage ${page1.currentPage}/${page1.lastPage}`)
-console.log(`Items: ${page1.data.length}, Total: ${page1.total}`)
-console.log(`Has more: ${page1.hasMorePages}`)
-
-const page2 = await User.query().orderBy("id", "asc").paginate(3, 3)
-console.log(`\nPage ${page2.currentPage}/${page2.lastPage}`)
-console.log(`Has more: ${page2.hasMorePages}`)
+const page = await User.query().orderBy("id", "asc").paginate(1, 2)
+console.log("Page data:", page.data.length, "items")
+console.log("Total:", page.total, "| Pages:", page.lastPage)
+console.log("Has more:", page.hasMorePages)
 
 await peta.destroy()

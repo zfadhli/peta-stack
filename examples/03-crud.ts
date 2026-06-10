@@ -3,61 +3,53 @@
 
 import { Database } from "bun:sqlite"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
-import type { ColumnShape } from "../src"
-import { $t, ArkTypeSchemaConfig, Model, Peta } from "../src"
+import { t as columnTypes, createArkTypeSchemaConfig, createPeta, defineModel } from "../src/index.js"
 
-const t = $t({ schema: new ArkTypeSchemaConfig() })
+const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
-class User extends Model {
-  static override table = "users"
-  static override columns = {
+const User = defineModel("users", {
+  columns: {
     id: t.integer().primaryKey(),
     name: t.string(255),
-    email: t.text().email().unique(),
-  } satisfies ColumnShape
-}
+    email: t.text().unique(),
+  },
+})
 
 const database = new Database(":memory:")
-database.run("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE)")
+database.run(
+  "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE)",
+)
 
-const peta = new Peta({ dialect: new BunSqliteDialect({ database }) })
-peta.registerAll([User])
+const peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
+peta.registerAll(User)
 
 // Insert
-const user = await User.insert({ name: "Alice", email: "a@b.com" })
-console.log("Inserted:", user.$toJSON())
+await User.insert({ name: "Alice", email: "a@b.com" })
+await User.insert({ name: "Bob", email: "b@c.com" })
+await User.insert({ name: "Charlie", email: "c@d.com" })
 
 // Find
-const found = await User.find(1)
-console.log("Found:", found?.get("name"))
+const alice = await User.find(1)
+console.log("Found:", alice?.get("name"))
 
-// Update via instance
-found!.set("name", "Alice Updated")
-await found!.$save()
-console.log("Updated:", found!.$toJSON())
+// Update
+alice?.set("name", "Alice Smith")
+await alice?.$save()
+console.log("Updated:", (await User.find(1))?.get("name"))
 
-// Static update
-await User.update(1, { email: "alice@new.com" })
+// Delete
+const bob = await User.find(2)
+await bob?.$delete()
+console.log("After delete, count:", await User.query().count())
 
 // Reload
-await found!.$reload()
-console.log("After reload:", found!.$toJSON())
-
-// Delete via instance
-const temp = await User.insert({ name: "Temp", email: "t@t.com" })
-await temp.$delete()
-console.log("Deleted:", (await User.find(temp.get("id") as number)) ?? "not found")
-
-// Paginate
-for (let i = 0; i < 10; i++) {
-  await User.insert({ name: `User ${i}`, email: `user${i}@x.com` })
-}
-const page = await User.query().orderBy("id", "asc").paginate(1, 3)
-console.log(`Page: ${page.currentPage}/${page.lastPage}, items: ${page.data.length}, hasMore: ${page.hasMorePages}`)
-console.log(`First item index: ${page.firstItem}, Last item index: ${page.lastItem}`)
+const charlie = await User.find(3)
+charlie?.set("name", "Charlie Updated")
+const _oldName = charlie?.get("name")
+await charlie?.$reload()
+console.log("Reloaded name:", charlie?.get("name"), "(original preserved)")
 
 // Count
-const total = await User.query().count()
-console.log("Total users:", total)
+console.log("Total:", await User.query().count())
 
 await peta.destroy()

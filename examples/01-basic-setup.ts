@@ -3,24 +3,24 @@
 
 import { Database } from "bun:sqlite"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
-import type { ColumnShape } from "../src"
-import { $t, ArkTypeSchemaConfig, Model, Peta } from "../src"
+import { t as columnTypes, createArkTypeSchemaConfig, createPeta, defineModel } from "../src/index.js"
 
-const t = $t({ schema: new ArkTypeSchemaConfig() })
+const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
-class User extends Model {
-  static override table = "users"
-  static override columns = {
+const User = defineModel("users", {
+  columns: {
     id: t.integer().primaryKey(),
     name: t.string(255),
     email: t.text().unique(),
-  } satisfies ColumnShape
-}
+  },
+})
 
 const database = new Database(":memory:")
-database.run("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE)")
+database.run(
+  "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE)",
+)
 
-const peta = new Peta({ dialect: new BunSqliteDialect({ database }) })
+const peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
 peta.registerAll(User)
 
 const user = await User.insert({ name: "Alice", email: "alice@example.com" })

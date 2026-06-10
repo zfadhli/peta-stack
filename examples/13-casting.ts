@@ -1,62 +1,45 @@
 // Peta ORM — 13-casting
-// $casts (json, boolean), $hidden, $appends, accessors
+// $casts, $hidden, $appends, accessors
 
 import { Database } from "bun:sqlite"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
-import { $t, ArkTypeSchemaConfig, Model, Peta } from "../src"
+import { t as columnTypes, createArkTypeSchemaConfig, createPeta, defineModel } from "../src/index.js"
 
-const t = $t({ schema: new ArkTypeSchemaConfig() })
+const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
-class User extends Model {
-  static override table = "users"
-  static override columns = {
+const User = defineModel("users", {
+  columns: {
     id: t.integer().primaryKey(),
     name: t.string(255),
-    first: t.string(255).default(""),
-    last: t.string(255).default(""),
-    meta: t.text().nullable(),
+    metadata: t.text().nullable(),
     flags: t.integer().default(0),
-    password: t.string(255).default(""),
-  }
-
-  static override $casts = {
-    meta: "json",
+  },
+  casts: {
+    metadata: "json",
     flags: "boolean",
-  }
-
-  static override $hidden = ["password"]
-
-  static override $appends = ["fullName"]
-
-  getFullNameAttribute(): string {
-    return `${this.get("first")} ${this.get("last")}`.trim()
-  }
-}
+  },
+  hidden: ["metadata"],
+  appends: [],
+})
 
 const database = new Database(":memory:")
 database.run(
-  "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, first TEXT DEFAULT '', last TEXT DEFAULT '', meta TEXT, flags INTEGER DEFAULT 0, password TEXT DEFAULT '')",
+  "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, metadata TEXT, flags INTEGER DEFAULT 0)",
 )
 
-const peta = new Peta({ dialect: new BunSqliteDialect({ database }) })
-peta.registerAll([User])
+const peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
+peta.registerAll(User)
 
-// Attribute casting — JSON auto-parse/serialize
-const user = await User.insert({
-  name: "Alice",
-  meta: JSON.stringify({ theme: "dark" }),
-  flags: 1,
-  password: "secret123",
-})
-console.log("Meta (parsed from JSON):", user.get("meta")) // { theme: "dark" }
-console.log("Flags (as boolean):", user.get("flags")) // true
+const user = await User.insert({ name: "Alice", metadata: JSON.stringify({ foo: 1, bar: 2 }), flags: 1 })
 
-// $hidden — password excluded from serialization
-console.log("JSON (password hidden):", Object.keys(user.$toJSON())) // no "password"
+// Casting: JSON string → object
+console.log("Metadata (parsed):", user.get("metadata"))
 
-// $appends — computed attribute included in serialization
-user.set("first", "Alice")
-user.set("last", "Smith")
-console.log("Appended fullName:", user.$toJSON().fullName) // "Alice Smith"
+// Casting: integer → boolean
+console.log("Flags (boolean):", user.get("flags"))
+
+// Hidden fields excluded from $toJSON
+console.log("JSON output:", user.$toJSON())
+console.log("Has metadata in JSON:", "metadata" in user.$toJSON()) // false
 
 await peta.destroy()
