@@ -1,0 +1,86 @@
+{
+  "name": "peta-auth",
+  "version": "0.1.3",
+  "description": "Encrypted cookie sessions for Bun — Hono, ElysiaJS & Nuxt adapters",
+  "type": "module",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    },
+    "./hono": {
+      "types": "./dist/hono.d.mts",
+      "import": "./dist/hono.mjs"
+    },
+    "./elysia": {
+      "types": "./dist/elysia.d.mts",
+      "import": "./dist/elysia.mjs"
+    },
+    "./nuxt": {
+      "types": "./dist/nuxt.d.mts",
+      "import": "./dist/nuxt.mjs"
+    },
+    "./jwt": {
+      "types": "./dist/jwt.d.mts",
+      "import": "./dist/jwt.mjs"
+    },
+    "./csrf": {
+      "types": "./dist/csrf.d.mts",
+      "import": "./dist/csrf.mjs"
+    },
+    "./oauth/github": {
+      "types": "./dist/oauth/github.d.mts",
+      "import": "./dist/oauth/github.mjs"
+    },
+    "./oauth/google": {
+      "types": "./dist/oauth/google.d.mts",
+      "import": "./dist/oauth/google.mjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "lint": "biome check --write .",
+    "lint:ci": "biome ci .",
+    "prepublish": "bun run build",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cookie": "^1.0.2",
+    "iron-webcrypto": "^1.2.1",
+    "jose": "^6.2.3"
+  },
+  "peerDependencies": {
+    "elysia": ">=1.0.0",
+    "h3": ">=1.15.0",
+    "hono": ">=4.0.0",
+    "typescript": "^6.0.0"
+  },
+  "peerDependenciesMeta": {
+    "elysia": {
+      "optional": true
+    },
+    "h3": {
+      "optional": true
+    },
+    "hono": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.16",
+    "@types/bcryptjs": "^3.0.0",
+    "@types/bun": "latest",
+    "elysia": "latest",
+    "h3": "latest",
+    "hono": "latest",
+    "tsdown": "latest",
+    "typescript": "^6.0.3"
+  }
+}

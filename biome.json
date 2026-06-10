@@ -6,7 +6,8 @@
       "recommended": true,
       "style": {
         "noNonNullAssertion": "off",
-        "useConst": "warn"
+        "useConst": "warn",
+        "useNodejsImportProtocol": "off"
       },
       "complexity": {
         "noBannedTypes": "warn",

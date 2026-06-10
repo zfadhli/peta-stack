@@ -1,0 +1,27 @@
+import { Elysia } from "elysia"
+import { session } from "peta-auth/elysia"
+import { defineOAuthGitHubEventHandler } from "peta-auth/oauth/github"
+
+const githubHandler = defineOAuthGitHubEventHandler({
+  config: {
+    clientId: process.env.GITHUB_CLIENT_ID!,
+    clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+  },
+  async onSuccess({ user, tokens }) {
+    return new Response(null, { status: 302, headers: { Location: "/" } })
+  },
+})
+
+new Elysia()
+  .use(
+    session({
+      password: process.env.SESSION_SECRET ?? "demo-secret-key-at-least-32-chars!!",
+      cookieName: "my-session",
+    }),
+  )
+  .get("/auth/github", async ({ request }) => githubHandler(request))
+  .post("/logout", ({ session: s }) => {
+    s.destroy()
+    return Response.json({ ok: true })
+  })
+  .listen(3000)
