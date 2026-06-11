@@ -2,7 +2,7 @@ import { type } from "arktype"
 import { Hono } from "hono"
 import { route } from "peta-docs/hono"
 import type { ModelInstance } from "peta-orm"
-import { Book, getDatabase } from "../../db/schema.js"
+import { Book, BookCategory } from "../../db/schema.js"
 import { requireSession } from "./middleware.js"
 
 const app = new Hono()
@@ -159,14 +159,10 @@ app.post(
         inStock: body.inStock,
       })) as any
 
-      // Attach categories if provided (raw SQL for pivot table)
+      // Attach categories if provided
       if (body.categoryIds && body.categoryIds.length > 0) {
-        const db = getDatabase()
-        const insertPivot = db.prepare("INSERT INTO book_categories (bookId, categoryId) VALUES (?, ?)")
         const bookId = (book as ModelInstance).get<number>("id")
-        for (const categoryId of body.categoryIds) {
-          insertPivot.run(bookId, categoryId)
-        }
+        await BookCategory.insertMany(body.categoryIds.map((categoryId) => ({ bookId, categoryId })))
       }
 
       return c.json((book as ModelInstance).$toJSON(), 201)

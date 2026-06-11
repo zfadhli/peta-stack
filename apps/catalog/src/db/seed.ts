@@ -1,4 +1,4 @@
-import { Author, Book, Category, getPeta, User } from "./schema.js"
+import { Author, Book, BookCategory, Category, getPeta, User } from "./schema.js"
 
 const peta = getPeta()
 
@@ -174,30 +174,25 @@ console.log(`Books: ${book1984.get("title")}, ${lotr.get("title")}, ${martian.ge
 // ---------------------------------------------------------------------------
 // Book-Category pivot relationships
 // ---------------------------------------------------------------------------
-const db = peta.kysely
-
-await db
-  .insertInto("book_categories")
-  .values([
-    { bookId: book1984.get<number>("id"), categoryId: fiction.get<number>("id") },
-    { bookId: book1984.get<number>("id"), categoryId: classic.get<number>("id") },
-    { bookId: book1984.get<number>("id"), categoryId: scifi.get<number>("id") },
-    { bookId: animalFarm.get<number>("id"), categoryId: fiction.get<number>("id") },
-    { bookId: animalFarm.get<number>("id"), categoryId: classic.get<number>("id") },
-    { bookId: mockingbird.get<number>("id"), categoryId: fiction.get<number>("id") },
-    { bookId: mockingbird.get<number>("id"), categoryId: classic.get<number>("id") },
-    { bookId: lotr.get<number>("id"), categoryId: fantasy.get<number>("id") },
-    { bookId: lotr.get<number>("id"), categoryId: classic.get<number>("id") },
-    { bookId: hobbit.get<number>("id"), categoryId: fantasy.get<number>("id") },
-    { bookId: hobbit.get<number>("id"), categoryId: classic.get<number>("id") },
-    { bookId: cosmos.get<number>("id"), categoryId: science.get<number>("id") },
-    { bookId: cosmos.get<number>("id"), categoryId: classic.get<number>("id") },
-    { bookId: martian.get<number>("id"), categoryId: scifi.get<number>("id") },
-    { bookId: hp1.get<number>("id"), categoryId: fantasy.get<number>("id") },
-    { bookId: hp2.get<number>("id"), categoryId: fantasy.get<number>("id") },
-    { bookId: hp3.get<number>("id"), categoryId: fantasy.get<number>("id") },
-  ])
-  .execute()
+await BookCategory.insertMany([
+  { bookId: book1984.get<number>("id"), categoryId: fiction.get<number>("id") },
+  { bookId: book1984.get<number>("id"), categoryId: classic.get<number>("id") },
+  { bookId: book1984.get<number>("id"), categoryId: scifi.get<number>("id") },
+  { bookId: animalFarm.get<number>("id"), categoryId: fiction.get<number>("id") },
+  { bookId: animalFarm.get<number>("id"), categoryId: classic.get<number>("id") },
+  { bookId: mockingbird.get<number>("id"), categoryId: fiction.get<number>("id") },
+  { bookId: mockingbird.get<number>("id"), categoryId: classic.get<number>("id") },
+  { bookId: lotr.get<number>("id"), categoryId: fantasy.get<number>("id") },
+  { bookId: lotr.get<number>("id"), categoryId: classic.get<number>("id") },
+  { bookId: hobbit.get<number>("id"), categoryId: fantasy.get<number>("id") },
+  { bookId: hobbit.get<number>("id"), categoryId: classic.get<number>("id") },
+  { bookId: cosmos.get<number>("id"), categoryId: science.get<number>("id") },
+  { bookId: cosmos.get<number>("id"), categoryId: classic.get<number>("id") },
+  { bookId: martian.get<number>("id"), categoryId: scifi.get<number>("id") },
+  { bookId: hp1.get<number>("id"), categoryId: fantasy.get<number>("id") },
+  { bookId: hp2.get<number>("id"), categoryId: fantasy.get<number>("id") },
+  { bookId: hp3.get<number>("id"), categoryId: fantasy.get<number>("id") },
+])
 
 console.log("Book-category pivot rows inserted")
 

@@ -96,6 +96,13 @@ export const Category: ModelDefinition = defineModel("categories", {
 })
 _Category = Category
 
+export const BookCategory = defineModel("book_categories", {
+  columns: {
+    bookId: t.integer(),
+    categoryId: t.integer(),
+  },
+})
+
 export const Review = defineModel("reviews", {
   columns: {
     id: t.integer().primaryKey(),
@@ -188,23 +195,14 @@ export function createTables(database: Database): void {
 // Database + Peta instance (singleton, lazily created)
 // ---------------------------------------------------------------------------
 
-let _database: Database | null = null
 let _peta: ReturnType<typeof createPeta> | null = null
-
-/** Get the underlying bun:sqlite Database for raw queries (pivot tables, etc.) */
-export function getDatabase(): Database {
-  if (!_database) {
-    _database = new Database("catalog.db", { create: true })
-    createTables(_database)
-  }
-  return _database
-}
 
 export function getPeta(): ReturnType<typeof createPeta> {
   if (!_peta) {
-    const database = getDatabase()
+    const database = new Database("catalog.db", { create: true })
+    createTables(database)
     _peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
-    _peta.registerAll(User, Author, Book, Category, Review)
+    _peta.registerAll(User, Author, Book, Category, BookCategory, Review)
 
     // Timestamps for models that have createdAt/updatedAt
     User.registerTimestamps()

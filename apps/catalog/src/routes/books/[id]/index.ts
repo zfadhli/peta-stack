@@ -2,7 +2,7 @@ import { type } from "arktype"
 import { Hono } from "hono"
 import { route } from "peta-docs/hono"
 import type { ModelInstance } from "peta-orm"
-import { Book, getDatabase } from "../../../db/schema.js"
+import { Book, BookCategory } from "../../../db/schema.js"
 import { requireSession } from "../middleware.js"
 
 const app = new Hono()
@@ -109,14 +109,10 @@ app.patch(
       await book.$save()
 
       if (categoryIds !== undefined) {
-        const db = getDatabase()
         const bookId = (book as ModelInstance).get<number>("id")
-        db.run("DELETE FROM book_categories WHERE bookId = ?", [bookId])
+        await BookCategory.query().where("bookId", "=", bookId).deleteMany()
         if (categoryIds.length > 0) {
-          const insertPivot = db.prepare("INSERT INTO book_categories (bookId, categoryId) VALUES (?, ?)")
-          for (const categoryId of categoryIds) {
-            insertPivot.run(bookId, categoryId)
-          }
+          await BookCategory.insertMany(categoryIds.map((categoryId) => ({ bookId, categoryId })))
         }
       }
 
