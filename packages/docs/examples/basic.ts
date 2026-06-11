@@ -12,8 +12,8 @@ const Pet = type({
 })
 const CreatePet = type({ name: "string>0", species: "'cat'|'dog'|'bird'" })
 const UpdatePet = type({
-  name: "string>0 | undefined",
-  species: "'cat'|'dog'|'bird' | undefined",
+  name: "string>0",
+  species: "'cat'|'dog'|'bird'",
 })
 
 let nextId = 4
