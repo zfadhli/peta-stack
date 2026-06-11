@@ -1,35 +1,7 @@
 import { type } from "arktype"
 import { Hono } from "hono"
 import { route } from "peta-docs/hono"
-import type { ModelInstance } from "peta-orm"
 import { Author } from "../../../db/schema.js"
-
-function safeJSON(model: ModelInstance): Record<string, unknown> {
-  try {
-    return model.$toJSON()
-  } catch {
-    const result: Record<string, unknown> = {}
-    for (const key of [
-      "id",
-      "name",
-      "title",
-      "bio",
-      "description",
-      "isbn",
-      "price",
-      "authorId",
-      "coverImage",
-      "inStock",
-      "publishedYear",
-      "createdAt",
-      "updatedAt",
-    ]) {
-      const val = model.get(key)
-      if (val !== undefined) result[key] = val
-    }
-    return result
-  }
-}
 
 const app = new Hono()
 
@@ -76,7 +48,7 @@ app.get(
       const books = Array.isArray(related) ? related : []
 
       const bookData = books.map((b) => {
-        const json = safeJSON(b)
+        const json = b.$toJSON()
         return {
           id: json.id as number,
           title: json.title as string,

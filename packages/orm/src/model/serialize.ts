@@ -37,6 +37,7 @@ export function modelToJSON(
   const relations = getRawRelations(model)
   for (const [relName, relValue] of Object.entries(relations)) {
     if (hiddenSet.has(relName)) continue
+    if (relName === "_pivot") continue
     if (visible && visible.length > 0 && !visible.includes(relName)) continue
     if (Array.isArray(relValue)) {
       output[relName] = relValue

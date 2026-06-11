@@ -41,47 +41,6 @@ const BookDetailResponse = type({
 // eager-loaded relation instances may conflict with $toJSON's internal
 // WeakMap-based state tracking (especially for manyToMany relations).
 // ---------------------------------------------------------------------------
-function safeJSON(model: ModelInstance): Record<string, unknown> {
-  try {
-    return model.$toJSON()
-  } catch {
-    // Fallback: read attributes directly
-    const result: Record<string, unknown> = {}
-    for (const key of [
-      "id",
-      "name",
-      "title",
-      "bio",
-      "description",
-      "isbn",
-      "price",
-      "authorId",
-      "coverImage",
-      "inStock",
-      "rating",
-      "body",
-      "bookId",
-      "userId",
-      "publishedYear",
-      "createdAt",
-      "updatedAt",
-      "email",
-      "role",
-      "deletedAt",
-    ]) {
-      const val = model.get(key)
-      if (val !== undefined) result[key] = val
-    }
-    return result
-  }
-}
-
-function serializeRelated(related: unknown): unknown {
-  if (related == null) return related
-  if (Array.isArray(related)) return related.map((r) => safeJSON(r))
-  return safeJSON(related as ModelInstance)
-}
-
 function basicBookJSON(book: ModelInstance): Record<string, unknown> {
   return {
     id: book.get("id"),
@@ -129,7 +88,12 @@ app.get(
       const result = basicBookJSON(book)
       if (include) {
         for (const rel of include) {
-          result[rel] = serializeRelated(book.$getRelation(rel))
+          const related = book.$getRelation(rel)
+          if (related) {
+            result[rel] = Array.isArray(related)
+              ? related.map((r) => r.$toJSON())
+              : related.$toJSON()
+          }
         }
       }
 

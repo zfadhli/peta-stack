@@ -64,51 +64,16 @@ function basicBookJSON(book: ModelInstance): Record<string, unknown> {
   }
 }
 
-function safeJSON(model: ModelInstance): Record<string, unknown> {
-  try {
-    return model.$toJSON()
-  } catch {
-    const result: Record<string, unknown> = {}
-    for (const key of [
-      "id",
-      "name",
-      "title",
-      "bio",
-      "description",
-      "isbn",
-      "price",
-      "authorId",
-      "coverImage",
-      "inStock",
-      "rating",
-      "body",
-      "bookId",
-      "userId",
-      "publishedYear",
-      "createdAt",
-      "updatedAt",
-      "email",
-      "role",
-      "deletedAt",
-    ]) {
-      const val = model.get(key)
-      if (val !== undefined) result[key] = val
-    }
-    return result
-  }
-}
-
-function serializeRelated(related: unknown): unknown {
-  if (related == null) return related
-  if (Array.isArray(related)) return related.map((r) => safeJSON(r as ModelInstance))
-  return safeJSON(related as ModelInstance)
-}
-
 function serializeBook(book: ModelInstance, include?: string[]): Record<string, unknown> {
   const result = basicBookJSON(book)
   if (include) {
     for (const rel of include) {
-      result[rel] = serializeRelated(book.$getRelation(rel))
+      const related = book.$getRelation(rel)
+      if (related) {
+        result[rel] = Array.isArray(related)
+          ? related.map((r) => r.$toJSON())
+          : related.$toJSON()
+      }
     }
   }
   return result
