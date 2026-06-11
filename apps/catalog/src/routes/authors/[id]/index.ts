@@ -1,6 +1,7 @@
 import { type } from "arktype"
 import { Hono } from "hono"
 import { route } from "peta-docs/hono"
+import type { ModelInstance } from "peta-orm"
 import { Author } from "../../../db/schema.js"
 
 const app = new Hono()
@@ -38,31 +39,26 @@ app.get(
     .handle(async (c) => {
       const rawId = c.req.param("id")!
 
-      const author = await (Author.query().with("books").where("id", "=", Number(rawId)).first() as Promise<any>)
-
-      if (!author) {
+      const author = await (Author.query().with("books").where("id", "=", Number(rawId)).execute() as Promise<any>)
+      const model = author[0]
+      if (!model) {
         return c.json({ error: "Not found" }, 404)
       }
 
-      const related = author.$getRelation("books")
-      const books = Array.isArray(related) ? related : []
-
-      const bookData = books.map((b) => {
-        const json = b.$toJSON()
-        return {
-          id: json.id as number,
-          title: json.title as string,
-          isbn: json.isbn as string,
-          price: json.price as number,
-          publishedYear: json.publishedYear as number | undefined,
-          inStock: json.inStock as boolean,
-        }
-      })
+      const books = (model.$getRelation("books") ?? []) as ModelInstance[]
+      const bookData = books.map((b) => ({
+        id: b.get<number>("id"),
+        title: b.get<string>("title"),
+        isbn: b.get<string>("isbn"),
+        price: b.get<number>("price"),
+        publishedYear: b.get<number | null>("publishedYear"),
+        inStock: b.get<boolean>("inStock"),
+      }))
 
       return c.json({
-        id: author.get("id"),
-        name: author.get("name"),
-        bio: author.get("bio"),
+        id: model.get("id"),
+        name: model.get("name"),
+        bio: model.get("bio"),
         books: bookData,
       })
     }),
