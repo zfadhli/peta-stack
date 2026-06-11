@@ -1,5 +1,6 @@
 import { Hono } from "hono"
 import { cors } from "hono/cors"
+import { getOpenAPISpec, serveScalarUI } from "peta-docs"
 import { getPeta } from "./db/schema.js"
 import { resolveUser } from "./middleware/auth.js"
 import { onError } from "./middleware/error.js"
@@ -38,14 +39,31 @@ app.route("/api", favorites) // POST/DELETE /:slug/favorite
 app.route("/api", tags) // GET /tags
 
 // ---------------------------------------------------------------------------
-// OpenAPI spec (optional — can be enabled once peta-docs is integrated)
+// OpenAPI spec + Scalar docs UI
 // ---------------------------------------------------------------------------
 
-// import { getOpenAPISpec, serveScalarUI } from "peta-docs"
-//
-// const API_INFO = { title: "Conduit API", version: "2.0.0", description: "RealWorld Conduit API" }
-// app.get("/openapi.json", (c) => c.json(getOpenAPISpec(app, API_INFO, undefined, { basePath: "/api" })))
-// app.get("/docs", serveScalarUI({ specUrl: "/openapi.json", title: "Conduit API" }))
+const API_INFO = {
+  title: "Conduit API",
+  version: "2.0.0",
+  description: "RealWorld Conduit API — a Medium.com clone backend built with peta-stack.",
+}
+
+const API_COMPONENTS = {
+  securitySchemes: {
+    Token: {
+      type: "apiKey",
+      in: "header",
+      name: "Authorization",
+      description: 'JWT Bearer token. Prefix with "Token ". Obtain a token via POST /api/users/login.',
+    },
+  },
+}
+
+app.get("/openapi.json", (c) =>
+  c.json(getOpenAPISpec(app, API_INFO, undefined, { basePath: "/api", components: API_COMPONENTS })),
+)
+
+app.get("/docs", serveScalarUI({ specUrl: "/openapi.json", title: "Conduit API" }))
 
 // ---------------------------------------------------------------------------
 // Start server
@@ -53,6 +71,8 @@ app.route("/api", tags) // GET /tags
 
 const port = Number(process.env.PORT ?? 3001)
 console.log(`📝 Conduit API running at http://localhost:${port}`)
+console.log(`   OpenAPI spec: http://localhost:${port}/openapi.json`)
+console.log(`   API docs:     http://localhost:${port}/docs`)
 
 Bun.serve({ fetch: app.fetch, port })
 

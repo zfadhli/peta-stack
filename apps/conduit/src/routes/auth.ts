@@ -37,8 +37,8 @@ const UserResponse = type({
     email: "string",
     token: "string",
     username: "string",
-    bio: "string | null | undefined",
-    image: "string | null | undefined",
+    bio: "string | null",
+    image: "string | null",
   },
 })
 

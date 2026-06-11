@@ -23,11 +23,14 @@ export function toOpenAPISchema(schema: unknown): SchemaObject {
     try {
       return (schema as unknown as { toJsonSchema(): Record<string, unknown> }).toJsonSchema()
     } catch {
-      // pipe()/morph() schemas can't be losslessly converted to JSON Schema.
-      // Fall back to the input type, which strips morphs — this is what
-      // OpenAPI should document (the client-facing wire format).
-      const inner = (schema as unknown as { in?: { toJsonSchema(): Record<string, unknown> } }).in
-      if (inner?.toJsonSchema) return inner.toJsonSchema()
+      // Fall back to the input type, which strips morphs/undefined unions —
+      // this is what OpenAPI should document (the client-facing wire format).
+      try {
+        const inner = (schema as unknown as { in?: { toJsonSchema(): Record<string, unknown> } }).in
+        if (inner?.toJsonSchema) return inner.toJsonSchema()
+      } catch {
+        // If even the input type can't be converted, return a placeholder
+      }
       return {}
     }
   }

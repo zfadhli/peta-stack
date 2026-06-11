@@ -20,8 +20,8 @@ const CommentResponse = type({
     body: "string",
     author: {
       username: "string",
-      bio: "string | null | undefined",
-      image: "string | null | undefined",
+      bio: "string | null",
+      image: "string | null",
       following: "boolean",
     },
   },
@@ -35,8 +35,8 @@ const MultipleCommentsResponse = type({
     body: "string",
     author: {
       username: "string",
-      bio: "string | null | undefined",
-      image: "string | null | undefined",
+      bio: "string | null",
+      image: "string | null",
       following: "boolean",
     },
   }).array(),

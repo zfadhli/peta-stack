@@ -26,8 +26,8 @@ const ArticleResponse = type({
     favoritesCount: "number",
     author: {
       username: "string",
-      bio: "string | null | undefined",
-      image: "string | null | undefined",
+      bio: "string | null",
+      image: "string | null",
       following: "boolean",
     },
   },

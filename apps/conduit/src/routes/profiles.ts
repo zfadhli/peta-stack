@@ -15,8 +15,8 @@ const app = new Hono({ strict: true })
 const ProfileResponse = type({
   profile: {
     username: "string",
-    bio: "string | null | undefined",
-    image: "string | null | undefined",
+    bio: "string | null",
+    image: "string | null",
     following: "boolean",
   },
 })
