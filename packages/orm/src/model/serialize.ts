@@ -41,10 +41,10 @@ export function modelToJSON(
     if (visible && visible.length > 0 && !visible.includes(relName)) continue
     if (Array.isArray(relValue)) {
       output[relName] = relValue
-        .filter((r): r is ModelInstance => r != null && typeof r === "object")
-        .map((r) => modelToJSON(def, r, visited))
-    } else if (relValue != null && typeof relValue === "object") {
-      output[relName] = modelToJSON(def, relValue as ModelInstance, visited)
+        .filter((r): r is ModelInstance => r != null && typeof r.$toJSON === "function")
+        .map((r) => r.$toJSON(visited))
+    } else if (relValue != null && typeof (relValue as ModelInstance).$toJSON === "function") {
+      output[relName] = (relValue as ModelInstance).$toJSON(visited)
     } else {
       output[relName] = relValue
     }
