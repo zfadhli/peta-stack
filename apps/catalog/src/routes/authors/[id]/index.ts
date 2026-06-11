@@ -3,6 +3,7 @@ import { Hono } from "hono"
 import { route } from "peta-docs/hono"
 import type { ModelInstance } from "peta-orm"
 import { Author } from "../../../db/schema.js"
+import { pick } from "../../../helpers.js"
 
 const app = new Hono()
 
@@ -46,19 +47,12 @@ app.get(
       }
 
       const books = (model.$getRelation("books") ?? []) as ModelInstance[]
-      const bookData = books.map((b) => ({
-        id: b.get<number>("id"),
-        title: b.get<string>("title"),
-        isbn: b.get<string>("isbn"),
-        price: b.get<number>("price"),
-        publishedYear: b.get<number | null>("publishedYear"),
-        inStock: b.get<boolean>("inStock"),
-      }))
+      const bookData = books.map((b) =>
+        pick(b.$toJSON(), "id", "title", "isbn", "price", "publishedYear", "inStock"),
+      )
 
       return c.json({
-        id: model.get("id"),
-        name: model.get("name"),
-        bio: model.get("bio"),
+        ...pick(model.$toJSON(), "id", "name", "bio"),
         books: bookData,
       })
     }),

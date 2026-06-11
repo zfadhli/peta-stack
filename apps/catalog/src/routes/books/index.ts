@@ -3,6 +3,7 @@ import { Hono } from "hono"
 import { route } from "peta-docs/hono"
 import type { ModelInstance } from "peta-orm"
 import { Book, BookCategory } from "../../db/schema.js"
+import { pick } from "../../helpers.js"
 import { requireSession } from "./middleware.js"
 
 const app = new Hono()
@@ -24,8 +25,17 @@ const BookResponse = type({
   updatedAt: "string?",
 })
 
+const BookListEntry = type({
+  id: "number",
+  title: "string",
+  isbn: "string",
+  price: "number",
+  inStock: "boolean",
+  authorId: "number",
+})
+
 const BookListResponse = type({
-  data: BookResponse.array(),
+  data: BookListEntry.array(),
   total: "number",
   perPage: "number",
   currentPage: "number",
@@ -100,7 +110,7 @@ app.get(
         .paginate(page, limit)
 
       return c.json({
-        data: paginator.data.map((b) => b.$toJSON()),
+        data: paginator.data.map((b) => pick(b.$toJSON(), "id", "title", "isbn", "price", "inStock", "authorId")),
         total: paginator.total,
         perPage: paginator.perPage,
         currentPage: paginator.currentPage,
