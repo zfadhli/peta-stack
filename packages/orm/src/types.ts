@@ -3,7 +3,7 @@ import type { ModelId } from "./lib/id.js"
 
 export interface ModelLike {
   readonly instanceId: number
-  get(key: string): unknown
+  get<T = unknown>(key: string): T
   set(key: string, value: unknown): void
 }
 

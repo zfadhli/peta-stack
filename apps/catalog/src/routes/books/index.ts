@@ -232,7 +232,7 @@ app.post(
       if (body.categoryIds && body.categoryIds.length > 0) {
         const db = getDatabase()
         const insertPivot = db.prepare("INSERT INTO book_categories (bookId, categoryId) VALUES (?, ?)")
-        const bookId = book.get("id") as number
+        const bookId = (book as ModelInstance).get<number>("id")
         for (const categoryId of body.categoryIds) {
           insertPivot.run(bookId, categoryId)
         }

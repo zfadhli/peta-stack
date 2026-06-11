@@ -56,8 +56,8 @@ app.post(
 
       // Set session
       const session = c.var.session
-      session.userId = user.get("id") as number
-      session.userRole = user.get("role") as string
+      session.userId = user.get<number>("id")
+      session.userRole = user.get<string>("role")
       await session.save()
 
       return c.json(
@@ -91,7 +91,7 @@ app.post(
         return c.json({ error: "Invalid credentials" }, 401)
       }
 
-      const passwordHash = user.get("passwordHash") as string
+      const passwordHash = user.get<string>("passwordHash")
       const valid = await Bun.password.verify(body.password, passwordHash)
       if (!valid) {
         return c.json({ error: "Invalid credentials" }, 401)
@@ -99,8 +99,8 @@ app.post(
 
       // Set session
       const session = c.var.session
-      session.userId = user.get("id") as number
-      session.userRole = user.get("role") as string
+      session.userId = user.get<number>("id")
+      session.userRole = user.get<string>("role")
       await session.save()
 
       return c.json({

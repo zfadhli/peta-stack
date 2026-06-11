@@ -174,7 +174,7 @@ app.patch(
 
       if (categoryIds !== undefined) {
         const db = getDatabase()
-        const bookId = book.get("id") as number
+        const bookId = (book as ModelInstance).get<number>("id")
         db.run("DELETE FROM book_categories WHERE bookId = ?", [bookId])
         if (categoryIds.length > 0) {
           const insertPivot = db.prepare("INSERT INTO book_categories (bookId, categoryId) VALUES (?, ?)")

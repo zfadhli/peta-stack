@@ -32,7 +32,7 @@ export interface ModelInstance extends ModelLike {
   readonly attributes: Readonly<Record<string, unknown>>
   readonly dirtyAttributes: Partial<Record<string, unknown>>
   readonly isDirty: boolean
-  get(key: string): unknown
+  get<T = unknown>(key: string): T
   set(key: string, value: unknown): void
   fill(data: Partial<Record<string, unknown>>): void
   reset(): void
@@ -194,14 +194,14 @@ function createInstance(def: ModelDefinition, config: ModelConfig): ModelInstanc
     get isDirty(): boolean {
       return isDirty(instance)
     },
-    get(key: string): unknown {
+    get<T = unknown>(key: string): T {
       const self = instance as unknown as Record<string, unknown>
       const accessor = `get${key.charAt(0).toUpperCase()}${key.slice(1)}Attribute`
-      if (typeof self[accessor] === "function") return self[accessor]()
+      if (typeof self[accessor] === "function") return self[accessor]() as T
       const val = getAttr(instance, key)
       const casts = config.casts ?? {}
-      if (casts[key]) return castValue(val, casts[key])
-      return val
+      if (casts[key]) return castValue(val, casts[key]) as T
+      return val as T
     },
     set(key: string, value: unknown): void {
       if (FORBIDDEN_KEYS.has(key)) return

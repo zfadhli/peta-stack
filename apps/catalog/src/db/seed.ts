@@ -75,7 +75,7 @@ const book1984 = await Book.insert({
   description: "A dystopian social science fiction novel",
   publishedYear: 1949,
   price: 9.99,
-  authorId: orwell.get("id") as number,
+  authorId: orwell.get<number>("id"),
   inStock: true,
 })
 
@@ -85,7 +85,7 @@ const animalFarm = await Book.insert({
   description: "A satirical allegorical novella",
   publishedYear: 1945,
   price: 7.99,
-  authorId: orwell.get("id") as number,
+  authorId: orwell.get<number>("id"),
   inStock: true,
 })
 
@@ -95,7 +95,7 @@ const mockingbird = await Book.insert({
   description: "A novel about racial injustice in the Deep South",
   publishedYear: 1960,
   price: 11.99,
-  authorId: lee.get("id") as number,
+  authorId: lee.get<number>("id"),
   inStock: true,
 })
 
@@ -105,7 +105,7 @@ const lotr = await Book.insert({
   description: "An epic high-fantasy novel",
   publishedYear: 1954,
   price: 19.99,
-  authorId: tolkien.get("id") as number,
+  authorId: tolkien.get<number>("id"),
   inStock: true,
 })
 
@@ -115,7 +115,7 @@ const hobbit = await Book.insert({
   description: "A children's fantasy novel",
   publishedYear: 1937,
   price: 10.99,
-  authorId: tolkien.get("id") as number,
+  authorId: tolkien.get<number>("id"),
   inStock: false,
 })
 
@@ -125,7 +125,7 @@ const cosmos = await Book.insert({
   description: "A journey through the universe",
   publishedYear: 1980,
   price: 14.99,
-  authorId: sagan.get("id") as number,
+  authorId: sagan.get<number>("id"),
   inStock: true,
 })
 
@@ -135,7 +135,7 @@ const martian = await Book.insert({
   description: "An astronaut's struggle to survive on Mars",
   publishedYear: 2011,
   price: 9.99,
-  authorId: weir.get("id") as number,
+  authorId: weir.get<number>("id"),
   inStock: true,
 })
 
@@ -145,7 +145,7 @@ const hp1 = await Book.insert({
   description: "A young wizard discovers his magical heritage",
   publishedYear: 1997,
   price: 12.99,
-  authorId: rowling.get("id") as number,
+  authorId: rowling.get<number>("id"),
   inStock: true,
 })
 
@@ -155,7 +155,7 @@ const hp2 = await Book.insert({
   description: "Harry's second year at Hogwarts",
   publishedYear: 1998,
   price: 12.99,
-  authorId: rowling.get("id") as number,
+  authorId: rowling.get<number>("id"),
   inStock: true,
 })
 
@@ -165,7 +165,7 @@ const hp3 = await Book.insert({
   description: "Harry's third year at Hogwarts",
   publishedYear: 1999,
   price: 13.99,
-  authorId: rowling.get("id") as number,
+  authorId: rowling.get<number>("id"),
   inStock: true,
 })
 
@@ -179,23 +179,23 @@ const db = peta.kysely
 await db
   .insertInto("book_categories")
   .values([
-    { bookId: book1984.get("id") as number, categoryId: fiction.get("id") as number },
-    { bookId: book1984.get("id") as number, categoryId: classic.get("id") as number },
-    { bookId: book1984.get("id") as number, categoryId: scifi.get("id") as number },
-    { bookId: animalFarm.get("id") as number, categoryId: fiction.get("id") as number },
-    { bookId: animalFarm.get("id") as number, categoryId: classic.get("id") as number },
-    { bookId: mockingbird.get("id") as number, categoryId: fiction.get("id") as number },
-    { bookId: mockingbird.get("id") as number, categoryId: classic.get("id") as number },
-    { bookId: lotr.get("id") as number, categoryId: fantasy.get("id") as number },
-    { bookId: lotr.get("id") as number, categoryId: classic.get("id") as number },
-    { bookId: hobbit.get("id") as number, categoryId: fantasy.get("id") as number },
-    { bookId: hobbit.get("id") as number, categoryId: classic.get("id") as number },
-    { bookId: cosmos.get("id") as number, categoryId: science.get("id") as number },
-    { bookId: cosmos.get("id") as number, categoryId: classic.get("id") as number },
-    { bookId: martian.get("id") as number, categoryId: scifi.get("id") as number },
-    { bookId: hp1.get("id") as number, categoryId: fantasy.get("id") as number },
-    { bookId: hp2.get("id") as number, categoryId: fantasy.get("id") as number },
-    { bookId: hp3.get("id") as number, categoryId: fantasy.get("id") as number },
+    { bookId: book1984.get<number>("id"), categoryId: fiction.get<number>("id") },
+    { bookId: book1984.get<number>("id"), categoryId: classic.get<number>("id") },
+    { bookId: book1984.get<number>("id"), categoryId: scifi.get<number>("id") },
+    { bookId: animalFarm.get<number>("id"), categoryId: fiction.get<number>("id") },
+    { bookId: animalFarm.get<number>("id"), categoryId: classic.get<number>("id") },
+    { bookId: mockingbird.get<number>("id"), categoryId: fiction.get<number>("id") },
+    { bookId: mockingbird.get<number>("id"), categoryId: classic.get<number>("id") },
+    { bookId: lotr.get<number>("id"), categoryId: fantasy.get<number>("id") },
+    { bookId: lotr.get<number>("id"), categoryId: classic.get<number>("id") },
+    { bookId: hobbit.get<number>("id"), categoryId: fantasy.get<number>("id") },
+    { bookId: hobbit.get<number>("id"), categoryId: classic.get<number>("id") },
+    { bookId: cosmos.get<number>("id"), categoryId: science.get<number>("id") },
+    { bookId: cosmos.get<number>("id"), categoryId: classic.get<number>("id") },
+    { bookId: martian.get<number>("id"), categoryId: scifi.get<number>("id") },
+    { bookId: hp1.get<number>("id"), categoryId: fantasy.get<number>("id") },
+    { bookId: hp2.get<number>("id"), categoryId: fantasy.get<number>("id") },
+    { bookId: hp3.get<number>("id"), categoryId: fantasy.get<number>("id") },
   ])
   .execute()
 
