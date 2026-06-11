@@ -1073,6 +1073,96 @@ describe("runtime validation", () => {
 })
 
 // ---------------------------------------------------------------------------
+// Response validation
+// ---------------------------------------------------------------------------
+describe("response validation", () => {
+  it("passes valid JSON response matching schema through", async () => {
+    const app = new Hono()
+    app.get(
+      "/pets",
+      route()
+        .response(200, type({ name: "string" }))
+        .handle((c) => c.json({ name: "Fido" })),
+    )
+
+    const res = await app.request("/pets")
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ name: "Fido" })
+  })
+
+  it("returns 500 for invalid JSON response (data doesn't match schema)", async () => {
+    const app = new Hono()
+    app.get(
+      "/pets",
+      route()
+        .response(200, type({ name: "string" }))
+        .handle((c) => c.json({ name: 42 })),
+    )
+
+    const res = await app.request("/pets")
+    expect(res.status).toBe(500)
+    const body: any = await res.json()
+    expect(body.error).toBe("Response validation failed")
+    expect(Array.isArray(body.issues)).toBe(true)
+  })
+
+  it("skips validation for non-JSON responses", async () => {
+    const app = new Hono()
+    app.get(
+      "/pets",
+      route()
+        .response(200, type({ name: "string" }))
+        .handle((c) => c.text("hello")),
+    )
+
+    const res = await app.request("/pets")
+    expect(res.status).toBe(200)
+    expect(await res.text()).toBe("hello")
+  })
+
+  it("skips validation when no schema is declared for the returned status code", async () => {
+    const app = new Hono()
+    app.get(
+      "/pets",
+      route()
+        .response(201, type({ name: "string" }))
+        .handle((c) => c.json({ anything: "goes" })),
+    )
+
+    const res = await app.request("/pets")
+    expect(res.status).toBe(200)
+  })
+
+  it("skips validation for 204 No Content", async () => {
+    const app = new Hono()
+    app.get(
+      "/empty",
+      route()
+        .response(204, type({}))
+        .handle((c) => c.body(null, 204)),
+    )
+
+    const res = await app.request("/empty")
+    expect(res.status).toBe(204)
+  })
+
+  it("respects per-route onResponseValidationError handler", async () => {
+    const app = new Hono()
+    app.get(
+      "/pets",
+      route()
+        .onResponseValidationError((_issues, c) => c.json({ error: "Wrong shape!" }, 422))
+        .response(200, type({ name: "string" }))
+        .handle((c) => c.json({ name: 42 })),
+    )
+
+    const res = await app.request("/pets")
+    expect(res.status).toBe(422)
+    expect(await res.json()).toEqual({ error: "Wrong shape!" })
+  })
+})
+
+// ---------------------------------------------------------------------------
 // paginated()
 // ---------------------------------------------------------------------------
 describe("paginated", () => {

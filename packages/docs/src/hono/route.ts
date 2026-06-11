@@ -43,6 +43,14 @@ export function setOnValidationError(handler: ValidationErrorHandler): () => voi
   }
 }
 
+// ---------------------------------------------------------------------------
+// Response validation error handler — customize the response on response
+// validation failure (handler returned data that doesn't match the schema)
+// ---------------------------------------------------------------------------
+const onResponseValidationError: ValidationErrorHandler = (issues, c) => {
+  return c.json({ error: "Response validation failed", issues }, 500)
+}
+
 /** @internal */
 export function createValidator(
   target: "json" | "query" | "param" | "header",
@@ -130,6 +138,7 @@ export class RouteBuilder<
     security?: string[]
     responses: Record<string, ArkTypeSchema | string | Record<string, unknown>>
     onValidationError?: ValidationErrorHandler
+    onResponseValidationError?: ValidationErrorHandler
   } = { responses: {} }
 
   private static readonly VALIDATOR_MAP = [
@@ -227,6 +236,11 @@ export class RouteBuilder<
 
   onValidationError(handler: ValidationErrorHandler): this {
     this._config.onValidationError = handler
+    return this
+  }
+
+  onResponseValidationError(handler: ValidationErrorHandler): this {
+    this._config.onResponseValidationError = handler
     return this
   }
 
@@ -408,9 +422,40 @@ export class RouteBuilder<
           const result = await validators[i]!(c, run.bind(null, i + 1) as unknown as Next)
           return result ?? undefined
         }
-        return handler(c as unknown as TypedContext<B, Q, P, Hd, Pg, F, Sr, Ir, Fs>) ?? undefined
+        const response = (await handler(c as unknown as TypedContext<B, Q, P, Hd, Pg, F, Sr, Ir, Fs>)) ?? undefined
+        if (response) {
+          const onError = this._config.onResponseValidationError ?? onResponseValidationError
+          return (await this.validateResponse(response, c, onError)) ?? undefined
+        }
+        return response
       }
       return run(0)
+    }
+  }
+
+  private async validateResponse(response: Response, c: Context, onError: ValidationErrorHandler): Promise<Response> {
+    // Only validate JSON responses with a body
+    const contentType = response.headers.get("content-type") ?? ""
+    if (!contentType.includes("application/json")) return response
+    if (response.status === 204) return response
+
+    const schema = this._config.responses[String(response.status)]
+    if (!schema || (typeof schema !== "object" && typeof schema !== "function") || !("~standard" in schema))
+      return response
+
+    try {
+      const cloned = response.clone()
+      const body = await cloned.json()
+      const result = await (schema as ArkTypeSchema)["~standard"].validate(body)
+
+      if (Array.isArray(result)) return onError([...result], c)
+      const r = result as { issues?: Iterable<unknown>; value?: unknown }
+      if (r.issues) return onError([...r.issues], c)
+
+      return response
+    } catch {
+      // Body couldn't be parsed as JSON — skip validation
+      return response
     }
   }
 
