@@ -73,8 +73,7 @@ app.get(
 app.post(
   "/",
   async (c, next) => {
-    const session = (c.var as Record<string, unknown>).session as { userId?: number } | undefined
-    if (!session?.userId) {
+    if (!c.var.session?.userId) {
       return c.json({ error: "Unauthorized" }, 401)
     }
     await next()
@@ -89,7 +88,6 @@ app.post(
     .handle(async (c) => {
       const bookId = Number(c.req.param("id"))
       const body = c.req.valid("json")
-      const session = (c.var as Record<string, unknown>).session as { userId: number }
 
       // Verify book exists
       const book = await Book.find(bookId)
@@ -99,7 +97,7 @@ app.post(
 
       const review = await Review.insert({
         bookId,
-        userId: session.userId,
+        userId: c.var.session.userId!,
         rating: body.rating,
         body: body.body ?? null,
         createdAt: new Date().toISOString(),

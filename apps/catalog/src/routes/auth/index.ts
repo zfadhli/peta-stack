@@ -55,11 +55,7 @@ app.post(
       })
 
       // Set session
-      const session = (c.var as Record<string, unknown>).session as {
-        userId: number
-        userRole: string
-        save: () => Promise<void>
-      }
+      const session = c.var.session
       session.userId = user.get("id") as number
       session.userRole = user.get("role") as string
       await session.save()
@@ -102,11 +98,7 @@ app.post(
       }
 
       // Set session
-      const session = (c.var as Record<string, unknown>).session as {
-        userId: number
-        userRole: string
-        save: () => Promise<void>
-      }
+      const session = c.var.session
       session.userId = user.get("id") as number
       session.userRole = user.get("role") as string
       await session.save()
@@ -130,10 +122,7 @@ app.post(
     .tags("auth")
     .response(200, "Logged out")
     .handle(async (c) => {
-      const session = (c.var as Record<string, unknown>).session as {
-        destroy: () => void
-      }
-      session.destroy()
+      c.var.session.destroy()
       return c.json({ ok: true })
     }),
 )
@@ -149,16 +138,11 @@ app.get(
     .response(200, UserResponse)
     .response(401, "Not authenticated")
     .handle(async (c) => {
-      const session = (c.var as Record<string, unknown>).session as {
-        userId?: number
-        userRole?: string
-      }
-
-      if (!session.userId) {
+      if (!c.var.session.userId) {
         return c.json({ error: "Not authenticated" }, 401)
       }
 
-      const user = await User.find(session.userId)
+      const user = await User.find(c.var.session.userId!)
       if (!user) {
         return c.json({ error: "User not found" }, 404)
       }
