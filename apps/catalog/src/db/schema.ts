@@ -203,6 +203,7 @@ let _peta: ReturnType<typeof createPeta> | null = null
 export function getPeta(): ReturnType<typeof createPeta> {
   if (!_peta) {
     const database = new Database("catalog.db", { create: true })
+    database.run("PRAGMA foreign_keys = ON")
     createTables(database)
     _peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
     _peta.registerAll(User, Author, Book, Category, BookCategory, Review)

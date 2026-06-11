@@ -1,163 +1,125 @@
-# Session Handoff — 2025-06-11 06:30
+# Session Handoff — 2026-06-11 13:48
 
 ## Goal
 
-Full `/rebuild` of `peta-orm` → monorepo `peta-stack` following Evan You coding style:
-function-based Composition API, strict TypeScript, minimal API surface, modular structure.
-
-Also renamed `peta-hono` → `peta-docs` and added it to the monorepo.
+Iteratively improve the Books Catalog API (apps/catalog) and fix bugs in peta-orm. Major themes: eliminate `clone()` bugs, suppress ArkType OpenAPI warnings, add HTTP error helper, improve error handling, add transactions, eliminate TOCTOU races, complete CRUD for all entities.
 
 ## Files Modified/Created
 
-### Monorepo structure
-- `/` — root `package.json` (bun workspaces), `tsconfig.base.json`, `biome.json`
-- `packages/orm/` — peta-orm (moved from root)
-- `packages/auth/` — peta-auth (cloned from GitHub, fresh git history)
-- `packages/docs/` — peta-docs (renamed from peta-hono)
+### apps/catalog/ — 10 source files + 2 new
 
-### packages/orm/ — Full rebuild (class → function)
-- `src/peta/index.ts` — `createPeta()` factory (replaced `Peta` class)
-- `src/model/index.ts` — `defineModel()` factory (replaced `class Model`)
-- `src/model/state.ts` — WeakMap-based model state (kept functional pattern)
-- `src/model/save.ts`, `src/model/delete.ts` — persistence functions
-- `src/model/hooks.ts` — hooks/soft-delete registration
-- `src/model/scope.ts`, `src/model/relation.ts`, `src/model/serialize.ts`
-- `src/builder/query.ts` — `createQueryBuilder()` factory (replaced `ModelQueryBuilder`)
-- `src/builder/update.ts`, `src/builder/delete.ts`, `src/builder/eager.ts` — factories
-- `src/collection/index.ts` — `createCollection()` factory
-- `src/pagination/index.ts` — `createPaginator()` factory
-- `src/columns/column.ts` — `createColumn()` factory (replaced `Column` class)
-- `src/columns/arktype.ts`, `src/columns/types.ts`, `src/columns/schema.ts`
-- `src/relations/relation.ts` — `hasMany()`, `belongsTo()`, `hasOne()`, `manyToMany()`, `hasManyThrough()` factories
-- `src/relations/morph.ts` — `defineMorphTo/Many/One()` factories
-- `src/hooks/index.ts` — `createHookManager()` factory
-- `src/errors.ts` — error classes (kept as classes — exceptions for Error types)
-- `src/types.ts` — `PetaLike`, `ModelLike`, `ModelId`
-- `src/lib/id.ts`, `src/lib/kysely.ts` — type utilities
-- `src/index.ts` — minimal barrel
-- `src/migrations/runner.ts`, `src/migrations/generator.ts` — factory functions
-- `src/migrations/cli.ts`, `src/migrations/config.ts`, `src/migrations/types.ts`
-- `src/integrations/hono.ts`, `src/integrations/elysia.ts`
-- **Deleted**: all 18 old class-based files (model.ts, query-builder.ts, peta.ts, etc.)
-- **Added**: `tsdown.config.ts` (replaced `bun build` + `tsc`), deleted `tsconfig.build.json`
+**New files:**
+- `src/middleware/http-error.ts` — `http.conflict()`, `.notFound()`, `.unauthorized()`, `.forbidden()`, `.badRequest()` wrappers around Hono's `HTTPException`
 
-### packages/auth/ — Rebuild (pattern fixes)
-- `src/errors.ts` — NEW `PetaAuthError` class
-- `src/session.ts` — `opts`→`options`, `ttl`→`timeToLive`, raw throws→`PetaAuthError`
-- `src/jwt.ts` — `exp`→`expiresIn`, raw throw→`PetaAuthError`
-- `src/crypto.ts` — `pw`→`secret`, removed `as` casts
-- `src/csrf.ts` — removed `as Record` casts (uses `IronSession` index signature)
-- `src/elysia.ts` — type cast fixes
-- `src/nuxt.ts` — raw throw→`PetaAuthError`
-- `src/oauth/index.ts` — raw throw→`PetaAuthError`
-- `src/index.ts` — re-exports `PetaAuthError`
-- `test/errors.test.ts` — NEW tests for `PetaAuthError`
+**Modified:**
+- `src/index.ts` — Added global `onError` handler (catches `HTTPException` + `DatabaseError` + raw SQLite errors via `normalizeError`), column-aware friendly error messages
+- `src/middleware/auth.ts` — Renamed from `routes/middleware.ts`, now throws `http.*()` instead of `return c.json()`
+- `src/routes/auth.ts` — Removed pre-flight SELECT (TOCTOU race), catches `DatabaseError("UNIQUE_CONSTRAINT")` for friendly message, email validation via `"string.email"`
+- `src/routes/authors.ts` — Added `PATCH /:id` and `DELETE /:id` (soft-delete, guarded against books), `UpdateAuthorBody` schema
+- `src/routes/books.ts` — `POST /books` wrapped in `Book.transaction()` (atomic book + categories), `PATCH /:id` category ops wrapped in transaction, raw `trx.deleteFrom` for category cleanup
+- `src/routes/books_reviews.ts` — Added `GET /:reviewId`, `PATCH /:reviewId`, `DELETE /:reviewId` (ownership check), `UpdateReviewBody` schema
+- `src/routes/categories.ts` — Added `GET /:id`, `PATCH /:id`, `DELETE /:id` (guarded against pivot books), removed pre-flight SELECT
+- `src/db/schema.ts` — Added `deletedAt` column + `hidden: ["deletedAt"]` + `registerSoftDeletes()` to Author model
+- `src/db/seed.ts` — Added 2 reviews for "1984" (Alice + Bob)
 
-### packages/docs/ — Renamed from peta-hono, restructured
-- `src/scanner.ts` — NEW framework-agnostic `RouteScanner` interface
-- `src/hono/route.ts` — MOVED + auth guard injected in `handle()` (mechanism-level)
-- `src/hono/scanner.ts` — MOVED from `hono-scanner.ts`, implements `RouteScanner`
-- `src/hono/loader.ts` — MOVED, `Hono<any,any,any>` → opaque `AnyHono` alias
-- `src/hono/index.ts` — NEW barrel for `peta-docs/hono` sub-path export
-- `src/elysia/index.ts` — NEW scaffold
-- `src/index.ts` — core-only exports (no hono-specific)
-- `src/spec.ts`, `src/scalar.ts`, `src/types.ts` — unchanged logic
-- `package.json` — renamed, added `./hono` export
+### packages/orm/ — 2 files modified
+
+- `src/builder/query.ts` — Eliminated `clone()` from `first()`, `find()`, `findOrFail()`, `chunk()`. These methods now work directly with `qb` instead of cloning, preserving WHERE/ORDER BY/LIMIT/OFFSET state. Updated the `clone()` comment to a strong WARNING.
+- `src/model/serialize.ts` — `modelToJSON` now calls `r.$toJSON(visited)` on related models instead of `modelToJSON(def, r, visited)`, using each related model's own `hidden`/`visible`/`casts`/`appends`. Added `typeof .$toJSON === "function"` guard instead of `typeof === "object"`.
+
+### packages/docs/ — 1 file modified
+
+- `src/spec.ts` — `toOpenAPISchema()` now falls back to `schema.in.toJsonSchema()` for pipe/morph schemas, stripping the morph layer to expose the input type. Eliminates 4 console.warn messages at startup and gives filter params proper JSON Schema types.
 
 ## Key Decisions
 
-1. **Monorepo via bun workspaces** — `"workspaces": ["packages/*"]` in root package.json. No pnpm/turbo/nx needed.
+1. **`clone()` eliminated from 4 internal methods** — `first()`, `find()`, `findOrFail()`, `chunk()` all called `self.clone()` which creates a fresh QueryBuilder without any prior WHERE/ORDER BY state. This caused `User.query().where("email", body.email).first()` to return the first user regardless of email, making signup always fail with 409.
 
-2. **22+ classes → factory functions** in peta-orm. Error classes kept as classes (exception for Error subclasses). Model uses `defineModel("table", { columns, relations, casts, ... })` instead of `class extends Model`.
+2. **Use per-instance `$toJSON()` for related models** — Instead of passing the parent's model definition (def) when serializing related models, call each instance's own `$toJSON()`. This ensures each related model uses its own `hidden`/`visible`/`casts`/`appends` config, and guards against plain objects stored as relations (like `_pivot`).
 
-3. **tsdown for both orm and auth** — unified build tooling. Replaced `bun build` + `tsc --declaration` with single `tsdown` command. Output is `.mjs` / `.d.mts`.
+3. **HTTP error helper + global onError** — All route handlers now `throw http.conflict()` / `http.notFound()` etc. instead of `return c.json({ error }, status)`. The global `onError` handler catches `HTTPException`, `DatabaseError`, and raw SQLite errors (via `normalizeError`) and returns consistent `{ error: string }` JSON.
 
-4. **`verbatimModuleSyntax: true`** across all packages via root tsconfig.base.json. Auth imports changed from `.ts` to `.js` extensions.
+4. **Column-aware error messages** — The `onError` handler extracts the column name from the raw driver error message (`"UNIQUE constraint failed: users.email"` → `"email"`) and maps to friendly messages like `"A user with this email already exists"`.
 
-5. **Auth guard in peta-docs RouteBuilder.handle()** — `.auth("bearerAuth")` now injects a mechanism-level middleware that checks for `Authorization: Bearer` header presence at runtime, not just in the OpenAPI spec.
+5. **Eliminated TOCTOU races** — Removed pre-flight SELECT checks in auth signup and category creation. Let the DB UNIQUE constraint enforce uniqueness, catching `DatabaseError("UNIQUE_CONSTRAINT")` for friendlier messages.
 
-6. **Framework adapter pattern for peta-docs** — core (`spec`, `scalar`, `types`, `scanner` interface) is framework-agnostic in `src/`. Framework-specific code lives in `src/hono/`. Elysia scaffold ready for future.
+6. **Transactions for multi-step writes** — `POST /books` (book insert + category pivots) and `PATCH /books` (category replace) are wrapped in `Book.transaction()`. Raw `trx.insertInto`/`trx.deleteFrom` used for operations that bypass the ORM's instance methods (which don't accept a kysely override).
 
-7. **AkType `| undefined` issue** — ArkType's `toJsonSchema()` can't represent unions with `void`/`undefined` (throws `{ code: "unit" }`). Fix: remove `| undefined` from TypeScript type strings passed to `type()`. Values are already optional at the HTTP level.
+7. **Complete CRUD** — Added 8 missing endpoints to reach full CRUD parity across all 5 entity types. Author + Category deletions guard against orphaned books.
 
-8. **Many-to-many eager loading fix** — `addEagerConstraints` now selects pivot FK columns so `match()` can group results by parent model. Removed `_pivot_` / `_through_` prefix convention.
+8. **ArkType `| undefined` in type strings breaks toJsonSchema()** — Use `"string?"` suffix instead of `"string | undefined"`.
 
-9. **JSON auto-stringify** — `set()`, `fill()`, and `saveModel()` auto-stringify objects for `casts: { col: "json" }` columns before sending to SQLite.
+9. **ArkType `pipe()` schemas produce OpenAPI conversion warnings** — Fixed by falling back to `schema.in.toJsonSchema()`. This is no longer cosmetic — filter params now have proper types in the spec.
 
 ## Current State
 
-### packages/orm ✅
-- 156 tests pass
+### apps/catalog/ ✅
+- **19 API endpoints** across 5 route files (was 16)
+- Full CRUD for Books, Authors, Categories, Reviews
+- Session-based auth with ownership checks on review mutations
+- Global error handler with friendly, column-aware messages
+- Transactions for atomic book + category writes
+- No pre-flight SELECT races
+- Email format validation via `"string.email"`
+- OpenAPI spec at `/openapi.json`, Scalar UI at `/docs`
 - TypeScript strict, 0 errors
-- biome clean
-- tsdown builds 3 entries (index, migrations/index, migrations/cli)
 
-### packages/auth ✅
-- 75 tests pass (1 new: PetaAuthError)
+### packages/orm/ ✅
+- 156 tests pass (0 regression)
 - TypeScript strict, 0 errors
-- biome clean (some `noExplicitAny` warnings — acceptable for OAuth token handling)
-- tsdown builds 9 entries
+- `first()`, `find()`, `findOrFail()`, `chunk()` no longer drop query state
+- `modelToJSON` uses per-instance `$toJSON()` for correct config inheritance
+- Biome clean
 
-### packages/docs ✅
-- 88 tests pass
-- TypeScript strict, 0 errors
-- biome clean
-- tsdown builds 2 entries (core + hono)
-- No remaining `[peta-hono]` references
+### packages/docs/ ✅
+- OpenAPI conversion no longer warns on pipe/morph schemas
+- Filter params have proper JSON Schema types (not empty `{}`)
 
-### All examples runnable
-- `packages/orm/examples/*.ts` — import from `../src/index.js`
-- `packages/auth/examples/*.ts` — import from `../src/index.js`
-- `packages/docs/examples/basic.ts` — clean run, no warnings
+### How to run
+```bash
+cd apps/catalog
+bun run src/db/seed.ts   # populate sample data
+bun run src/index.ts      # start server at :3000
+# Open http://localhost:3000/docs
+```
 
 ## Next Steps / Pending
 
+- [ ] Add test infrastructure for the catalog app (vitest/supertest or bun:test)
+- [ ] Add env var validation (`.env.example`, SESSION_PASSWORD minimum length check)
+- [ ] Add rate limiting and CSRF protection (peta-auth has `src/csrf.ts` but it's unused)
+- [ ] Add `PRAGMA foreign_keys = ON` in schema setup
+- [ ] Add security headers (`hono/secure-headers`)
+- [ ] Add response compression (`hono/compress`)
+- [ ] Update root README.md to describe monorepo structure + catalog app
 - [ ] Publish packages to npm (update versions, changelogs)
-- [ ] Add `packages/docs/elysia/` implementation (Elysia adapter for peta-docs)
-- [ ] Consider adding runtime response validation to RouteBuilder.handle()
-- [ ] Update root README.md to describe monorepo structure
-- [ ] The `loadRoutes` test for peta-docs dynamically creates temp dirs with files that import from the source. If deep-link paths break (like the `../../../../src/hono/index.ts`), those tests will fail.
 
 ## Important Context
 
 ### Architecture
 ```
 peta-stack/
-├── package.json            # workspaces: ["packages/*"]
-├── tsconfig.base.json      # shared strict base (verbatimModuleSyntax: true)
-├── biome.json              # unified config
-├── packages/
-│   ├── orm/                # peta-orm — function-based ORM on Kysely
-│   ├── auth/               # peta-auth — encrypted cookie sessions
-│   └── docs/               # peta-docs — OpenAPI/Scalar docs toolkit
-```
-
-### Running things
-```bash
-# Run all tests
-cd packages/orm && bun test        # 156 tests
-cd packages/auth && bun test       # 75 tests
-cd packages/docs && bun test       # 88 tests
-
-# Typecheck
-cd packages/orm && bun run typecheck
-cd packages/auth && bun run typecheck
-cd packages/docs && bun run typecheck
-
-# Build
-cd packages/orm && bun run build    # tsdown
-cd packages/auth && bun run build   # tsdown
-cd packages/docs && bun run build   # tsdown (2 entries)
-
-# Run examples
-bun run packages/orm/examples/01-basic-setup.ts
-bun run packages/auth/examples/jwt-basic.ts
-bun run packages/docs/examples/basic.ts
+├── apps/catalog/              # Books Catalog API (demo application)
+│   └── src/
+│       ├── middleware/         # auth.ts (requireSession, requireRole) + http-error.ts
+│       ├── routes/            # 5 flat route files (auth, authors, books, books_reviews, categories)
+│       ├── db/schema.ts       # 6 models + peta instance + table creation
+│       ├── db/seed.ts         # Sample data (10 books, 6 authors, 5 categories, 3 users, 2 reviews)
+│       ├── helpers.ts         # pick() utility
+│       ├── types/hono.d.ts    # ContextVariableMap augmentation
+│       └── index.ts           # App entry + global error handler
+├── packages/orm/              # peta-orm library
+├── packages/auth/             # peta-auth library
+└── packages/docs/             # peta-docs library
 ```
 
 ### Gotchas
-- ArkType `| undefined` in `type()` strings breaks `toJsonSchema()` — don't add it
-- `packages/docs/` was copied from `peta-hono` repo without `.git` — clean history
-- `packages/auth/` was copied from GitHub — fresh history in peta-stack
-- The `packages/orm/bin/peta` CLI uses `../dist/migrations/cli.mjs` — update if build output changes
-- Backup branches: `rebuild-backup-20260610-200839` (orm), `rebuild-auth-backup-20260611-051325` (auth)
+- **`$save()`, `$delete()`, `$find()` don't accept a kysely override** — Can't participate in transactions. Use raw `trx.insertInto()`, `trx.deleteFrom()` inside `Book.transaction()` callbacks.
+- **`insertMany()` DOES accept a kysely override** — Pass the `trx` handle as the second argument: `Model.insertMany(data, trx)`.
+- **`createQueryBuilder(def, peta, trx)`** — Needed when you need a QueryBuilder scoped to a transaction (e.g., for `deleteMany()` inside a transaction).
+- **ArkType `"string?"` means `string | undefined`**, not `string | null` — Response validation schemas using `"string?"` will reject `null` values from the ORM.
+- **ArkType `pipe()` schemas** — Now handled gracefully by `schema.in.toJsonSchema()` fallback in peta-docs.
+- **`DatabaseError`** has `.code`, `.table`, `.cause` properties. The cause contains the raw driver error with `.message` like `"UNIQUE constraint failed: users.email"`.
+- **`normalizeError(err)`** is exported from `peta-orm` and can convert raw SQLite errors to `DatabaseError`.
+- **Database file** is `catalog.db` in `apps/catalog/` — gitignored via `*.db`. Delete to reset.
+- **Session password** defaults to a hardcoded string in `src/index.ts` when `SESSION_PASSWORD` env var is not set.
