@@ -48,24 +48,8 @@ const CreateBookBody = type({
 // ---------------------------------------------------------------------------
 // Serialization helpers
 // ---------------------------------------------------------------------------
-function basicBookJSON(book: ModelInstance): Record<string, unknown> {
-  return {
-    id: book.get("id"),
-    title: book.get("title"),
-    isbn: book.get("isbn"),
-    description: book.get("description"),
-    publishedYear: book.get("publishedYear"),
-    price: book.get("price"),
-    authorId: book.get("authorId"),
-    coverImage: book.get("coverImage"),
-    inStock: book.get("inStock"),
-    createdAt: book.get("createdAt"),
-    updatedAt: book.get("updatedAt"),
-  }
-}
-
 function serializeBook(book: ModelInstance, include?: string[]): Record<string, unknown> {
-  const result = basicBookJSON(book)
+  const result = book.$toJSON()
   if (include) {
     for (const rel of include) {
       const related = book.$getRelation(rel)
@@ -203,22 +187,7 @@ app.post(
         }
       }
 
-      return c.json(
-        {
-          id: book.get("id"),
-          title: book.get("title"),
-          isbn: book.get("isbn"),
-          description: book.get("description"),
-          publishedYear: book.get("publishedYear"),
-          price: book.get("price"),
-          authorId: book.get("authorId"),
-          coverImage: book.get("coverImage"),
-          inStock: book.get("inStock"),
-          createdAt: book.get("createdAt"),
-          updatedAt: book.get("updatedAt"),
-        },
-        201,
-      )
+      return c.json((book as ModelInstance).$toJSON(), 201)
     }),
 )
 

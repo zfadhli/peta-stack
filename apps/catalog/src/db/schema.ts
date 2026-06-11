@@ -36,7 +36,7 @@ export const User = defineModel("users", {
     role: t.enum("admin", "user"),
     deletedAt: t.timestamp().nullable(),
   },
-  hidden: ["passwordHash"],
+  hidden: ["passwordHash", "deletedAt"],
 })
 
 export const Author: ModelDefinition = defineModel("authors", {
@@ -73,6 +73,7 @@ export const Book: ModelDefinition = defineModel("books", {
     }),
     reviews: hasMany(() => Review, { foreignKey: "bookId" }),
   },
+  hidden: ["deletedAt"],
   casts: {
     inStock: "boolean",
   },

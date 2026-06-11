@@ -41,22 +41,6 @@ const BookDetailResponse = type({
 // eager-loaded relation instances may conflict with $toJSON's internal
 // WeakMap-based state tracking (especially for manyToMany relations).
 // ---------------------------------------------------------------------------
-function basicBookJSON(book: ModelInstance): Record<string, unknown> {
-  return {
-    id: book.get("id"),
-    title: book.get("title"),
-    isbn: book.get("isbn"),
-    description: book.get("description"),
-    publishedYear: book.get("publishedYear"),
-    price: book.get("price"),
-    authorId: book.get("authorId"),
-    coverImage: book.get("coverImage"),
-    inStock: book.get("inStock"),
-    createdAt: book.get("createdAt"),
-    updatedAt: book.get("updatedAt"),
-  }
-}
-
 // ---------------------------------------------------------------------------
 // GET /books/:id — Get a book by ID
 // ---------------------------------------------------------------------------
@@ -85,7 +69,7 @@ app.get(
         return c.json({ error: "Not found" }, 404)
       }
 
-      const result = basicBookJSON(book)
+      const result = book.$toJSON()
       if (include) {
         for (const rel of include) {
           const related = book.$getRelation(rel)
@@ -148,7 +132,7 @@ app.patch(
         }
       }
 
-      return c.json(basicBookJSON(book))
+      return c.json(book.$toJSON())
     }),
 )
 
