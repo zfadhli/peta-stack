@@ -30,7 +30,7 @@ app.get(
     .filter("species", type("'cat'|'dog'|'bird' | undefined"))
     .sort(["name"])
     .paginated({ maxLimit: 50 })
-    .response(200, type({ items: Pet }))
+    .response(200, Pet.array())
     .handle((c) => {
       const q = c.req.valid("query")
       let filtered = [...pets]
