@@ -89,7 +89,24 @@ export function createQueryBuilder(def: ModelDefinition, peta: PetaLike, kyselyO
 
   const self: QueryBuilder = {
     clone(): QueryBuilder {
-      return createQueryBuilder(def, peta, db)
+      // NOTE: clone creates a fresh QueryBuilder that shares the same
+      // Kysely SELECT target but WITHOUT any WHERE/ORDER BY/etc clauses
+      // that were applied. This is by design for simple counting queries,
+      // but means filters set before clone() are lost.
+      //
+      // Methods like paginate() handle this by working directly with qb.
+      const c = createQueryBuilder(def, peta, db)
+      for (const el of eagerLoads) {
+        if (el.constraints) {
+          c.with({ [el.name]: el.constraints } as Record<string, (qb: QueryBuilder) => void>)
+        } else {
+          c.with(el.name)
+        }
+      }
+      if (withTrashed) c.withTrashed()
+      if (onlyTrashedMode) c.onlyTrashed()
+      for (const name of omitScopes) c.withoutGlobalScope(name)
+      return c
     },
     withoutGlobalScope(name: string): QueryBuilder {
       omitScopes.add(name)
@@ -166,14 +183,27 @@ export function createQueryBuilder(def: ModelDefinition, peta: PetaLike, kyselyO
     async paginate(page: number, perPage = 20) {
       page = Math.max(1, Math.floor(page))
       perPage = Math.max(1, Math.min(perPage, 1000))
-      const total = await self.clone().count()
-      const items = await self
-        .clone()
-        .limit(perPage)
-        .offset((page - 1) * perPage)
-        .execute()
+      // Use qb directly — Kysely builders are immutable, so each
+      // operation returns a new instance without modifying the original.
+      const hasDeletedColumn = "deletedAt" in def.columns
+      // Count total (without limit/offset)
+      let countQb = qb
+      if (!withTrashed && hasDeletedColumn) countQb = countQb.where("deletedAt", "is", null)
+      if (onlyTrashedMode && hasDeletedColumn) countQb = countQb.where("deletedAt", "is not", null)
+      const countResult = await countQb.select((eb: any) => eb.fn.countAll().as("count")).executeTakeFirst()
+      const total = Number(countResult?.count ?? 0)
+      // Fetch items (with limit/offset) + apply runtime filters
+      let fetchQb = qb.limit(perPage).offset((page - 1) * perPage)
+      if (!withTrashed && hasDeletedColumn) fetchQb = fetchQb.where("deletedAt", "is", null)
+      if (onlyTrashedMode && hasDeletedColumn) fetchQb = fetchQb.where("deletedAt", "is not", null)
+      const rows = (await fetchQb.selectAll().execute()) as Record<string, unknown>[]
+      const models = rows.map((row) => def._hydrate(row))
+      if (eagerLoads.length > 0) {
+        const loader = new EagerLoader()
+        for (const el of eagerLoads) await loader.loadRelated(models, el, def)
+      }
       const { createPaginator } = await import("../pagination/index.js")
-      return createPaginator(items, total, perPage, page)
+      return createPaginator(models, total, perPage, page)
     },
     with(...relations: (string | Record<string, (qb: QueryBuilder) => void>)[]): QueryBuilder {
       for (const arg of relations) {
