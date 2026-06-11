@@ -215,17 +215,7 @@ app.post(
     .response(400, "Invalid input")
     .response(401, "Unauthorized")
     .handle(async (c) => {
-      const body = c.req.valid("json") as {
-        title: string
-        isbn: string
-        description?: string
-        publishedYear?: number
-        price: number
-        authorId: number
-        coverImage?: string
-        inStock: boolean
-        categoryIds?: number[]
-      }
+      const body = c.req.valid("json")
 
       const book = (await Book.insert({
         title: body.title,

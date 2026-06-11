@@ -38,7 +38,7 @@ app.post(
     .response(201, UserResponse)
     .response(409, "Email already exists")
     .handle(async (c) => {
-      const body = c.req.valid("json") as { email: string; password: string; name: string }
+      const body = c.req.valid("json")
 
       // Check if email already exists
       const existing = await User.query().where("email", "=", body.email).first()
@@ -88,7 +88,7 @@ app.post(
     .response(200, UserResponse)
     .response(401, "Invalid credentials")
     .handle(async (c) => {
-      const body = c.req.valid("json") as { email: string; password: string }
+      const body = c.req.valid("json")
 
       const user = await User.query().where("email", "=", body.email).first()
       if (!user) {

@@ -88,7 +88,7 @@ app.post(
     .response(401, "Unauthorized")
     .handle(async (c) => {
       const bookId = Number(c.req.param("id"))
-      const body = c.req.valid("json") as { rating: number; body?: string }
+      const body = c.req.valid("json")
       const session = (c.var as Record<string, unknown>).session as { userId: number }
 
       // Verify book exists

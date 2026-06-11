@@ -50,7 +50,7 @@ app.post(
     .response(401, "Unauthorized")
     .response(409, "Category already exists")
     .handle(async (c) => {
-      const body = c.req.valid("json") as { name: string; description?: string }
+      const body = c.req.valid("json")
 
       // Check for duplicate
       const existing = await Category.query().where("name", "=", body.name).first()

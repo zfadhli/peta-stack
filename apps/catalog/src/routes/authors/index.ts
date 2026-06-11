@@ -70,7 +70,7 @@ app.post(
     .response(201, AuthorResponse)
     .response(401, "Unauthorized")
     .handle(async (c) => {
-      const body = c.req.valid("json") as { name: string; bio?: string }
+      const body = c.req.valid("json")
 
       const author = await Author.insert({
         name: body.name,
