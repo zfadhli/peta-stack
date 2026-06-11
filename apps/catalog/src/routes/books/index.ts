@@ -33,6 +33,14 @@ const BookListResponse = type({
   hasMorePages: "boolean",
 })
 
+// Pipe schemas — coerce query string params to typed values
+const Num = type("string").pipe((s: string, ctx) => {
+  const n = Number(s)
+  if (Number.isNaN(n)) return ctx.reject("must be a numeric string")
+  return n
+})
+const Bool = type("'true'|'false'|'1'|'0'").pipe((s: string) => s === "true" || s === "1")
+
 const CreateBookBody = type({
   title: "string>0",
   isbn: "string>=10&string<=13",
@@ -55,74 +63,44 @@ app.get(
     .description("Returns a paginated, filterable, sortable list of books")
     .tags("books")
     .paginated({ maxLimit: 100 })
-    .filter("authorId", type("string"))
-    .filter("inStock", type("string"))
-    .filter("price", type("string"), { operators: ["gte", "lte"] })
+    .filter("authorId", Num)
+    .filter("inStock", Bool)
+    .filter("price", Num, { operators: ["gte", "lte"] })
     .sort(["title", "price", "publishedYear"])
     .include(["author", "categories"])
     .response(200, BookListResponse)
     .handle(async (c) => {
-      const q = c.req.valid("query") as {
-        page: number
-        limit: number
-        offset: number
-        sort?: string[]
-        include?: string[]
-        authorId?: string
-        inStock?: string
-        price__gte?: string
-        price__lte?: string
-      }
-
-      let query = Book.query()
-
-      // Apply filters (HTTP query params are strings, parse as needed)
-      if (q.authorId !== undefined) {
-        const id = Number(q.authorId)
-        if (!Number.isNaN(id)) query = query.where("authorId", "=", id)
-      }
-      if (q.inStock !== undefined) {
-        if (q.inStock === "true" || q.inStock === "1") {
-          query = query.where("inStock", "=", 1)
-        } else if (q.inStock === "false" || q.inStock === "0") {
-          query = query.where("inStock", "=", 0)
+      const { page, limit, sort, include, authorId, inStock, price__gte, price__lte } =
+        c.req.valid("query") as {
+          page: number
+          limit: number
+          authorId?: number
+          inStock?: boolean
+          price__gte?: number
+          price__lte?: number
+          sort?: string[]
+          include?: string[]
         }
-      }
-      if (q.price__gte !== undefined) {
-        const val = Number(q.price__gte)
-        if (!Number.isNaN(val)) query = query.where("price", ">=", val)
-      }
-      if (q.price__lte !== undefined) {
-        const val = Number(q.price__lte)
-        if (!Number.isNaN(val)) query = query.where("price", "<=", val)
-      }
+      const sorts = sort ?? []
 
-      // Apply sort
-      if (q.sort && q.sort.length > 0) {
-        for (const field of q.sort) {
-          const dir = field.startsWith("-") ? "desc" : "asc"
-          const col = field.replace(/^-/, "")
-          query = query.orderBy(col, dir as "asc" | "desc")
-        }
-      } else {
-        query = query.orderBy("title", "asc")
-      }
-
-      // Apply includes
-      if (q.include) {
-        for (const rel of q.include) {
-          query = query.with(rel)
-        }
-      }
-
-      // Paginate — use raw paginator properties instead of .toJSON()
-      // to avoid Collection.toJSON() calling $toJSON() on each model
-      // (which crashes when manyToMany relations are eagerly loaded)
-      const paginator = await query.paginate(q.page, q.limit)
-      const data = paginator.data.map((book) => book.$toJSON())
+      const paginator = await Book.query()
+        .when(authorId !== undefined, (q) => q.where("authorId", "=", authorId!))
+        .when(inStock !== undefined, (q) => q.where("inStock", "=", inStock ? 1 : 0))
+        .when(price__gte !== undefined, (q) => q.where("price", ">=", price__gte!))
+        .when(price__lte !== undefined, (q) => q.where("price", "<=", price__lte!))
+        .when(sorts.length > 0, (q) => {
+          for (const s of sorts) q.orderBy(s.replace(/^-/, ""), s.startsWith("-") ? "desc" : "asc")
+          return q
+        })
+        .unless(sorts.length > 0, (q) => q.orderBy("title", "asc"))
+        .when(include !== undefined && include.length > 0, (q) => {
+          for (const rel of include!) q = q.with(rel)
+          return q
+        })
+        .paginate(page, limit)
 
       return c.json({
-        data,
+        data: paginator.data.map((b) => b.$toJSON()),
         total: paginator.total,
         perPage: paginator.perPage,
         currentPage: paginator.currentPage,
