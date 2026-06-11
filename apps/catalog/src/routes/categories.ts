@@ -2,7 +2,8 @@ import { type } from "arktype"
 import { Hono } from "hono"
 import { route } from "peta-docs/hono"
 import type { ModelInstance } from "peta-orm"
-import { Category } from "../db/schema.js"
+import { DatabaseError } from "peta-orm"
+import { BookCategory, Category } from "../db/schema.js"
 import { requireSession } from "../middleware/auth.js"
 import { http } from "../middleware/http-error.js"
 
@@ -10,6 +11,7 @@ const app = new Hono()
 
 const CategoryResponse = type({ id: "number", name: "string", description: "string?" })
 const CreateCategoryBody = type({ name: "string>0", description: "string?" })
+const UpdateCategoryBody = type({ name: "string>0?", description: "string?" })
 
 app.get(
   "/",
@@ -35,11 +37,90 @@ app.post(
     .response(409, "Category already exists")
     .handle(async (c) => {
       const body = c.req.valid("json")
-      const existing = await Category.query().where("name", "=", body.name).first()
-      if (existing) throw http.conflict("Category already exists")
 
-      const category = await Category.insert({ name: body.name, description: body.description ?? null })
+      let category: import("peta-orm").ModelInstance
+      try {
+        category = await Category.insert({ name: body.name, description: body.description ?? null })
+      } catch (err) {
+        if (err instanceof DatabaseError && err.code === "UNIQUE_CONSTRAINT") {
+          throw http.conflict("This category name already exists")
+        }
+        throw err
+      }
+
       return c.json(category.$toJSON() as Record<string, unknown>, 201)
+    }),
+)
+
+// ---------------------------------------------------------------------------
+// GET /categories/:id — Get a category by ID
+// ---------------------------------------------------------------------------
+app.get(
+  "/:id",
+  route()
+    .summary("Get a category by ID")
+    .tags("categories")
+    .params(type({ id: "string" }))
+    .response(200, CategoryResponse)
+    .response(404, "Not found")
+    .handle(async (c) => {
+      const category = await Category.find(Number(c.req.param("id")!))
+      if (!category) throw http.notFound()
+      return c.json(category.$toJSON())
+    }),
+)
+
+// ---------------------------------------------------------------------------
+// PATCH /categories/:id — Update a category
+// ---------------------------------------------------------------------------
+app.patch(
+  "/:id",
+  requireSession(),
+  route()
+    .summary("Update a category")
+    .tags("categories")
+    .params(type({ id: "string" }))
+    .requestBody(UpdateCategoryBody)
+    .response(200, CategoryResponse)
+    .response(404, "Not found")
+    .response(401, "Unauthorized")
+    .handle(async (c) => {
+      const rawId = c.req.param("id")!
+      const body = c.req.valid("json")
+
+      const category = await Category.find(Number(rawId))
+      if (!category) throw http.notFound()
+
+      category.fill(body as Record<string, unknown>)
+      await category.$save()
+      return c.json(category.$toJSON() as Record<string, unknown>)
+    }),
+)
+
+// ---------------------------------------------------------------------------
+// DELETE /categories/:id — Delete a category
+// ---------------------------------------------------------------------------
+app.delete(
+  "/:id",
+  requireSession(),
+  route()
+    .summary("Delete a category")
+    .tags("categories")
+    .params(type({ id: "string" }))
+    .response(204, "Deleted")
+    .response(404, "Not found")
+    .response(401, "Unauthorized")
+    .response(409, "Has books")
+    .handle(async (c) => {
+      const rawId = c.req.param("id")!
+      const category = await Category.find(Number(rawId))
+      if (!category) throw http.notFound()
+
+      const pivotRows = await BookCategory.query().where("categoryId", "=", Number(rawId)).limit(1).execute()
+      if (pivotRows.length > 0) throw http.conflict("Cannot delete category with associated books")
+
+      await Category.delete(rawId)
+      return c.body(null, 204)
     }),
 )
 

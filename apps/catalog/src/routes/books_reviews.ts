@@ -2,6 +2,7 @@ import { type } from "arktype"
 import { Hono } from "hono"
 import { route } from "peta-docs/hono"
 import { Book, Review } from "../db/schema.js"
+import { requireSession } from "../middleware/auth.js"
 import { http } from "../middleware/http-error.js"
 
 const app = new Hono()
@@ -23,6 +24,7 @@ const ReviewListResponse = type({
   hasMorePages: "boolean",
 })
 const CreateReviewBody = type({ rating: "number>=1&number<=5", body: "string?" })
+const UpdateReviewBody = type({ rating: "number>=1&number<=5?", body: "string?" })
 
 app.get(
   "/",
@@ -84,6 +86,81 @@ app.post(
       })
 
       return c.json(review.$toJSON() as Record<string, unknown>, 201)
+    }),
+)
+
+// ---------------------------------------------------------------------------
+// GET /books/:id/reviews/:reviewId — Get a review by ID
+// ---------------------------------------------------------------------------
+app.get(
+  "/:reviewId",
+  route()
+    .summary("Get a review by ID")
+    .tags("reviews")
+    .params(type({ reviewId: "string" }))
+    .response(200, ReviewResponse)
+    .response(404, "Not found")
+    .handle(async (c) => {
+      const bookId = Number(c.req.param("id")!)
+      const reviewId = Number(c.req.param("reviewId")!)
+      const review = await Review.query().where("id", "=", reviewId).where("bookId", "=", bookId).limit(1).execute()
+      if (!review[0]) throw http.notFound()
+      return c.json(review[0].$toJSON())
+    }),
+)
+
+// ---------------------------------------------------------------------------
+// PATCH /books/:id/reviews/:reviewId — Update a review
+// ---------------------------------------------------------------------------
+app.patch(
+  "/:reviewId",
+  requireSession(),
+  route()
+    .summary("Update a review")
+    .tags("reviews")
+    .params(type({ reviewId: "string" }))
+    .requestBody(UpdateReviewBody)
+    .response(200, ReviewResponse)
+    .response(404, "Not found")
+    .response(401, "Unauthorized")
+    .response(403, "Forbidden")
+    .handle(async (c) => {
+      const bookId = Number(c.req.param("id")!)
+      const reviewId = Number(c.req.param("reviewId")!)
+      const review = await Review.query().where("id", "=", reviewId).where("bookId", "=", bookId).limit(1).execute()
+      if (!review[0]) throw http.notFound()
+      if (review[0].get<number>("userId") !== c.var.session.userId) throw http.forbidden()
+
+      const body = c.req.valid("json")
+      review[0].fill(body as Record<string, unknown>)
+      await review[0].$save()
+      return c.json(review[0].$toJSON())
+    }),
+)
+
+// ---------------------------------------------------------------------------
+// DELETE /books/:id/reviews/:reviewId — Delete a review
+// ---------------------------------------------------------------------------
+app.delete(
+  "/:reviewId",
+  requireSession(),
+  route()
+    .summary("Delete a review")
+    .tags("reviews")
+    .params(type({ reviewId: "string" }))
+    .response(204, "Deleted")
+    .response(404, "Not found")
+    .response(401, "Unauthorized")
+    .response(403, "Forbidden")
+    .handle(async (c) => {
+      const bookId = Number(c.req.param("id")!)
+      const reviewId = Number(c.req.param("reviewId")!)
+      const review = await Review.query().where("id", "=", reviewId).where("bookId", "=", bookId).limit(1).execute()
+      if (!review[0]) throw http.notFound()
+      if (review[0].get<number>("userId") !== c.var.session.userId) throw http.forbidden()
+
+      await review[0].$delete()
+      return c.body(null, 204)
     }),
 )
 

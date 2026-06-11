@@ -146,23 +146,38 @@ app.post(
     .response(401, "Unauthorized")
     .handle(async (c) => {
       const body = c.req.valid("json")
-      const book = (await Book.insert({
-        title: body.title,
-        isbn: body.isbn,
-        description: body.description ?? null,
-        publishedYear: body.publishedYear ?? null,
-        price: body.price,
-        authorId: body.authorId,
-        coverImage: body.coverImage ?? null,
-        inStock: body.inStock,
-      })) as any
 
-      if (body.categoryIds?.length) {
-        const bookId = (book as ModelInstance).get<number>("id")
-        await BookCategory.insertMany(body.categoryIds.map((categoryId) => ({ bookId, categoryId })))
-      }
+      // Insert book and categories atomically
+      const bookId = await Book.transaction(async (trx) => {
+        const result = await trx
+          .insertInto("books")
+          .values({
+            title: body.title,
+            isbn: body.isbn,
+            description: body.description ?? null,
+            publishedYear: body.publishedYear ?? null,
+            price: body.price,
+            authorId: body.authorId,
+            coverImage: body.coverImage ?? null,
+            inStock: body.inStock,
+          })
+          .executeTakeFirst()
 
-      return c.json((book as ModelInstance).$toJSON(), 201)
+        const id = Number(result.insertId!)
+
+        if (body.categoryIds?.length) {
+          await BookCategory.insertMany(
+            body.categoryIds.map((cid) => ({ bookId: id, categoryId: cid })),
+            trx,
+          )
+        }
+
+        return id
+      })
+
+      // Re-fetch after commit to get a properly hydrated model
+      const book = (await Book.query().where("id", "=", bookId).execute())[0]!
+      return c.json(book.$toJSON(), 201)
     }),
 )
 
@@ -223,12 +238,18 @@ app.patch(
       book.fill(modelData)
       await book.$save()
 
+      // Atomically replace categories
       if (categoryIds !== undefined) {
         const bookId = (book as ModelInstance).get<number>("id")
-        await BookCategory.query().where("bookId", "=", bookId).deleteMany()
-        if (categoryIds.length > 0) {
-          await BookCategory.insertMany(categoryIds.map((categoryId) => ({ bookId, categoryId })))
-        }
+        await Book.transaction(async (trx) => {
+          await (trx.deleteFrom("book_categories") as any).where("bookId", "=", bookId).execute()
+          if (categoryIds.length > 0) {
+            await BookCategory.insertMany(
+              categoryIds.map((cid) => ({ bookId, categoryId: cid })),
+              trx,
+            )
+          }
+        })
       }
 
       return c.json(book.$toJSON())

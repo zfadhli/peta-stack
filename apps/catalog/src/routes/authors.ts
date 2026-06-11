@@ -2,7 +2,7 @@ import { type } from "arktype"
 import { Hono } from "hono"
 import { route } from "peta-docs/hono"
 import type { ModelInstance } from "peta-orm"
-import { Author } from "../db/schema.js"
+import { Author, Book } from "../db/schema.js"
 import { pick } from "../helpers.js"
 import { requireSession } from "../middleware/auth.js"
 import { http } from "../middleware/http-error.js"
@@ -19,6 +19,7 @@ const AuthorListResponse = type({
   hasMorePages: "boolean",
 })
 const CreateAuthorBody = type({ name: "string>0", bio: "string?" })
+const UpdateAuthorBody = type({ name: "string>0?", bio: "string?" })
 
 const BookSummary = type({
   id: "number",
@@ -89,6 +90,60 @@ app.get(
       const bookData = books.map((b) => pick(b.$toJSON(), "id", "title", "isbn", "price", "publishedYear", "inStock"))
 
       return c.json({ ...pick(model.$toJSON(), "id", "name", "bio"), books: bookData })
+    }),
+)
+
+// ---------------------------------------------------------------------------
+// PATCH /authors/:id — Update an author
+// ---------------------------------------------------------------------------
+app.patch(
+  "/:id",
+  requireSession(),
+  route()
+    .summary("Update an author")
+    .tags("authors")
+    .params(type({ id: "string" }))
+    .requestBody(UpdateAuthorBody)
+    .response(200, AuthorResponse)
+    .response(404, "Not found")
+    .response(401, "Unauthorized")
+    .handle(async (c) => {
+      const rawId = c.req.param("id")!
+      const body = c.req.valid("json")
+
+      const author = await Author.find(Number(rawId))
+      if (!author) throw http.notFound()
+
+      author.fill(body as Record<string, unknown>)
+      await author.$save()
+      return c.json(author.$toJSON() as Record<string, unknown>)
+    }),
+)
+
+// ---------------------------------------------------------------------------
+// DELETE /authors/:id — Delete an author (soft-delete)
+// ---------------------------------------------------------------------------
+app.delete(
+  "/:id",
+  requireSession(),
+  route()
+    .summary("Delete an author (soft-delete)")
+    .tags("authors")
+    .params(type({ id: "string" }))
+    .response(204, "Deleted")
+    .response(404, "Not found")
+    .response(401, "Unauthorized")
+    .response(409, "Has books")
+    .handle(async (c) => {
+      const rawId = c.req.param("id")!
+      const author = await Author.find(Number(rawId))
+      if (!author) throw http.notFound()
+
+      const books = await Book.query().where("authorId", "=", Number(rawId)).limit(1).execute()
+      if (books.length > 0) throw http.conflict("Cannot delete author with existing books")
+
+      await author.$delete()
+      return c.body(null, 204)
     }),
 )
 

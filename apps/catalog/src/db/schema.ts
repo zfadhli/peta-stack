@@ -44,10 +44,12 @@ export const Author: ModelDefinition = defineModel("authors", {
     id: t.integer().primaryKey(),
     name: t.string(255),
     bio: t.text().nullable(),
+    deletedAt: t.timestamp().nullable(),
   },
   relations: {
     books: hasMany(() => _Book, { foreignKey: "authorId" }),
   },
+  hidden: ["deletedAt"],
 })
 _Author = Author
 
@@ -141,6 +143,7 @@ export function createTables(database: Database): void {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       bio TEXT,
+      deletedAt TEXT,
       createdAt TEXT,
       updatedAt TEXT
     )
@@ -209,9 +212,10 @@ export function getPeta(): ReturnType<typeof createPeta> {
     Author.registerTimestamps()
     Book.registerTimestamps()
 
-    // Soft deletes for User and Book
+    // Soft deletes for User, Book, and Author
     User.registerSoftDeletes()
     Book.registerSoftDeletes()
+    Author.registerSoftDeletes()
   }
   return _peta
 }

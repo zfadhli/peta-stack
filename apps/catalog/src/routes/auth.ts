@@ -1,6 +1,7 @@
 import { type } from "arktype"
 import { Hono } from "hono"
 import { route } from "peta-docs/hono"
+import { DatabaseError } from "peta-orm"
 import { User } from "../db/schema.js"
 import { http } from "../middleware/http-error.js"
 
@@ -20,11 +21,17 @@ app.post(
     .response(409, "Email already exists")
     .handle(async (c) => {
       const body = c.req.valid("json")
-      const existing = await User.query().where("email", "=", body.email).first()
-      if (existing) throw http.conflict("Email already exists")
-
       const passwordHash = await Bun.password.hash(body.password, { algorithm: "bcrypt", cost: 10 })
-      const user = await User.insert({ email: body.email, passwordHash, name: body.name, role: "user" })
+
+      let user: import("peta-orm").ModelInstance
+      try {
+        user = await User.insert({ email: body.email, passwordHash, name: body.name, role: "user" })
+      } catch (err) {
+        if (err instanceof DatabaseError && err.code === "UNIQUE_CONSTRAINT") {
+          throw http.conflict("A user with this email already exists")
+        }
+        throw err
+      }
 
       const session = c.var.session
       session.userId = user.get<number>("id")

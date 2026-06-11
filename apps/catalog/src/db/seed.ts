@@ -1,4 +1,4 @@
-import { Author, Book, BookCategory, Category, getPeta, User } from "./schema.js"
+import { Author, Book, BookCategory, Category, getPeta, Review, User } from "./schema.js"
 
 const peta = getPeta()
 
@@ -195,6 +195,26 @@ await BookCategory.insertMany([
 ])
 
 console.log("Book-category pivot rows inserted")
+
+// ---------------------------------------------------------------------------
+// Reviews
+// ---------------------------------------------------------------------------
+await Review.insert({
+  bookId: book1984.get<number>("id"),
+  userId: alice.get<number>("id"),
+  rating: 5,
+  body: "A masterpiece of dystopian fiction.",
+  createdAt: new Date().toISOString(),
+})
+await Review.insert({
+  bookId: book1984.get<number>("id"),
+  userId: bob.get<number>("id"),
+  rating: 4,
+  body: "Thought-provoking and eerily relevant.",
+  createdAt: new Date().toISOString(),
+})
+
+console.log("Reviews: 2 reviews for 1984")
 
 // ---------------------------------------------------------------------------
 // Done
