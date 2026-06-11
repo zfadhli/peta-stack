@@ -102,7 +102,7 @@ function authGuard(schemes: string[]): MiddlewareHandler {
       }
       // Extensible: add "apiKey", "basicAuth", etc. here
     }
-    await next()
+    return await next()
   }
 }
 
