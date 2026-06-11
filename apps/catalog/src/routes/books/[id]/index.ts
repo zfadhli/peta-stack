@@ -69,19 +69,7 @@ app.get(
         return c.json({ error: "Not found" }, 404)
       }
 
-      const result = book.$toJSON()
-      if (include) {
-        for (const rel of include) {
-          const related = book.$getRelation(rel)
-          if (related) {
-            result[rel] = Array.isArray(related)
-              ? related.map((r) => r.$toJSON())
-              : related.$toJSON()
-          }
-        }
-      }
-
-      return c.json(result)
+      return c.json(book.$toJSON())
     }),
 )
 

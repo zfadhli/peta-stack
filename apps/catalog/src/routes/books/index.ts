@@ -46,24 +46,6 @@ const CreateBookBody = type({
 })
 
 // ---------------------------------------------------------------------------
-// Serialization helpers
-// ---------------------------------------------------------------------------
-function serializeBook(book: ModelInstance, include?: string[]): Record<string, unknown> {
-  const result = book.$toJSON()
-  if (include) {
-    for (const rel of include) {
-      const related = book.$getRelation(rel)
-      if (related) {
-        result[rel] = Array.isArray(related)
-          ? related.map((r) => r.$toJSON())
-          : related.$toJSON()
-      }
-    }
-  }
-  return result
-}
-
-// ---------------------------------------------------------------------------
 // GET /books — List books (paginated, filterable, sortable)
 // ---------------------------------------------------------------------------
 app.get(
@@ -137,7 +119,7 @@ app.get(
       // to avoid Collection.toJSON() calling $toJSON() on each model
       // (which crashes when manyToMany relations are eagerly loaded)
       const paginator = await query.paginate(q.page, q.limit)
-      const data = paginator.data.map((book) => serializeBook(book, q.include))
+      const data = paginator.data.map((book) => book.$toJSON())
 
       return c.json({
         data,
