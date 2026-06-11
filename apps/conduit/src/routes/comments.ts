@@ -3,7 +3,7 @@ import { Hono } from "hono"
 import { HTTPException } from "hono/http-exception"
 import { route } from "peta-docs/hono"
 import { Article, Comment, Follow, User } from "../db/schema.js"
-import { getCurrentUserId } from "../middleware/auth.js"
+import { getCurrentUserId, requireAuth } from "../middleware/auth.js"
 import { onValidationError } from "../middleware/error.js"
 
 const app = new Hono()
@@ -111,6 +111,7 @@ app.get(
 
 app.post(
   "/articles/:slug/comments",
+  requireAuth(),
   route()
     .summary("Create a comment for an article")
     .tags("Comments")
@@ -146,6 +147,7 @@ app.post(
 
 app.delete(
   "/articles/:slug/comments/:id",
+  requireAuth(),
   route()
     .summary("Delete a comment for an article")
     .tags("Comments")

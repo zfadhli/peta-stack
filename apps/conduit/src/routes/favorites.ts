@@ -4,7 +4,7 @@ import { HTTPException } from "hono/http-exception"
 import { route } from "peta-docs/hono"
 import type { ModelInstance } from "peta-orm"
 import { Article, Favorite, Follow, User } from "../db/schema.js"
-import { getCurrentUserId } from "../middleware/auth.js"
+import { getCurrentUserId, requireAuth } from "../middleware/auth.js"
 import { onValidationError } from "../middleware/error.js"
 
 const app = new Hono()
@@ -100,6 +100,7 @@ async function buildArticleResponse(article: ModelInstance, currentUserId?: numb
 
 app.post(
   "/articles/:slug/favorite",
+  requireAuth(),
   route()
     .summary("Favorite an article")
     .tags("Favorites")
@@ -138,6 +139,7 @@ app.post(
 
 app.delete(
   "/articles/:slug/favorite",
+  requireAuth(),
   route()
     .summary("Unfavorite an article")
     .tags("Favorites")

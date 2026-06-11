@@ -5,7 +5,7 @@ import { route } from "peta-docs/hono"
 import type { ModelInstance } from "peta-orm"
 import { Article, ArticleTag, Comment, Favorite, Follow, Tag, User } from "../db/schema.js"
 import { uniqueSlug } from "../lib/slug.js"
-import { getCurrentUserId } from "../middleware/auth.js"
+import { getCurrentUserId, requireAuth } from "../middleware/auth.js"
 import { onValidationError } from "../middleware/error.js"
 
 const app = new Hono()
@@ -220,6 +220,7 @@ app.get(
 
 app.get(
   "/articles/feed",
+  requireAuth(),
   route()
     .summary("Get recent articles from users you follow")
     .tags("Articles")
@@ -282,6 +283,7 @@ app.get(
 
 app.post(
   "/articles",
+  requireAuth(),
   route()
     .summary("Create an article")
     .tags("Articles")
@@ -326,6 +328,7 @@ app.post(
 
 app.put(
   "/articles/:slug",
+  requireAuth(),
   route()
     .summary("Update an article")
     .tags("Articles")
@@ -392,6 +395,7 @@ app.put(
 
 app.delete(
   "/articles/:slug",
+  requireAuth(),
   route()
     .summary("Delete an article")
     .tags("Articles")
