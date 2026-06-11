@@ -27,7 +27,7 @@ app.get(
   "/pets",
   route()
     .summary("List all pets")
-    .filter("species", type("'cat'|'dog'|'bird' | undefined"))
+    .filter("species", type("'cat'|'dog'|'bird'"))
     .sort(["name"])
     .paginated({ maxLimit: 50 })
     .response(200, Pet.array())
