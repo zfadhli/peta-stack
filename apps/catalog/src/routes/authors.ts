@@ -4,7 +4,8 @@ import { route } from "peta-docs/hono"
 import type { ModelInstance } from "peta-orm"
 import { Author } from "../db/schema.js"
 import { pick } from "../helpers.js"
-import { requireSession } from "./middleware.js"
+import { requireSession } from "../middleware/auth.js"
+import { http } from "../middleware/http-error.js"
 
 const app = new Hono()
 
@@ -82,7 +83,7 @@ app.get(
       const rawId = c.req.param("id")!
       const author = await Author.query().with("books").where("id", "=", Number(rawId)).execute()
       const model = author[0]
-      if (!model) return c.json({ error: "Not found" }, 404)
+      if (!model) throw http.notFound()
 
       const books = (model.$getRelation("books") ?? []) as ModelInstance[]
       const bookData = books.map((b) => pick(b.$toJSON(), "id", "title", "isbn", "price", "publishedYear", "inStock"))

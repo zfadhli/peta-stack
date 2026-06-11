@@ -4,7 +4,8 @@ import { route } from "peta-docs/hono"
 import type { ModelInstance } from "peta-orm"
 import { Book, BookCategory } from "../db/schema.js"
 import { pick } from "../helpers.js"
-import { requireSession } from "./middleware.js"
+import { requireSession } from "../middleware/auth.js"
+import { http } from "../middleware/http-error.js"
 
 const app = new Hono()
 
@@ -12,18 +13,35 @@ const app = new Hono()
 // Schemas
 // ---------------------------------------------------------------------------
 const BookDetailResponse = type({
-  id: "number", title: "string", isbn: "string", description: "string?",
-  publishedYear: "number?", price: "number", authorId: "number",
-  coverImage: "string?", inStock: "boolean", createdAt: "string?", updatedAt: "string?",
+  id: "number",
+  title: "string",
+  isbn: "string",
+  description: "string?",
+  publishedYear: "number?",
+  price: "number",
+  authorId: "number",
+  coverImage: "string?",
+  inStock: "boolean",
+  createdAt: "string?",
+  updatedAt: "string?",
 })
 
 const BookListEntry = type({
-  id: "number", title: "string", isbn: "string", price: "number", inStock: "boolean", authorId: "number",
+  id: "number",
+  title: "string",
+  isbn: "string",
+  price: "number",
+  inStock: "boolean",
+  authorId: "number",
 })
 
 const BookListResponse = type({
-  data: BookListEntry.array(), total: "number", perPage: "number",
-  currentPage: "number", lastPage: "number", hasMorePages: "boolean",
+  data: BookListEntry.array(),
+  total: "number",
+  perPage: "number",
+  currentPage: "number",
+  lastPage: "number",
+  hasMorePages: "boolean",
 })
 
 const Num = type("string").pipe((s: string, ctx) => {
@@ -34,35 +52,56 @@ const Num = type("string").pipe((s: string, ctx) => {
 const Bool = type("'true'|'false'|'1'|'0'").pipe((s: string) => s === "true" || s === "1")
 
 const CreateBookBody = type({
-  title: "string>0", isbn: "string>=10&string<=13", description: "string?",
-  publishedYear: "number?", price: "number>=0", authorId: "number",
-  coverImage: "string?", inStock: "boolean", categoryIds: "number[]?",
+  title: "string>0",
+  isbn: "string>=10&string<=13",
+  description: "string?",
+  publishedYear: "number?",
+  price: "number>=0",
+  authorId: "number",
+  coverImage: "string?",
+  inStock: "boolean",
+  categoryIds: "number[]?",
 })
 
 const UpdateBookBody = type({
-  title: "string>0?", isbn: "string>=10&string<=13?", description: "string?",
-  publishedYear: "number?", price: "number>=0?", authorId: "number?",
-  coverImage: "string?", inStock: "boolean?", categoryIds: "number[]?",
+  title: "string>0?",
+  isbn: "string>=10&string<=13?",
+  description: "string?",
+  publishedYear: "number?",
+  price: "number>=0?",
+  authorId: "number?",
+  coverImage: "string?",
+  inStock: "boolean?",
+  categoryIds: "number[]?",
 })
 
 // ---------------------------------------------------------------------------
 // GET /books — List books
 // ---------------------------------------------------------------------------
-app.get("/",
+app.get(
+  "/",
   route()
-    .summary("List books").description("Returns a paginated, filterable, sortable list of books")
+    .summary("List books")
+    .description("Returns a paginated, filterable, sortable list of books")
     .tags("books")
     .paginated({ maxLimit: 100 })
-    .filter("authorId", Num).filter("inStock", Bool)
+    .filter("authorId", Num)
+    .filter("inStock", Bool)
     .filter("price", Num, { operators: ["gte", "lte"] })
-    .sort(["title", "price", "publishedYear"]).include(["author", "categories"])
+    .sort(["title", "price", "publishedYear"])
+    .include(["author", "categories"])
     .response(200, BookListResponse)
     .handle(async (c) => {
-      const { page, limit, sort, include, authorId, inStock, price__gte, price__lte } =
-        c.req.valid("query") as {
-          page: number; limit: number; authorId?: number; inStock?: boolean
-          price__gte?: number; price__lte?: number; sort?: string[]; include?: string[]
-        }
+      const { page, limit, sort, include, authorId, inStock, price__gte, price__lte } = c.req.valid("query") as {
+        page: number
+        limit: number
+        authorId?: number
+        inStock?: boolean
+        price__gte?: number
+        price__lte?: number
+        sort?: string[]
+        include?: string[]
+      }
       const sorts = sort ?? []
 
       const paginator = await Book.query()
@@ -76,14 +115,18 @@ app.get("/",
         })
         .unless(sorts.length > 0, (q) => q.orderBy("title", "asc"))
         .when(include !== undefined && include.length > 0, (q) => {
-          for (const rel of include!) q = q.with(rel); return q
+          for (const rel of include!) q = q.with(rel)
+          return q
         })
         .paginate(page, limit)
 
       return c.json({
         data: paginator.data.map((b) => pick(b.$toJSON(), "id", "title", "isbn", "price", "inStock", "authorId")),
-        total: paginator.total, perPage: paginator.perPage, currentPage: paginator.currentPage,
-        lastPage: paginator.lastPage, hasMorePages: paginator.hasMorePages,
+        total: paginator.total,
+        perPage: paginator.perPage,
+        currentPage: paginator.currentPage,
+        lastPage: paginator.lastPage,
+        hasMorePages: paginator.hasMorePages,
       })
     }),
 )
@@ -91,17 +134,27 @@ app.get("/",
 // ---------------------------------------------------------------------------
 // POST /books — Create a book
 // ---------------------------------------------------------------------------
-app.post("/",
+app.post(
+  "/",
   requireSession(),
-  route().summary("Create a new book").tags("books")
-    .requestBody(CreateBookBody).response(201, BookDetailResponse)
-    .response(400, "Invalid input").response(401, "Unauthorized")
+  route()
+    .summary("Create a new book")
+    .tags("books")
+    .requestBody(CreateBookBody)
+    .response(201, BookDetailResponse)
+    .response(400, "Invalid input")
+    .response(401, "Unauthorized")
     .handle(async (c) => {
       const body = c.req.valid("json")
       const book = (await Book.insert({
-        title: body.title, isbn: body.isbn, description: body.description ?? null,
-        publishedYear: body.publishedYear ?? null, price: body.price, authorId: body.authorId,
-        coverImage: body.coverImage ?? null, inStock: body.inStock,
+        title: body.title,
+        isbn: body.isbn,
+        description: body.description ?? null,
+        publishedYear: body.publishedYear ?? null,
+        price: body.price,
+        authorId: body.authorId,
+        coverImage: body.coverImage ?? null,
+        inStock: body.inStock,
       })) as any
 
       if (body.categoryIds?.length) {
@@ -116,10 +169,15 @@ app.post("/",
 // ---------------------------------------------------------------------------
 // GET /books/:id — Get a book by ID
 // ---------------------------------------------------------------------------
-app.get("/:id",
-  route().summary("Get a book by ID").tags("books")
-    .params(type({ id: "string" })).include(["author", "categories", "reviews"])
-    .response(200, BookDetailResponse).response(404, "Not found")
+app.get(
+  "/:id",
+  route()
+    .summary("Get a book by ID")
+    .tags("books")
+    .params(type({ id: "string" }))
+    .include(["author", "categories", "reviews"])
+    .response(200, BookDetailResponse)
+    .response(404, "Not found")
     .handle(async (c) => {
       const rawId = c.req.param("id")!
       const q = c.req.valid("query") as { include?: string[] } | undefined
@@ -129,7 +187,7 @@ app.get("/:id",
 
       const books = await (query.limit(1).execute() as Promise<any[]>)
       const book = books[0]
-      if (!book) return c.json({ error: "Not found" }, 404)
+      if (!book) throw http.notFound()
       return c.json(book.$toJSON())
     }),
 )
@@ -137,18 +195,24 @@ app.get("/:id",
 // ---------------------------------------------------------------------------
 // PATCH /books/:id — Update a book
 // ---------------------------------------------------------------------------
-app.patch("/:id",
+app.patch(
+  "/:id",
   requireSession(),
-  route().summary("Update a book").tags("books")
-    .params(type({ id: "string" })).requestBody(UpdateBookBody)
-    .response(200, BookDetailResponse).response(404, "Not found").response(401, "Unauthorized")
+  route()
+    .summary("Update a book")
+    .tags("books")
+    .params(type({ id: "string" }))
+    .requestBody(UpdateBookBody)
+    .response(200, BookDetailResponse)
+    .response(404, "Not found")
+    .response(401, "Unauthorized")
     .handle(async (c) => {
       const rawId = c.req.param("id")!
       const body = c.req.valid("json") as Record<string, unknown>
 
       const books = await (Book.query().where("id", "=", Number(rawId)).execute() as Promise<any[]>)
       const book = books[0]
-      if (!book) return c.json({ error: "Not found" }, 404)
+      if (!book) throw http.notFound()
 
       const categoryIds = body.categoryIds as number[] | undefined
       const modelData: Record<string, unknown> = {}
@@ -174,16 +238,21 @@ app.patch("/:id",
 // ---------------------------------------------------------------------------
 // DELETE /books/:id — Soft-delete a book
 // ---------------------------------------------------------------------------
-app.delete("/:id",
+app.delete(
+  "/:id",
   requireSession(),
-  route().summary("Delete a book (soft-delete)").tags("books")
-    .params(type({ id: "string" })).response(204, "Deleted")
-    .response(404, "Not found").response(401, "Unauthorized")
+  route()
+    .summary("Delete a book (soft-delete)")
+    .tags("books")
+    .params(type({ id: "string" }))
+    .response(204, "Deleted")
+    .response(404, "Not found")
+    .response(401, "Unauthorized")
     .handle(async (c) => {
       const rawId = c.req.param("id")!
       const books = await (Book.query().where("id", "=", Number(rawId)).execute() as Promise<any[]>)
       const book = books[0]
-      if (!book) return c.json({ error: "Not found" }, 404)
+      if (!book) throw http.notFound()
       await book.$delete()
       return c.body(null, 204)
     }),

@@ -89,12 +89,14 @@ export function createQueryBuilder(def: ModelDefinition, peta: PetaLike, kyselyO
 
   const self: QueryBuilder = {
     clone(): QueryBuilder {
-      // NOTE: clone creates a fresh QueryBuilder that shares the same
-      // Kysely SELECT target but WITHOUT any WHERE/ORDER BY/etc clauses
-      // that were applied. This is by design for simple counting queries,
-      // but means filters set before clone() are lost.
+      // WARNING: clone creates a fresh QueryBuilder that shares the same
+      // Kysely SELECT target but WITHOUT any WHERE/ORDER BY/LIMIT/OFFSET/
+      // JOIN/etc clauses that were applied. This is by design for simple
+      // counting queries, but means all query state set before clone()
+      // is silently dropped.
       //
-      // Methods like paginate() handle this by working directly with qb.
+      // Internal methods (first, find, findOrFail, chunk, paginate) no
+      // longer use clone() — they work directly with qb.
       const c = createQueryBuilder(def, peta, db)
       for (const el of eagerLoads) {
         if (el.constraints) {
@@ -134,13 +136,17 @@ export function createQueryBuilder(def: ModelDefinition, peta: PetaLike, kyselyO
       return row
     },
     async find(id: number | string) {
-      return self.clone().where("id", "=", id).executeTakeFirst()
+      const rows = await self.where("id", "=", id).limit(1).execute()
+      return rows[0]
     },
     async findOrFail(id: number | string) {
-      return self.clone().where("id", "=", id).executeTakeFirstOrThrow()
+      const rows = await self.where("id", "=", id).limit(1).execute()
+      if (!rows[0]) throw new ModelNotFoundError(def.table)
+      return rows[0]
     },
     async first() {
-      return self.clone().limit(1).executeTakeFirst()
+      const rows = await self.limit(1).execute()
+      return rows[0]
     },
     toSQL(): { sql: string; parameters: readonly unknown[] } {
       const compiled = qb.compile() as { sql: string; parameters: readonly unknown[] }
@@ -169,8 +175,9 @@ export function createQueryBuilder(def: ModelDefinition, peta: PetaLike, kyselyO
     async chunk(size: number, callback: (chunk: ModelInstance[]) => Promise<void>): Promise<void> {
       let page = 1
       while (true) {
+        // No clone() — Kysely's limit()/offset() replace previous values,
+        // so each iteration gets the correct slice.
         const items = await self
-          .clone()
           .limit(size)
           .offset((page - 1) * size)
           .execute()
