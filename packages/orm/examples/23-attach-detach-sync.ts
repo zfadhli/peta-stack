@@ -18,7 +18,11 @@ const Tag = defineModel("tags", {
 })
 
 // Wire up after all models exist
-Post.relations.tags = manyToMany(() => Tag, { through: "post_tags", foreignPivotKey: "postId", relatedPivotKey: "tagId" })
+Post.relations.tags = manyToMany(() => Tag, {
+  through: "post_tags",
+  foreignPivotKey: "postId",
+  relatedPivotKey: "tagId",
+})
 
 const database = new Database(":memory:")
 database.run("CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL)")
