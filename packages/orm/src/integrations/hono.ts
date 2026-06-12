@@ -1,16 +1,17 @@
-import type { Context, Next } from "hono"
-import type { PetaLike } from "../types.js"
+import type { ORMLike } from "../types.js"
 
 export interface PetaHonoMiddlewareOptions {
-  peta: PetaLike
+  peta: ORMLike
 }
 
+/**
+ * Hono middleware that sets the ORM instance on the context.
+ */
 export function petaMiddleware(options: PetaHonoMiddlewareOptions) {
-  const { peta } = options
-  return async function petaMiddleware(c: Context, next: Next): Promise<void> {
-    c.set("peta", peta)
+  return async (c: any, next: any) => {
+    c.set("peta", options.peta)
     await next()
   }
 }
 
-export { petaMiddleware as createMiddleware }
+export const createMiddleware = petaMiddleware

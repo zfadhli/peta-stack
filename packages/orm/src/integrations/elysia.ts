@@ -1,11 +1,12 @@
-import type { PetaLike } from "../types.js"
+import type { ORMLike } from "../types.js"
+
 export interface PetaElysiaPluginOptions {
-  peta: PetaLike
+  peta: ORMLike
 }
+
+/**
+ * Elysia.js plugin that attaches the ORM instance to the app context.
+ */
 export function petaPlugin(options: PetaElysiaPluginOptions) {
-  const { peta } = options
-  return (app: Record<string, unknown>) => {
-    ;(app as Record<string, unknown>).peta = peta
-    return app
-  }
+  return (app: any) => app.decorate("peta", options.peta)
 }

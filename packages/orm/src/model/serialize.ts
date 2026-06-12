@@ -1,70 +1,82 @@
-import type { ModelDefinition, ModelInstance } from "./index.js"
+import { castValue } from "./casts.js"
+import { getConfig as getSaveConfig } from "./save.js"
 import { getRawRelations, getState } from "./state.js"
+import type { ModelConfig, ModelDefinition, ModelInstance } from "./types.js"
 
-const FORBIDDEN_KEYS = new Set(["__proto__", "constructor", "prototype"])
+const VISITED = new WeakSet<object>()
 
-export function modelToJSON(
-  def: ModelDefinition,
-  model: ModelInstance,
-  visited?: WeakSet<ModelInstance>,
-): Record<string, unknown> {
-  visited = visited ?? new WeakSet()
-  if (visited.has(model)) return {}
-  visited.add(model)
-  const config = def._config
+export function modelToJSON(def: ModelDefinition, model: ModelInstance): Record<string, unknown> {
+  const config = getSaveConfig(def) ?? getConfig(def)
   const state = getState(model)
-  const attrs = { ...state.attributes }
-  const output: Record<string, unknown> = {}
-  const hiddenSet = new Set(config.hidden ?? [])
-  const visible = config.visible
-  const idx = model as unknown as Record<string, unknown>
-  let keys: string[]
-  if (visible && visible.length > 0) keys = visible
-  else keys = Object.keys(attrs).filter((k) => !hiddenSet.has(k))
+  const result: Record<string, unknown> = {}
+
+  const attributes = state.attributes
+  const hidden = config?.hidden ?? []
+  const visible = config?.visible
+  const appends = config?.appends ?? []
+  const casts = config?.casts ?? {}
+
+  const keys = visible && visible.length > 0 ? visible : Object.keys(attributes)
+
   for (const key of keys) {
-    if (FORBIDDEN_KEYS.has(key)) continue
-    let value = attrs[key]
-    const casts = config.casts ?? {}
-    if (casts[key]) value = castValue(value, casts[key])
-    const accessor = `get${key.charAt(0).toUpperCase()}${key.slice(1)}Attribute`
-    if (typeof idx[accessor] === "function") value = idx[accessor]()
-    output[key] = value
-  }
-  for (const appendKey of config.appends ?? []) {
-    const accessor = `get${appendKey.charAt(0).toUpperCase()}${appendKey.slice(1)}Attribute`
-    if (typeof idx[accessor] === "function") output[appendKey] = idx[accessor]()
-  }
-  const relations = getRawRelations(model)
-  for (const [relName, relValue] of Object.entries(relations)) {
-    if (hiddenSet.has(relName)) continue
-    if (relName === "_pivot") continue
-    if (visible && visible.length > 0 && !visible.includes(relName)) continue
-    if (Array.isArray(relValue)) {
-      output[relName] = relValue
-        .filter((r): r is ModelInstance => r != null && typeof r.$toJSON === "function")
-        .map((r) => r.$toJSON(visited))
-    } else if (relValue != null && typeof (relValue as ModelInstance).$toJSON === "function") {
-      output[relName] = (relValue as ModelInstance).$toJSON(visited)
-    } else {
-      output[relName] = relValue
+    if (hidden.includes(key)) continue
+    if (key in attributes) {
+      let value = attributes[key]
+      if (casts[key]) {
+        value = castValue(value, casts[key])
+      }
+      result[key] = value
     }
   }
-  return output
+
+  // Add relations
+  const relations = getRawRelations(model)
+  for (const [relName, relValue] of Object.entries(relations)) {
+    if (hidden.includes(relName)) continue
+    if (visible && visible.length > 0 && !visible.includes(relName)) continue
+
+    if (Array.isArray(relValue)) {
+      result[relName] = relValue.map((item: any) => {
+        if (item && typeof item.$toJSON === "function") {
+          if (VISITED.has(item)) return { id: (item as any).get("id") }
+          VISITED.add(item)
+          const json = (item as any).$toJSON()
+          VISITED.delete(item)
+          return json
+        }
+        return item
+      })
+    } else if (relValue && typeof (relValue as any).$toJSON === "function") {
+      if (VISITED.has(relValue as any)) {
+        result[relName] = { id: (relValue as any).get("id") }
+      } else {
+        VISITED.add(relValue as any)
+        result[relName] = (relValue as any).$toJSON()
+        VISITED.delete(relValue as any)
+      }
+    } else if (relValue != null) {
+      result[relName] = relValue
+    }
+  }
+
+  for (const append of appends) {
+    if (!(append in result)) {
+      const accessor = `get${append.charAt(0).toUpperCase()}${append.slice(1)}Attribute`
+      if (typeof (model as any)[accessor] === "function") {
+        result[append] = (model as any)[accessor]()
+      }
+    }
+  }
+
+  return result
 }
 
-function castValue(value: unknown, type: string): unknown {
-  switch (type) {
-    case "date":
-      return value ? new Date(value as string) : value
-    case "json":
-      return typeof value === "string" ? JSON.parse(value) : value
-    case "boolean":
-      return value === true || value === 1 || value === "1" || value === "true"
-    case "float":
-      return value != null ? Number(value) : value
-    case "integer":
-      return value != null ? Math.round(Number(value)) : value
-    default:
-      return value
-  }
+const configMap = new WeakMap<ModelDefinition, ModelConfig>()
+
+export function setConfig(def: ModelDefinition, config: ModelConfig): void {
+  configMap.set(def, config)
+}
+
+export function getConfig(def: ModelDefinition): ModelConfig | undefined {
+  return configMap.get(def)
 }

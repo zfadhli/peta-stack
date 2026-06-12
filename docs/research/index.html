@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>peta-orm ORM Research — Overview</title>
+<style>
+  :root {
+    --bg: #fafafa; --fg: #1a1a2e; --accent: #6c5ce7; --accent-light: #a29bfe;
+    --border: #e2e2e2; --card-bg: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f1a; --fg: #e0e0e0; --accent: #a29bfe; --accent-light: #6c5ce7;
+      --border: #2a2a3e; --card-bg: #1a1a2e;
+    }
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+    background: var(--bg); color: var(--fg); line-height: 1.7; font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .container { max-width: 800px; margin: 0 auto; padding: 48px 24px; }
+  h1 { font-size: 2.5em; margin-bottom: 8px; color: var(--accent); }
+  .subtitle { font-size: 1.1em; color: #888; margin-bottom: 40px; }
+  .cards {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px; margin-bottom: 40px;
+  }
+  .card {
+    background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: 12px; padding: 24px;
+    transition: transform 0.15s, box-shadow 0.15s;
+    text-decoration: none; color: inherit; display: flex; flex-direction: column;
+  }
+  .card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(108,92,231,0.12);
+    border-color: var(--accent);
+  }
+  .card h2 { font-size: 1.3em; margin-bottom: 8px; color: var(--accent); }
+  .card .meta { font-size: 0.85em; color: #888; margin-bottom: 12px; }
+  .card .desc { font-size: 0.95em; flex: 1; }
+  .card .lines {
+    margin-top: 12px; font-size: 0.85em; color: #888;
+    border-top: 1px solid var(--border); padding-top: 10px;
+  }
+  .summary {
+    background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: 12px; padding: 24px;
+  }
+  .summary h3 { font-size: 1.1em; margin-bottom: 12px; color: var(--accent); }
+  .summary ul { padding-left: 20px; }
+  .summary li { margin-bottom: 6px; }
+  hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+  @media (max-width: 600px) {
+    h1 { font-size: 1.8em; }
+    .container { padding: 24px 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🧪 peta-orm ORM Research</h1>
+  <p class="subtitle">Comparative analysis of three Node.js ORMs to inform peta-orm improvements</p>
+
+  <div class="cards">
+    <a href="objectionjs-lessons.html" class="card">
+      <h2>Objection.js</h2>
+      <div class="meta">7.3k⭐ · Knex-based</div>
+      <div class="desc">A relational query builder giving full SQL power while making common tasks easy.</div>
+      <div class="lines">477 lines · Graph inserts, static hooks, relation queries</div>
+    </a>
+    <a href="sutandojs-lessons.html" class="card">
+      <h2>Sutando.js</h2>
+      <div class="meta">301⭐ · Knex-based</div>
+      <div class="desc">A modern Node.js ORM, heavily inspired by Laravel Eloquent.</div>
+      <div class="lines">779 lines · Attach/detach/sync, withCount, firstOrCreate</div>
+    </a>
+    <a href="orchidorm-lessons.html" class="card">
+      <h2>Orchid ORM</h2>
+      <div class="meta">540⭐ · PostgreSQL-only</div>
+      <div class="desc">A TypeScript ORM with a custom query builder, focused on Postgres depth.</div>
+      <div class="lines">833 lines · Nested selects, chain(), computed columns, repos</div>
+    </a>
+  </div>
+
+  <div class="summary">
+    <h3>📋 Design Philosophy Spectrum</h3>
+    <ul>
+      <li><strong>Objection.js</strong> — "Relational Query Builder" on Knex. Thenable QB, graph operations (<code>insertGraph</code>/<code>upsertGraph</code>), static hooks with <code>asFindQuery()</code>, <code>allowGraph</code> security.</li>
+      <li><strong>Sutando.js</strong> — "Eloquent for Node.js" on Knex. Active Record classes, <code>attach/detach/sync</code>, <code>withCount</code>/<code>loadCount</code>, <code>firstOrCreate</code>, scopes, plugin system via <code>compose()</code>.</li>
+      <li><strong>Orchid ORM</strong> — "Data Mapper for PostgreSQL" on custom <code>pqb</code>. Nested relation selects, <code>chain()</code> cross-relation queries, computed columns, repository pattern, lifecycle hooks with column requirements, mutation safety guards.</li>
+    </ul>
+  </div>
+  <hr>
+  <p style="text-align:center;color:#888;font-size:0.9em;">Generated from analysis of official documentation and source code · June 2026</p>
+</div>
+</body>
+</html>

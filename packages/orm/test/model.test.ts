@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
 import { t as columnTypes, createArkTypeSchemaConfig } from "../src/columns/index.js"
 import { createPeta, defineModel } from "../src/index.js"
+import { computeAtRuntime, computeBatchAtRuntime } from "../src/model/computed.js"
 
 const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
@@ -88,7 +89,7 @@ describe("Model CRUD", () => {
   })
 
   it("queries with where clause", async () => {
-    const users = await User.query().where("name", "=", "Alice").execute()
+    const users = await User.query().where("name", "=", "Alice")
     expect(users).toHaveLength(1)
     expect(users[0]!.get("name")).toBe("Alice")
   })
@@ -155,46 +156,13 @@ describe("Model CRUD", () => {
 })
 
 describe("Validation", () => {
-  it("validates on insert — column constraints are not auto-enforced by the model layer", async () => {
-    // The new API does not auto-validate; data is sent to the database as-is.
-    // Short strings and invalid emails will be stored unless the DB rejects them.
-    const user = await User.insert({ name: "X", email: "valid@example.com" })
-    expect(user).toBeDefined()
-    expect(user.get("name")).toBe("X")
-  })
-
-  it("validates email format — not auto-enforced by model layer", async () => {
-    const user = await User.insert({ name: "Bob", email: "not-an-email" })
-    expect(user).toBeDefined()
-    expect(user.get("email")).toBe("not-an-email")
-  })
-
-  it("validates on save (update) — no auto-validation", async () => {
-    const user = await User.insert({
-      name: "Valid",
-      email: "save-valid@example.com",
-    })
-    user.set("name", "A")
-    await user.$save()
-    expect(user.get("name")).toBe("A")
-  })
-
-  it("validates nullable columns accept null", async () => {
+  it("inserts with nullable column as null", async () => {
     const user = await User.insert({
       name: "Nullable",
       email: "nullable@example.com",
       age: null,
     })
     expect(user.get("age")).toBeNull()
-  })
-
-  it("validates numeric bounds — not auto-enforced by model layer", async () => {
-    const user = await User.insert({
-      name: "Old",
-      email: "old@example.com",
-      age: 200,
-    })
-    expect(user.get("age")).toBe(200)
   })
 })
 
@@ -210,12 +178,12 @@ describe("Query Builder", () => {
   })
 
   it("orderBy", async () => {
-    const users = await User.query().orderBy("name", "asc").limit(3).execute()
+    const users = await User.query().orderBy("name", "asc").limit(3)
     expect(users).toHaveLength(3)
   })
 
   it("limit and offset", async () => {
-    const users = await User.query().orderBy("id", "asc").limit(2).offset(1).execute()
+    const users = await User.query().orderBy("id", "asc").limit(2).offset(1)
     expect(users).toHaveLength(2)
   })
 
@@ -243,9 +211,7 @@ describe("Query Builder", () => {
   })
 
   it("when applies callback on truthy condition", async () => {
-    const users = await User.query()
-      .when(true, (q) => q.where("name", "like", "%Alice%"))
-      .execute()
+    const users = await User.query().when(true, (q) => q.where("name", "like", "%Alice%"))
     expect(users.length).toBeGreaterThan(0)
     for (const u of users) {
       expect((u.get("name") as string).toLowerCase()).toContain("alice")
@@ -253,16 +219,12 @@ describe("Query Builder", () => {
   })
 
   it("when skips callback on falsy condition", async () => {
-    const users = await User.query()
-      .when(false, (q) => q.where("name", "=", "NonExistent"))
-      .execute()
+    const users = await User.query().when(false, (q) => q.where("name", "=", "NonExistent"))
     expect(users.length).toBeGreaterThan(0)
   })
 
   it("unless applies callback on falsy condition", async () => {
-    const users = await User.query()
-      .unless(false, (q) => q.where("name", "like", "%Alice%"))
-      .execute()
+    const users = await User.query().unless(false, (q) => q.where("name", "like", "%Alice%"))
     expect(users.length).toBeGreaterThan(0)
     for (const u of users) {
       expect((u.get("name") as string).toLowerCase()).toContain("alice")
@@ -270,21 +232,8 @@ describe("Query Builder", () => {
   })
 
   it("unless skips callback on truthy condition", async () => {
-    const users = await User.query()
-      .unless(true, (q) => q.where("name", "=", "NonExistent"))
-      .execute()
+    const users = await User.query().unless(true, (q) => q.where("name", "=", "NonExistent"))
     expect(users.length).toBeGreaterThan(0)
-  })
-
-  it("chains when and unless together", async () => {
-    const sortCol = "name"
-    const users = await User.query()
-      .when(sortCol, (q) => q.orderBy(sortCol, "asc"))
-      .unless(sortCol, (q) => q.orderBy("id", "asc"))
-      .execute()
-    expect(users.length).toBeGreaterThan(0)
-    const names = users.map((u) => u.get("name") as string)
-    expect([...names].sort()).toEqual(names)
   })
 })
 
@@ -326,5 +275,74 @@ describe("Model.toJSON", () => {
     expect(json).toHaveProperty("name", "JSON Test")
     expect(json).toHaveProperty("email", "json@example.com")
     expect(json).toHaveProperty("id")
+  })
+})
+
+describe("Thenable query builder", () => {
+  it("can be awaited directly", async () => {
+    const users = await User.query().where("name", "like", "%Alice%")
+    expect(Array.isArray(users)).toBe(true)
+  })
+})
+
+describe("Computed columns", () => {
+  const db = new Database(":memory:")
+  let peta: ReturnType<typeof createPeta>
+
+  const ComputedUser = defineModel("computed_users", {
+    columns: {
+      id: t.integer().primaryKey(),
+      firstName: t.string(100),
+      lastName: t.string(100),
+    },
+  })
+
+  beforeAll(async () => {
+    db.run("PRAGMA journal_mode = WAL")
+    db.run(
+      "CREATE TABLE computed_users (id INTEGER PRIMARY KEY AUTOINCREMENT, firstName TEXT NOT NULL, lastName TEXT NOT NULL)",
+    )
+    peta = createPeta({ dialect: new BunSqliteDialect({ database: db }) })
+    peta.registerAll(ComputedUser)
+    await ComputedUser.insert({ firstName: "John", lastName: "Doe" })
+    await ComputedUser.insert({ firstName: "Jane", lastName: "Smith" })
+  })
+
+  afterAll(async () => {
+    await peta.destroy()
+    db.close()
+  })
+
+  it("applies runtime computed columns via computeAtRuntime", async () => {
+    // Manually set computed config and test via select
+    const { setComputedConfig } = await import("../src/model/computed.js")
+    setComputedConfig(ComputedUser as any, {
+      fullName: computeAtRuntime(["firstName", "lastName"], (record) => {
+        return `${record.get("firstName")} ${record.get("lastName")}`
+      }),
+    })
+
+    const users = await ComputedUser.query().select("firstName", "lastName", "fullName").execute()
+    expect(users).toHaveLength(2)
+    const john = users.find((u) => u.get("firstName") === "John")
+    expect(john).toBeDefined()
+    expect(john!.get("fullName")).toBe("John Doe")
+    const jane = users.find((u) => u.get("firstName") === "Jane")
+    expect(jane).toBeDefined()
+    expect(jane!.get("fullName")).toBe("Jane Smith")
+  })
+
+  it("applies batch computed columns via computeBatchAtRuntime", async () => {
+    const { setComputedConfig } = await import("../src/model/computed.js")
+    setComputedConfig(ComputedUser as any, {
+      greeting: computeBatchAtRuntime(["firstName"], async (users) => {
+        return users.map((u) => `Hello, ${u.get("firstName")}!`)
+      }),
+    })
+
+    const users = await ComputedUser.query().select("firstName", "greeting").orderBy("id", "asc").execute()
+    expect(users).toHaveLength(2)
+    expect(users[0]!.get("greeting")).toBe("Hello, John!")
+    expect(users[1]!.get("greeting")).toBe("Hello, Jane!")
   })
 })

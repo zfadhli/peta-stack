@@ -1,50 +1,54 @@
 import { createHookManager, type HookManager } from "../hooks/index.js"
-import type { ModelDefinition } from "./index.js"
+import type { ModelDefinition } from "./types.js"
 
-const HOOKS = new WeakMap<ModelDefinition, HookManager>()
-const SOFT_DELETE = new WeakMap<ModelDefinition, SoftDeleteConfig>()
-const TIMESTAMPS = new WeakMap<ModelDefinition, TimestampConfig>()
+const hookManagers = new WeakMap<ModelDefinition, HookManager>()
 
+export function getHooksFor(def: ModelDefinition): HookManager {
+  let hm = hookManagers.get(def)
+  if (!hm) {
+    hm = createHookManager()
+    hookManagers.set(def, hm)
+  }
+  return hm
+}
+
+// Soft-delete config
 export interface SoftDeleteConfig {
   column: string
 }
+
+const SOFT_DELETE = new WeakMap<ModelDefinition, SoftDeleteConfig>()
+
+export function hasSoftDelete(def: ModelDefinition): boolean {
+  return SOFT_DELETE.has(def)
+}
+
+export function getSoftDeleteConfig(def: ModelDefinition): SoftDeleteConfig | undefined {
+  return SOFT_DELETE.get(def)
+}
+
+export function registerSoftDeletesFor(def: ModelDefinition, deletedAtColumn = "deletedAt"): void {
+  SOFT_DELETE.set(def, { column: deletedAtColumn })
+}
+
+// Timestamps config
 export interface TimestampConfig {
   createdAt: string
   updatedAt: string
 }
 
-export function getHooksFor(def: ModelDefinition): HookManager {
-  let hooks = HOOKS.get(def)
-  if (!hooks) {
-    hooks = createHookManager()
-    HOOKS.set(def, hooks)
-  }
-  return hooks
-}
-export function hasSoftDelete(def: ModelDefinition): boolean {
-  return SOFT_DELETE.has(def)
-}
-export function getSoftDeleteConfig(def: ModelDefinition): SoftDeleteConfig | undefined {
-  return SOFT_DELETE.get(def)
-}
-
 export function registerTimestampsFor(
   def: ModelDefinition,
-  createdAtColumn = "createdAt",
-  updatedAtColumn = "updatedAt",
+  createdAtCol = "createdAt",
+  updatedAtCol = "updatedAt",
 ): void {
-  TIMESTAMPS.set(def, { createdAt: createdAtColumn, updatedAt: updatedAtColumn })
-  const hooks = getHooksFor(def)
-  hooks.on("beforeCreate", (model) => {
+  const hm = getHooksFor(def)
+  hm.on("beforeCreate", (model: any) => {
     const now = new Date().toISOString()
-    model.set(createdAtColumn, now)
-    model.set(updatedAtColumn, now)
+    if (!model.get(createdAtCol)) model.set(createdAtCol, now)
+    model.set(updatedAtCol, now)
   })
-  hooks.on("beforeUpdate", (model) => {
-    model.set(updatedAtColumn, new Date().toISOString())
+  hm.on("beforeUpdate", (model: any) => {
+    model.set(updatedAtCol, new Date().toISOString())
   })
-}
-
-export function registerSoftDeletesFor(def: ModelDefinition, deletedAtColumn = "deletedAt"): void {
-  SOFT_DELETE.set(def, { column: deletedAtColumn })
 }

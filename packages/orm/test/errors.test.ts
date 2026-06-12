@@ -51,10 +51,13 @@ describe("DatabaseError", () => {
     }
   })
 
-  it("update on missing record does not throw (returns hydrated model)", async () => {
-    // The new API's update does not throw for non-existent records
-    const result = await UniqueUser.update(999, { slug: "whatever" })
-    expect(result).toBeDefined()
+  it("update on missing record throws ModelNotFoundError", async () => {
+    try {
+      await UniqueUser.update(999, { slug: "whatever" })
+      expect.unreachable("should have thrown")
+    } catch (e: any) {
+      expect(e.name).toBe("ModelNotFoundError")
+    }
   })
 
   it("wraps with table name in the error", async () => {

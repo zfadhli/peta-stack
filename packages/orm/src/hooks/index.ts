@@ -24,37 +24,43 @@ export interface HookManager {
 }
 
 export function createHookManager(): HookManager {
-  const hooks = new Map<LifecycleEvent, HookCallback[]>()
+  const listeners = new Map<LifecycleEvent, HookCallback[]>()
 
   function on(event: LifecycleEvent, callback: HookCallback): () => void {
-    const list = hooks.get(event)
-    if (list) {
-      list.push(callback)
-    } else {
-      hooks.set(event, [callback])
+    let cbs = listeners.get(event)
+    if (!cbs) {
+      cbs = []
+      listeners.set(event, cbs)
     }
+    cbs.push(callback)
     return () => off(event, callback)
   }
 
   function off(event: LifecycleEvent, callback: HookCallback): void {
-    const list = hooks.get(event)
-    if (!list) return
-    const idx = list.indexOf(callback)
-    if (idx !== -1) list.splice(idx, 1)
+    const cbs = listeners.get(event)
+    if (cbs) {
+      const idx = cbs.indexOf(callback)
+      if (idx !== -1) cbs.splice(idx, 1)
+    }
   }
 
   async function trigger(event: LifecycleEvent, model: ModelLike): Promise<void> {
-    const list = hooks.get(event)
-    if (!list) return
-    for (const cb of list) await cb(model)
+    const cbs = listeners.get(event)
+    if (cbs) {
+      for (const cb of cbs) {
+        await cb(model)
+      }
+    }
   }
 
   function clone(): HookManager {
-    const mgr = createHookManager()
-    for (const [event, callbacks] of hooks) {
-      for (const cb of callbacks) mgr.on(event, cb)
+    const cloned = createHookManager()
+    for (const [event, cbs] of listeners) {
+      for (const cb of cbs) {
+        cloned.on(event, cb)
+      }
     }
-    return mgr
+    return cloned
   }
 
   return { on, off, trigger, clone }

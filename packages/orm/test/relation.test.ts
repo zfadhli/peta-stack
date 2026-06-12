@@ -3,13 +3,9 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
 import { t as columnTypes, createArkTypeSchemaConfig } from "../src/columns/index.js"
 import { belongsTo, createPeta, defineModel, hasMany, hasManyThrough, hasOne, manyToMany } from "../src/index.js"
-import type { ModelInstance } from "../src/model/index.js"
+import type { ModelInstance } from "../src/model/types.js"
 
 const t = columnTypes({ schema: createArkTypeSchemaConfig() })
-
-// Models are defined in dependency order to avoid TDZ issues with relation thunks.
-// Circular refs (User ↔ Post, User ↔ Profile) are handled by defining User first
-// with empty relations, then mutating its relations property later.
 
 const User = defineModel("users", {
   columns: {
@@ -139,7 +135,7 @@ afterAll(async () => {
 })
 
 describe("HasMany", () => {
-  it("loads related models via $relatedQuery", async () => {
+  it("loads related models query", async () => {
     const alice = await User.find(1)
     expect(alice).toBeDefined()
     const posts = await User.relations.posts.query(alice!).execute()
@@ -148,7 +144,7 @@ describe("HasMany", () => {
   })
 
   it("eager loads HasMany", async () => {
-    const users = await User.query().with("posts").orderBy("id", "asc").execute()
+    const users = await User.query().with("posts").orderBy("id", "asc")
     expect(users).toHaveLength(2)
     const alice = users[0]!
     const posts = alice.$getRelation("posts") as ModelInstance[]
@@ -160,7 +156,6 @@ describe("HasMany", () => {
     const users = await User.query()
       .with({ posts: (q) => q.where("title", "=", "Alice Post 1") })
       .orderBy("id", "asc")
-      .execute()
     const alice = users[0]!
     const posts = alice.$getRelation("posts") as ModelInstance[]
     expect(posts).toHaveLength(1)
@@ -175,7 +170,7 @@ describe("HasMany", () => {
 })
 
 describe("BelongsTo", () => {
-  it("loads parent via $relatedQuery", async () => {
+  it("loads parent via query", async () => {
     const post = await Post.find(1)
     expect(post).toBeDefined()
     const author = await Post.relations.author.query(post!).executeTakeFirst()
@@ -184,7 +179,7 @@ describe("BelongsTo", () => {
   })
 
   it("eager loads BelongsTo", async () => {
-    const posts = await Post.query().with("author").orderBy("id", "asc").execute()
+    const posts = await Post.query().with("author").orderBy("id", "asc")
     expect(posts).toHaveLength(3)
     const post1 = posts[0]!
     const author = post1.$getRelation("author") as ModelInstance
@@ -194,7 +189,7 @@ describe("BelongsTo", () => {
 })
 
 describe("HasOne", () => {
-  it("loads related via $relatedQuery", async () => {
+  it("loads related via query", async () => {
     const alice = await User.find(1)
     expect(alice).toBeDefined()
     const profile = await User.relations.profile.query(alice!).executeTakeFirst()
@@ -203,7 +198,7 @@ describe("HasOne", () => {
   })
 
   it("eager loads HasOne", async () => {
-    const users = await User.query().with("profile").orderBy("id", "asc").execute()
+    const users = await User.query().with("profile").orderBy("id", "asc")
     const bob = users[1]!
     const profile = bob.$getRelation("profile") as ModelInstance
     expect(profile).not.toBeNull()
@@ -219,7 +214,7 @@ describe("HasOne", () => {
 
 describe("Nested eager loading", () => {
   it("loads nested relations via dot notation", async () => {
-    const users = await User.query().with("posts.author").orderBy("id", "asc").execute()
+    const users = await User.query().with("posts.author").orderBy("id", "asc")
     const alice = users[0]!
     const posts = alice.$getRelation("posts") as ModelInstance[]
     expect(posts).toHaveLength(2)
@@ -245,7 +240,7 @@ describe("$load (lazy eager loading)", () => {
 
 describe("$toJSON with relations", () => {
   it("includes relations in JSON output", async () => {
-    const users = await User.query().with("posts").orderBy("id", "asc").execute()
+    const users = await User.query().with("posts").orderBy("id", "asc")
     const alice = users[0]!
     const json = alice.$toJSON()
     expect(json).toHaveProperty("name", "Alice")
@@ -259,38 +254,118 @@ describe("$toJSON with relations", () => {
 
 describe("has / whereHas", () => {
   it("filters by relation existence", async () => {
-    const users = await User.query().has("posts").orderBy("id", "asc").execute()
-    expect(users).toHaveLength(2)
-  })
-
-  it("whereHas with callback", async () => {
-    const users = await User.query().has("posts").execute()
+    const users = await User.query().has("posts").orderBy("id", "asc")
     expect(users).toHaveLength(2)
   })
 })
 
 describe("ManyToMany", () => {
-  it("loads tags for a post via $relatedQuery", async () => {
+  it("loads tags for a post query", async () => {
     const post = await Post.find(1)
     expect(post).toBeDefined()
     const tags = await Post.relations.tags.query(post!).execute()
     expect(tags).toHaveLength(2)
   })
+})
 
-  it("has pivot extras accessible", async () => {
-    const _PostWithPivot = defineModel("posts", {
-      columns: { id: t.integer().primaryKey(), title: t.string(255) },
-      relations: {
-        tags: manyToMany(() => Tag, {
-          through: "post_tags",
-          foreignPivotKey: "postId",
-          relatedPivotKey: "tagId",
-          pivotExtras: ["postId"],
-        }),
-      },
-    })
+describe("$related() relation query builder", () => {
+  it("queries hasMany through $related", async () => {
+    const alice = await User.find(1)
+    expect(alice).toBeDefined()
+    const posts = await alice!.$related("posts").orderBy("id", "asc")
+    expect(posts).toHaveLength(2)
+    expect(posts[0]!.get("userId")).toBe(alice!.get("id"))
+  })
 
+  it("queries belongsTo through $related", async () => {
     const post = await Post.find(1)
     expect(post).toBeDefined()
+    const author = await post!.$related("author").executeTakeFirst()
+    expect(author).toBeDefined()
+    expect(author!.get("name")).toBe("Alice")
+  })
+
+  it("queries hasOne through $related", async () => {
+    const alice = await User.find(1)
+    expect(alice).toBeDefined()
+    const profile = await alice!.$related("profile").executeTakeFirst()
+    expect(profile).toBeDefined()
+    expect(profile!.get("bio")).toBe("Alice's bio")
+  })
+
+  it("queries manyToMany through $related", async () => {
+    const post = await Post.find(1)
+    expect(post).toBeDefined()
+    const tags = await post!.$related("tags")
+    expect(tags).toHaveLength(2)
+  })
+
+  it("supports chaining additional query methods", async () => {
+    const alice = await User.find(1)
+    expect(alice).toBeDefined()
+    const posts = await alice!.$related("posts").where("title", "like", "%Post 1%").orderBy("id", "asc")
+    expect(posts).toHaveLength(1)
+    expect(posts[0]!.get("title")).toBe("Alice Post 1")
+  })
+
+  it("returns empty array when no related", async () => {
+    const newUser = await User.insert({ name: "Orphan" })
+    const posts = await newUser!.$related("posts")
+    expect(posts).toHaveLength(0)
+  })
+
+  it("throws RelationNotFoundError for invalid relation name", async () => {
+    const alice = await User.find(1)
+    expect(alice).toBeDefined()
+    expect(() => alice!.$related("nonexistent")).toThrow()
+  })
+})
+
+describe("attach/detach/sync for many-to-many", () => {
+  let post: Awaited<ReturnType<typeof Post.find>>
+  let tagA: Awaited<ReturnType<typeof Tag.find>>
+  let tagB: Awaited<ReturnType<typeof Tag.find>>
+
+  beforeAll(async () => {
+    // Create fresh tags for clean testing
+    const ta = await Tag.insert({ name: "attach-a" })
+    const tb = await Tag.insert({ name: "attach-b" })
+    tagA = ta
+    tagB = tb
+
+    // Create a fresh post
+    const alice = await User.find(1)
+    const p = await Post.insert({ userId: alice!.get("id") as number, title: "Attach Test Post" })
+    post = p
+  })
+
+  it("attach adds pivot rows", async () => {
+    await post!.$related("tags").attach(tagA!.get("id") as number)
+    const tags = await post!.$related("tags")
+    expect(tags.some((t) => t.get("id") === tagA!.get("id"))).toBe(true)
+  })
+
+  it("detach removes pivot rows", async () => {
+    const tagId = tagA!.get("id") as number
+    await post!.$related("tags").detach(tagId)
+    const tags = await post!.$related("tags")
+    expect(tags.some((t) => t.get("id") === tagId)).toBe(false)
+  })
+
+  it("sync replaces all pivot rows", async () => {
+    await post!.$related("tags").sync([tagA!.get("id") as number, tagB!.get("id") as number])
+    const tags = await post!.$related("tags")
+    expect(tags).toHaveLength(2)
+  })
+
+  it("syncWithoutDetaching adds without removing", async () => {
+    // First detach everything
+    await post!.$related("tags").detach()
+
+    // Then syncWithoutDetaching
+    await post!.$related("tags").syncWithoutDetaching([tagA!.get("id") as number])
+    const tags = await post!.$related("tags")
+    expect(tags).toHaveLength(1)
+    expect(tags[0]!.get("id")).toBe(tagA!.get("id"))
   })
 })

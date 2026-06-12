@@ -1,6 +1,6 @@
 import type { Collection } from "../collection/index.js"
 import { createCollection } from "../collection/index.js"
-import type { ModelInstance } from "../model/index.js"
+import type { ModelInstance } from "../model/types.js"
 
 export interface Paginator {
   readonly data: Collection
@@ -15,7 +15,7 @@ export interface Paginator {
   readonly onFirstPage: boolean
   readonly onLastPage: boolean
   readonly count: number
-  map<U>(callback: (item: ModelInstance, index: number) => U): U[]
+  map<T>(fn: (item: ModelInstance) => T): T[]
   toJSON(): PaginatorJson
 }
 
@@ -26,6 +26,11 @@ export interface PaginatorJson {
   currentPage: number
   lastPage: number
   hasMorePages: boolean
+  hasPages: boolean
+  firstItem: number | null
+  lastItem: number | null
+  onFirstPage: boolean
+  onLastPage: boolean
 }
 
 export type PaginatedResult = PaginatorJson
@@ -36,40 +41,65 @@ export function createPaginator(
   perPage: number,
   currentPage: number,
 ): Paginator {
-  const data = createCollection(items)
-  const lastPage = Math.max(Math.ceil(total / perPage), 1)
+  const collection = createCollection(items)
+  const lastPage = Math.max(1, Math.ceil(total / perPage))
+
   return {
-    data,
-    total,
-    perPage,
-    currentPage,
-    lastPage,
-    get hasMorePages(): boolean {
+    get data() {
+      return collection
+    },
+    get total() {
+      return total
+    },
+    get perPage() {
+      return perPage
+    },
+    get currentPage() {
+      return currentPage
+    },
+    get lastPage() {
+      return lastPage
+    },
+    get hasMorePages() {
       return currentPage < lastPage
     },
-    get hasPages(): boolean {
+    get hasPages() {
       return lastPage > 1
     },
-    get firstItem(): number {
-      return (currentPage - 1) * perPage + 1
+    get firstItem() {
+      return items.length > 0 ? (currentPage - 1) * perPage + 1 : 0
     },
-    get lastItem(): number {
-      return Math.min(this.firstItem + data.length - 1, total)
+    get lastItem() {
+      return items.length > 0 ? (currentPage - 1) * perPage + items.length : 0
     },
-    get onFirstPage(): boolean {
-      return currentPage <= 1
+    get onFirstPage() {
+      return currentPage === 1
     },
-    get onLastPage(): boolean {
+    get onLastPage() {
       return currentPage >= lastPage
     },
-    get count(): number {
-      return data.length
+    get count() {
+      return items.length
     },
-    map<U>(callback: (item: ModelInstance, index: number) => U): U[] {
-      return data.map(callback)
+
+    map<T>(fn: (item: ModelInstance) => T): T[] {
+      return items.map(fn)
     },
+
     toJSON(): PaginatorJson {
-      return { data: data.toJSON(), total, perPage, currentPage, lastPage, hasMorePages: currentPage < lastPage }
+      return {
+        data: collection.toJSON(),
+        total,
+        perPage,
+        currentPage,
+        lastPage,
+        hasMorePages: currentPage < lastPage,
+        hasPages: lastPage > 1,
+        firstItem: items.length > 0 ? (currentPage - 1) * perPage + 1 : null,
+        lastItem: items.length > 0 ? (currentPage - 1) * perPage + items.length : null,
+        onFirstPage: currentPage === 1,
+        onLastPage: currentPage >= lastPage,
+      }
     },
   }
 }

@@ -1,165 +1,182 @@
 import { DatabaseError, normalizeError } from "../errors.js"
-import type { Database } from "../lib/kysely.js"
+import { applyCastsToData, prepareForDb } from "./casts.js"
+import { createInstance } from "./factory.js"
 import { getHooksFor } from "./hooks.js"
-import type { ModelDefinition, ModelInstance } from "./index.js"
 import { getExists, getState, setExists, syncOriginal } from "./state.js"
+import type { ModelConfig, ModelDefinition, ModelInstance } from "./types.js"
 
-function prepareForDb(def: ModelDefinition, data: Record<string, unknown>): Record<string, unknown> {
-  const casts = def._config.casts ?? {}
-  const out: Record<string, unknown> = {}
-  for (const [key, val] of Object.entries(data)) {
-    if (casts[key] === "json" && val !== null && typeof val === "object") {
-      out[key] = JSON.stringify(val)
-    } else {
-      out[key] = val
-    }
+// ─── HELPERS ─────────────────────────────────────────────────
+function getPrimaryKeyColumn(def: ModelDefinition): string {
+  const cols = def.columns as Record<string, any>
+  for (const [name, col] of Object.entries(cols)) {
+    if (col.isPrimaryKey) return name
   }
-  return out
+  return "id"
 }
 
-/** Find the primary key column definition from model columns. */
-function getPrimaryKeyColumn(def: ModelDefinition): { name: string; isAutoIncrement: boolean } {
-  for (const [name, col] of Object.entries(def.columns)) {
-    if (col.isPrimaryKey) {
-      return {
-        name,
-        isAutoIncrement: ["integer", "smallint", "bigint"].includes(col.dataType),
-      }
-    }
-  }
-  return { name: "id", isAutoIncrement: true }
+function getTable(def: ModelDefinition): string {
+  return def.table
 }
 
-export async function saveModel(def: ModelDefinition, model: ModelInstance): Promise<void> {
-  const hooks = getHooksFor(def)
-  const state = getState(model)
-  const isNew = !getExists(model)
-  const peta = def._peta
-  if (!peta) throw new Error(`${def.table} has not been registered with Peta`)
+function getDb(def: ModelDefinition): any {
+  if (!def._orm) throw new Error("Model not registered")
+  return (def._orm as any).kysely
+}
+
+// ─── SAVE MODEL ──────────────────────────────────────────────
+export async function saveModel(def: ModelDefinition, model: ModelInstance): Promise<ModelInstance> {
+  const hm = getHooksFor(def)
+  const exists = getExists(model)
   const pk = getPrimaryKeyColumn(def)
-  if (isNew) {
-    await hooks.trigger("beforeCreate", model as never)
-    await hooks.trigger("beforeSave", model as never)
-    state.attributes = { ...state.attributes }
+  const db = getDb(def)
+  const config = getConfig(def)
 
-    const data = prepareForDb(def, { ...state.attributes })
-    // For auto-increment PKs, let the DB generate the value
-    if (pk.isAutoIncrement) delete data[pk.name]
+  if (exists) {
+    // UPDATE
+    const dirty = getState(model).attributes
+    const original = getState(model).original
+    const changed: Record<string, unknown> = {}
 
-    try {
-      // Primary path: RETURNING * returns all DB-generated values
-      // (auto-increment IDs, column defaults, trigger values).
-      const row = (await peta.kysely.insertInto(def.table).values(data).returningAll().executeTakeFirst()) as
-        | Record<string, unknown>
-        | undefined
-
-      if (row && Object.keys(row).length > 0) {
-        // Merge DB-returned values into attributes (overwrites with real DB values)
-        state.attributes = { ...state.attributes, ...row }
-      }
-      setExists(model, true)
-    } catch (e: unknown) {
-      const errMsg = e instanceof Error ? e.message : String(e)
-      if (errMsg.includes("syntax error") || errMsg.includes("near") || errMsg.includes("does not support RETURNING")) {
-        // Fallback for dialects without RETURNING (MySQL, older SQLite)
-        try {
-          const result = await peta.kysely.insertInto(def.table).values(data).executeTakeFirst()
-          if (result?.insertId != null) {
-            state.attributes[pk.name] = Number(result.insertId)
-          }
-          setExists(model, true)
-        } catch (e2: unknown) {
-          throw normalizeError(e2, def.table) ?? e2
-        }
-      } else {
-        throw normalizeError(e, def.table) ?? e
-      }
-    }
-    syncOriginal(model)
-    await hooks.trigger("afterCreate", model as never)
-    await hooks.trigger("afterSave", model as never)
-  } else {
-    await hooks.trigger("beforeUpdate", model as never)
-    await hooks.trigger("beforeSave", model as never)
-    const dirty = prepareForDb(def, { ...state.attributes })
     for (const key of Object.keys(dirty)) {
-      if (dirty[key] === state.original[key]) delete dirty[key]
+      if (dirty[key] !== original[key]) {
+        changed[key] = config?.casts?.[key] ? prepareForDb(dirty[key], config.casts[key]) : dirty[key]
+      }
     }
-    const id = state.attributes[pk.name]
-    if (id == null) throw new DatabaseError("MISSING_ID", "Cannot update a model without an id")
+
+    if (Object.keys(changed).length === 0) return model
+
+    await hm.trigger("beforeUpdate", model as any)
+    await hm.trigger("beforeSave", model as any)
+
+    const pkValue = model.get(pk)
     try {
-      await peta.kysely
-        .updateTable(def.table)
-        .set(dirty)
-        .where(pk.name, "=", id as never)
-        .execute()
-    } catch (e: unknown) {
-      throw normalizeError(e, def.table) ?? e
+      await db.updateTable(getTable(def)).set(changed).where(pk, "=", pkValue).execute()
+    } catch (e: any) {
+      throw normalizeError(e, getTable(def))
     }
+
     syncOriginal(model)
-    await hooks.trigger("afterUpdate", model as never)
-    await hooks.trigger("afterSave", model as never)
+    await hm.trigger("afterUpdate", model as any)
+    await hm.trigger("afterSave", model as any)
+  } else {
+    // INSERT
+    await hm.trigger("beforeCreate", model as any)
+    await hm.trigger("beforeSave", model as any)
+
+    const data: Record<string, unknown> = {}
+    const attrs = getState(model).attributes
+    for (const [key, value] of Object.entries(attrs)) {
+      if (key !== pk || value !== undefined) {
+        data[key] = config?.casts?.[key] ? prepareForDb(value, config.casts[key]) : value
+      }
+    }
+
+    try {
+      const result = await db.insertInto(getTable(def)).values(data).returningAll().executeTakeFirst()
+
+      if (result) {
+        const applied = config?.casts ? applyCastsToData(config as any, result as any, "get") : result
+        for (const [key, value] of Object.entries(applied as Record<string, unknown>)) {
+          getState(model).attributes[key] = value
+        }
+      }
+    } catch (e: any) {
+      throw normalizeError(e, getTable(def))
+    }
+
+    setExists(model, true)
+    syncOriginal(model)
+    await hm.trigger("afterCreate", model as any)
+    await hm.trigger("afterSave", model as any)
   }
+
+  return model
 }
 
+// ─── INSERT MODEL ────────────────────────────────────────────
 export async function insertModel(def: ModelDefinition, data: Record<string, unknown>): Promise<ModelInstance> {
-  const model = def._init()
-  const state = getState(model)
-  state.attributes = { ...data }
+  const config = getConfig(def) ?? { columns: def.columns }
+  const model = createInstance(def, config, data, false)
   await saveModel(def, model)
   return model
 }
 
+// ─── INSERT MANY ─────────────────────────────────────────────
 export async function insertManyModel(
   def: ModelDefinition,
   dataArray: Record<string, unknown>[],
-  kyselyOverride?: Database,
 ): Promise<ModelInstance[]> {
-  const peta = def._peta
-  if (!peta) throw new Error(`${def.table} has not been registered with Peta`)
-  if (dataArray.length === 0) return []
+  const db = getDb(def)
+  const pk = getPrimaryKeyColumn(def)
+  const config = getConfig(def)
 
-  const db: any = kyselyOverride ?? peta.kysely
-  const prepared = dataArray.map((row) => prepareForDb(def, row))
-
-  try {
-    // RETURNING * lets us read back DB-generated values (auto-increment IDs,
-    // column defaults, trigger values). Works on SQLite 3.35+ (Kysely's
-    // SqliteAdapter.supportsReturning is true) and all PostgreSQL versions.
-    const rows: Record<string, unknown>[] = await db.insertInto(def.table).values(prepared).returningAll().execute()
-    return rows.map((row) => def._hydrate(row))
-  } catch (e: unknown) {
-    // Fallback for dialects that don't support RETURNING (MySQL, older SQLite).
-    // The RETURNING syntax error is detected and we retry without it.
-    // Real errors (constraint violations, etc.) are re-thrown via normalizeError.
-    const errMsg = e instanceof Error ? e.message : String(e)
-    if (errMsg.includes("syntax error") || errMsg.includes("near") || errMsg.includes("does not support RETURNING")) {
-      try {
-        await db.insertInto(def.table).values(prepared).execute()
-        return dataArray.map((row) => def._hydrate(row))
-      } catch (e2: unknown) {
-        throw normalizeError(e2, def.table) ?? e2
+  const prepared = dataArray.map((data) => {
+    const row: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(data)) {
+      if (key !== pk) {
+        row[key] = config?.casts?.[key] ? prepareForDb(value, config.casts[key]) : value
       }
     }
-    throw normalizeError(e, def.table) ?? e
+    return row
+  })
+
+  let results: Record<string, unknown>[]
+  try {
+    results = (await db.insertInto(getTable(def)).values(prepared).returningAll().execute()) as Record<
+      string,
+      unknown
+    >[]
+  } catch (e: any) {
+    throw normalizeError(e, getTable(def))
+  }
+
+  return results.map((row) => {
+    const applied = config?.casts ? applyCastsToData(config as any, row as any, "get") : row
+    return createInstance(def, config ?? { columns: def.columns }, applied, true)
+  })
+}
+
+// ─── UPDATE MODEL ────────────────────────────────────────────
+export async function updateModel(
+  def: ModelDefinition,
+  id: number | string,
+  data: Record<string, unknown>,
+): Promise<ModelInstance> {
+  const model = await def.findOrFail(id)
+  model.fill(data)
+  await saveModel(def, model)
+  return model
+}
+
+// ─── RELOAD MODEL ────────────────────────────────────────────
+export async function reloadModel(def: ModelDefinition, model: ModelInstance): Promise<void> {
+  const pk = getPrimaryKeyColumn(def)
+  const pkValue = model.get(pk)
+  if (pkValue == null) throw new DatabaseError("Cannot reload model without primary key", "MISSING_ID")
+
+  const db = getDb(def)
+  try {
+    const row = await db.selectFrom(getTable(def)).selectAll().where(pk, "=", pkValue).executeTakeFirst()
+
+    if (row) {
+      const config = getConfig(def)
+      const applied = config?.casts ? applyCastsToData(config as any, row as any, "get") : row
+      const state = getState(model)
+      state.attributes = { ...(applied as Record<string, unknown>) }
+      state.original = { ...(applied as Record<string, unknown>) }
+    }
+  } catch (e: any) {
+    throw normalizeError(e, getTable(def))
   }
 }
 
-export async function reloadModel(def: ModelDefinition, model: ModelInstance): Promise<void> {
-  const peta = def._peta
-  if (!peta) throw new Error(`${def.table} has not been registered with Peta`)
-  const state = getState(model)
-  const pk = getPrimaryKeyColumn(def)
-  const id = state.attributes[pk.name]
-  if (id == null) throw new DatabaseError("MISSING_ID", "Cannot reload a model without an id")
-  const row = await peta.kysely
-    .selectFrom(def.table)
-    .selectAll()
-    .where(pk.name, "=", id as never)
-    .executeTakeFirst()
-  if (row) {
-    state.attributes = { ...(row as Record<string, unknown>) }
-    state.original = { ...(row as Record<string, unknown>) }
-    setExists(model, true)
-  }
+// ─── GET CONFIG ──────────────────────────────────────────────
+const configMap = new WeakMap<ModelDefinition, ModelConfig>()
+
+export function setConfig(def: ModelDefinition, config: ModelConfig): void {
+  configMap.set(def, config)
+}
+
+export function getConfig(def: ModelDefinition): ModelConfig | undefined {
+  return configMap.get(def)
 }

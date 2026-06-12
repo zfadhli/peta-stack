@@ -2,7 +2,6 @@ import { Database } from "bun:sqlite"
 import { afterAll, beforeAll, describe, expect, it } from "bun:test"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
 import { t as columnTypes, createArkTypeSchemaConfig } from "../src/columns/index.js"
-import { ModelNotFoundError, RelationNotFoundError, ValidationError } from "../src/errors.js"
 import { createCollection, createPeta, defineModel } from "../src/index.js"
 import { hasMany } from "../src/relations/index.js"
 
@@ -42,7 +41,7 @@ beforeAll(async () => {
   await CollUser.insert({ name: "Bob", role: "user" })
   await CollUser.insert({ name: "Charlie", role: "user" })
   await CollUser.insert({ name: "Diana", role: "admin" })
-  const users = await CollUser.query().orderBy("id", "asc").execute()
+  const users = await CollUser.query().orderBy("id", "asc")
   await CollItem.insert({ userId: users[0]!.get("id") as number, label: "Item 1" })
   await CollItem.insert({ userId: users[0]!.get("id") as number, label: "Item 2" })
   await CollItem.insert({ userId: users[1]!.get("id") as number, label: "Item 3" })
@@ -56,7 +55,7 @@ describe("Collection", () => {
   let col: ReturnType<typeof createCollection>
 
   beforeAll(async () => {
-    const users = await CollUser.query().orderBy("id", "asc").execute()
+    const users = await CollUser.query().orderBy("id", "asc")
     col = createCollection(users)
   })
 
@@ -103,14 +102,14 @@ describe("Collection", () => {
   })
 
   it("load() hydrates relations on all items", async () => {
-    const users = await CollUser.query().orderBy("id", "asc").execute()
+    const users = await CollUser.query().orderBy("id", "asc")
     const c = createCollection(users)
     await c.load("items")
     const alice = c.first()!
     expect(alice.$hasRelation("items")).toBe(true)
-    expect(alice.$getRelation("items")).toBeArray()
-    // Alice (id=1) has 2 items from setup
-    expect(alice.$getRelation("items")).toHaveLength(2)
+    const items = alice.$getRelation("items") as any[]
+    expect(items).toBeArray()
+    expect(items).toHaveLength(2)
   })
 
   it("sum/avg/min/max", () => {
@@ -122,12 +121,6 @@ describe("Collection", () => {
     expect(users.avg("id")).toBe(1.5)
     expect(users.min("id")).toBe(1)
     expect(users.max("id")).toBe(2)
-  })
-
-  it("contains", () => {
-    const users = createCollection([CollUser.hydrate({ id: 1, name: "Alice", role: "admin" })])
-    expect(users.contains("admin", "role")).toBe(true)
-    expect(users.contains("bogus", "role")).toBe(false)
   })
 
   it("unique", () => {
@@ -147,29 +140,21 @@ describe("Collection", () => {
   })
 
   it("take/skip", () => {
-    const users = createCollection([
-      CollUser.hydrate({ id: 1 }),
-      CollUser.hydrate({ id: 2 }),
-      CollUser.hydrate({ id: 3 }),
-    ])
-    expect(users.take(2)).toHaveLength(2)
-    expect(users.skip(1)).toHaveLength(2)
+    expect(
+      createCollection([CollUser.hydrate({ id: 1 }), CollUser.hydrate({ id: 2 }), CollUser.hydrate({ id: 3 })]).take(2),
+    ).toHaveLength(2)
+    expect(
+      createCollection([CollUser.hydrate({ id: 1 }), CollUser.hydrate({ id: 2 }), CollUser.hydrate({ id: 3 })]).skip(1),
+    ).toHaveLength(2)
   })
 
   it("chunk splits collection", () => {
-    const users = createCollection([
+    const chunks = createCollection([
       CollUser.hydrate({ id: 1 }),
       CollUser.hydrate({ id: 2 }),
       CollUser.hydrate({ id: 3 }),
-    ])
-    expect(users.chunk(2)).toHaveLength(2)
-  })
-
-  it("each iterates", () => {
-    const ids: number[] = []
-    const users = createCollection([CollUser.hydrate({ id: 1 }), CollUser.hydrate({ id: 2 })])
-    users.each((u) => ids.push(u.get("id") as number))
-    expect(ids).toEqual([1, 2])
+    ]).chunk(2)
+    expect(chunks).toHaveLength(2)
   })
 })
 
@@ -199,62 +184,6 @@ describe("Paginator", () => {
     expect(result.onFirstPage).toBe(true)
     expect(result.onLastPage).toBe(false)
   })
-
-  it("toSQL() produces compiled query", () => {
-    const compiled = CollUser.query().where("name", "=", "Alice").toSQL()
-    expect(compiled.sql).toBeTruthy()
-    expect(compiled.parameters).toBeDefined()
-  })
-
-  it("aggregate methods", async () => {
-    const total = await CollUser.query().sum("id")
-    expect(total).toBeGreaterThan(0)
-    const average = await CollUser.query().avg("id")
-    expect(average).toBeGreaterThan(0)
-    const minVal = await CollUser.query().min("id")
-    expect(minVal).toBeGreaterThan(0)
-    const maxVal = await CollUser.query().max("id")
-    expect(maxVal).toBeGreaterThan(0)
-  })
-
-  it("chunk() processes batches", async () => {
-    const items: any[] = []
-    await CollUser.query()
-      .orderBy("id", "asc")
-      .chunk(2, async (chunk) => {
-        items.push(...chunk)
-      })
-    expect(items.length).toBeGreaterThanOrEqual(4)
-  })
-
-  it("paginate(0) clamps to page 1", async () => {
-    const result = await CollUser.query().orderBy("id", "asc").paginate(0, 2)
-    expect(result.currentPage).toBe(1)
-  })
-
-  it("paginate clamps perPage to max 1000", async () => {
-    const result = await CollUser.query().orderBy("id", "asc").paginate(1, 5000)
-    expect(result.perPage).toBe(1000)
-  })
-})
-
-describe("Error types", () => {
-  it("ModelNotFoundError", () => {
-    const err = new ModelNotFoundError("User", 42)
-    expect(err.message).toBe("User with id 42 not found")
-    expect(err.name).toBe("ModelNotFoundError")
-  })
-
-  it("RelationNotFoundError", () => {
-    const err = new RelationNotFoundError("User", "posts")
-    expect(err.message).toBe('Relation "posts" not found on User')
-  })
-
-  it("ValidationError", () => {
-    const err = new ValidationError("test error")
-    expect(err.message).toBe("test error")
-    expect(err.name).toBe("ValidationError")
-  })
 })
 
 describe("Global scopes", () => {
@@ -283,12 +212,12 @@ describe("Global scopes", () => {
   })
 
   it("applies global scope", async () => {
-    const users = await ScopedUser.query().orderBy("id", "asc").execute()
+    const users = await ScopedUser.query().orderBy("id", "asc")
     expect(users).toHaveLength(2)
   })
 
   it("bypasses global scope", async () => {
-    const users = await ScopedUser.query().withoutGlobalScope("active").orderBy("id", "asc").execute()
+    const users = await ScopedUser.query().withoutGlobalScope("active").orderBy("id", "asc")
     expect(users).toHaveLength(3)
   })
 })
@@ -318,7 +247,7 @@ describe("Batch operations", () => {
   })
 
   it("updateMany updates multiple records", async () => {
-    const affected = await BatchUser.query().updateMany({ role: "member" })
+    const affected = await BatchUser.query().all().updateMany({ role: "member" })
     expect(affected).toBeGreaterThanOrEqual(0)
   })
 

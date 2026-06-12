@@ -12,7 +12,7 @@ export function createArkTypeSchemaConfig(): SchemaConfig {
     if (result instanceof arktype.errors) {
       const problems = extractProblems(result)
       const message = [...problems.entries()].map(([path, msgs]) => `${path}: ${msgs.join(", ")}`).join("; ")
-      throw new ValidationError(message, result)
+      throw new ValidationError(message)
     }
     return result as T
   }
@@ -24,7 +24,7 @@ export function createArkTypeSchemaConfig(): SchemaConfig {
       if (isArkError(e)) {
         const problems = extractProblems(e.arkErrors)
         const message = [...problems.entries()].map(([path, msgs]) => `${path}: ${msgs.join(", ")}`).join("; ")
-        throw new ValidationError(message, e.arkErrors)
+        throw new ValidationError(message)
       }
       throw e
     }

@@ -1,78 +1,124 @@
-import { DatabaseError, ModelNotRegisteredError } from "../errors.js"
+import { DatabaseError, ModelNotRegisteredError, normalizeError } from "../errors.js"
 import { getHooksFor, getSoftDeleteConfig, hasSoftDelete } from "./hooks.js"
-import type { ModelDefinition, ModelInstance } from "./index.js"
-import { getState, setExists, syncOriginal } from "./state.js"
+import { setExists } from "./state.js"
+import type { ModelDefinition, ModelInstance } from "./types.js"
 
-export async function deleteModel(def: ModelDefinition, model: ModelInstance): Promise<void> {
-  const hooks = getHooksFor(def)
-  await hooks.trigger("beforeDelete", model as never)
-  const state = getState(model)
-  const id = state.attributes.id
-  if (id == null) throw new DatabaseError("MISSING_ID", "Cannot delete a model without an id")
-  const peta = def._peta
-  if (!peta) throw new ModelNotRegisteredError(def.name)
-  if (hasSoftDelete(def)) {
-    const sd = getSoftDeleteConfig(def)
-    const column = sd?.column ?? "deletedAt"
-    await peta.kysely
-      .updateTable(def.table)
-      .set({ [column]: new Date().toISOString() })
-      .where("id", "=", id as never)
-      .execute()
-    state.attributes[column] = new Date().toISOString()
-  } else {
-    await peta.kysely
-      .deleteFrom(def.table)
-      .where("id", "=", id as never)
-      .execute()
+function getTable(def: ModelDefinition): string {
+  return def.table
+}
+
+function getDb(def: ModelDefinition): any {
+  if (!def._orm) throw new ModelNotRegisteredError(def.name)
+  return (def._orm as any).kysely
+}
+
+function getPrimaryKeyColumn(def: ModelDefinition): string {
+  const cols = def.columns as Record<string, any>
+  for (const [name, col] of Object.entries(cols)) {
+    if (col.isPrimaryKey) return name
   }
-  setExists(model, false)
-  syncOriginal(model)
-  await hooks.trigger("afterDelete", model as never)
+  return "id"
 }
 
+// ─── DELETE MODEL ────────────────────────────────────────────
+export async function deleteModel(def: ModelDefinition, model: ModelInstance): Promise<void> {
+  const pk = getPrimaryKeyColumn(def)
+  const pkValue = model.get(pk)
+
+  if (pkValue == null) {
+    throw new DatabaseError("Cannot delete model without primary key", "MISSING_ID")
+  }
+
+  const hm = getHooksFor(def)
+
+  if (hasSoftDelete(def)) {
+    // Soft delete
+    await hm.trigger("beforeDelete", model as any)
+    const config = getSoftDeleteConfig(def)!
+    const db = getDb(def)
+
+    try {
+      await db
+        .updateTable(getTable(def))
+        .set({ [config.column]: new Date().toISOString() })
+        .where(pk, "=", pkValue)
+        .execute()
+    } catch (e: any) {
+      throw normalizeError(e, getTable(def))
+    }
+
+    model.set(config.column, new Date().toISOString())
+    await hm.trigger("afterDelete", model as any)
+  } else {
+    // Hard delete
+    await hm.trigger("beforeDelete", model as any)
+    const db = getDb(def)
+
+    try {
+      await db.deleteFrom(getTable(def)).where(pk, "=", pkValue).execute()
+    } catch (e: any) {
+      throw normalizeError(e, getTable(def))
+    }
+
+    setExists(model, false)
+    await hm.trigger("afterDelete", model as any)
+  }
+}
+
+// ─── FORCE DELETE ────────────────────────────────────────────
 export async function forceDeleteModel(def: ModelDefinition, model: ModelInstance): Promise<void> {
-  const hooks = getHooksFor(def)
-  await hooks.trigger("beforeForceDelete", model as never)
-  const state = getState(model)
-  const id = state.attributes.id
-  if (id == null) throw new DatabaseError("MISSING_ID", "Cannot force delete a model without an id")
-  const peta = def._peta
-  if (!peta) throw new ModelNotRegisteredError(def.name)
-  await peta.kysely
-    .deleteFrom(def.table)
-    .where("id", "=", id as never)
-    .execute()
+  const pk = getPrimaryKeyColumn(def)
+  const pkValue = model.get(pk)
+
+  if (pkValue == null) {
+    throw new DatabaseError("Cannot delete model without primary key", "MISSING_ID")
+  }
+
+  const hm = getHooksFor(def)
+  await hm.trigger("beforeForceDelete", model as any)
+
+  const db = getDb(def)
+  try {
+    await db.deleteFrom(getTable(def)).where(pk, "=", pkValue).execute()
+  } catch (e: any) {
+    throw normalizeError(e, getTable(def))
+  }
+
   setExists(model, false)
-  syncOriginal(model)
-  await hooks.trigger("afterForceDelete", model as never)
+  await hm.trigger("afterForceDelete", model as any)
 }
 
+// ─── RESTORE ─────────────────────────────────────────────────
 export async function restoreModel(def: ModelDefinition, model: ModelInstance): Promise<void> {
-  const hooks = getHooksFor(def)
-  await hooks.trigger("beforeRestore", model as never)
-  const state = getState(model)
-  const id = state.attributes.id
-  if (id == null) throw new DatabaseError("MISSING_ID", "Cannot restore a model without an id")
-  const peta = def._peta
-  if (!peta) throw new ModelNotRegisteredError(def.name)
+  const pk = getPrimaryKeyColumn(def)
+  const pkValue = model.get(pk)
+  if (pkValue == null) return
+
   if (!hasSoftDelete(def)) return
-  const sd = getSoftDeleteConfig(def)
-  const column = sd?.column ?? "deletedAt"
-  await peta.kysely
-    .updateTable(def.table)
-    .set({ [column]: null })
-    .where("id", "=", id as never)
-    .execute()
-  state.attributes[column] = null
+
+  const hm = getHooksFor(def)
+  await hm.trigger("beforeRestore", model as any)
+
+  const config = getSoftDeleteConfig(def)!
+  const db = getDb(def)
+  try {
+    await db
+      .updateTable(getTable(def))
+      .set({ [config.column]: null })
+      .where(pk, "=", pkValue)
+      .execute()
+  } catch (e: any) {
+    throw normalizeError(e, getTable(def))
+  }
+
+  model.set(config.column, null)
   setExists(model, true)
-  syncOriginal(model)
-  await hooks.trigger("afterRestore", model as never)
+  await hm.trigger("afterRestore", model as any)
 }
 
+// ─── TRASHED CHECK ───────────────────────────────────────────
 export function trashedModel(def: ModelDefinition, model: ModelInstance): boolean {
   if (!hasSoftDelete(def)) return false
-  const sd = getSoftDeleteConfig(def)
-  const column = sd?.column ?? "deletedAt"
-  return getState(model).attributes[column] != null
+  const config = getSoftDeleteConfig(def)!
+  return model.get(config.column) != null
 }

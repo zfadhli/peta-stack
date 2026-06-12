@@ -1,85 +1,112 @@
+export type DatabaseErrorCode =
+  | "UNIQUE_CONSTRAINT"
+  | "FOREIGN_KEY_CONSTRAINT"
+  | "NOT_NULL_CONSTRAINT"
+  | "CHECK_CONSTRAINT"
+  | "MISSING_ID"
+  | "RELATION_NOT_FOUND"
+  | "MODEL_NOT_REGISTERED"
+  | "UNKNOWN"
+
 export class ValidationError extends Error {
-  readonly errors: unknown
-  constructor(message: string, errors?: unknown) {
-    super(message)
-    this.name = "ValidationError"
-    this.errors = errors
-  }
+  override name = "ValidationError" as const
 }
 
 export class ModelNotFoundError extends Error {
-  readonly modelClass?: string
-  readonly id?: number | string
-  constructor(modelClass?: string, id?: number | string) {
-    const message = modelClass ? `${modelClass} with id ${id} not found` : "Model not found"
-    super(message)
-    this.name = "ModelNotFoundError"
-    this.modelClass = modelClass
-    this.id = id
+  override name = "ModelNotFoundError" as const
+
+  constructor(model: string, id: ModelIdValue) {
+    super(`${model} with id ${id} not found`)
   }
 }
 
+type ModelIdValue = number | string | bigint
+
 export class RelationNotFoundError extends Error {
-  readonly modelClass?: string
-  readonly relationName?: string
-  constructor(modelClass?: string, relationName?: string) {
-    const message = modelClass ? `Relation "${relationName}" not found on ${modelClass}` : "Relation not found"
-    super(message)
-    this.name = "RelationNotFoundError"
-    this.modelClass = modelClass
-    this.relationName = relationName
+  override name = "RelationNotFoundError" as const
+
+  constructor(model: string, relation: string) {
+    super(`Relation "${relation}" not found on ${model}`)
   }
 }
 
 export class ModelNotRegisteredError extends Error {
-  readonly modelClass?: string
-  constructor(modelClass?: string) {
-    const message = modelClass ? `${modelClass} is not registered with Peta` : "Model not registered with Peta"
-    super(message)
-    this.name = "ModelNotRegisteredError"
-    this.modelClass = modelClass
+  override name = "ModelNotRegisteredError" as const
+
+  constructor(model: string) {
+    super(`Model "${model}" is not registered. Call orm.register() or pass it to createORM()`)
   }
 }
-
-export type DatabaseErrorCode =
-  | "UNIQUE_CONSTRAINT"
-  | "FOREIGN_KEY_CONSTRAINT"
-  | "MISSING_ID"
-  | "NO_PETA"
-  | "DISCOVER_REQUIRES_BUN"
-  | "INVALID_COLUMN_REFERENCE"
-  | "MODEL_STATE_NOT_INITIALIZED"
-  | "UNKNOWN"
 
 export class DatabaseError extends Error {
-  readonly code: DatabaseErrorCode
-  override readonly cause?: unknown
-  readonly table?: string
-  constructor(code: DatabaseErrorCode, message: string, cause?: unknown, table?: string) {
+  override name = "DatabaseError" as const
+  code: DatabaseErrorCode
+  table?: string
+  detail?: string
+
+  constructor(message: string, code: DatabaseErrorCode, table?: string, detail?: string) {
     super(message)
-    this.name = "DatabaseError"
     this.code = code
-    this.cause = cause
     this.table = table
+    this.detail = detail
   }
 }
 
-const UNIQUE_CODES = new Set(["SQLITE_CONSTRAINT_UNIQUE", "SQLITE_CONSTRAINT_PRIMARYKEY", "23505", "ER_DUP_ENTRY"])
-const FOREIGN_KEY_CODES = new Set(["SQLITE_CONSTRAINT_FOREIGNKEY", "23503", "ER_NO_REFERENCED_ROW_2"])
-
-function isErrorLike(value: unknown): value is { code: unknown; column?: unknown } {
-  return typeof value === "object" && value !== null
+interface RawError {
+  code?: string
+  errno?: number
+  message?: string
 }
 
-export function normalizeError(e: unknown, table?: string): DatabaseError | null {
-  if (!isErrorLike(e)) return null
-  if (typeof e.code !== "string") return null
-  if (UNIQUE_CODES.has(e.code)) {
-    const col = typeof e.column === "string" ? ` on ${e.column}` : ""
-    return new DatabaseError("UNIQUE_CONSTRAINT", `Unique constraint violation${col}`, e, table)
+export function normalizeError(e: unknown, table?: string): DatabaseError {
+  const raw = e as RawError
+  const msg = raw.message ?? ""
+
+  // Bun SQLite: code = "SQLITE_CONSTRAINT_UNIQUE", errno = 2067
+  if (raw.code === "SQLITE_CONSTRAINT_UNIQUE" || raw.code === "SQLITE_CONSTRAINT") {
+    return new DatabaseError(`Unique constraint violation on ${table}: ${msg}`, "UNIQUE_CONSTRAINT", table, msg)
   }
-  if (FOREIGN_KEY_CODES.has(e.code)) {
-    return new DatabaseError("FOREIGN_KEY_CONSTRAINT", "Foreign key constraint violation", e, table)
+  if (raw.code === "SQLITE_CONSTRAINT_FOREIGNKEY" || raw.code === "SQLITE_CONSTRAINT_FOREIGN_KEY") {
+    return new DatabaseError(
+      `Foreign key constraint violation on ${table}: ${msg}`,
+      "FOREIGN_KEY_CONSTRAINT",
+      table,
+      msg,
+    )
   }
-  return null
+  if (raw.code === "SQLITE_CONSTRAINT_NOTNULL" || raw.code === "SQLITE_CONSTRAINT_NOT_NULL") {
+    return new DatabaseError(`Not null constraint violation on ${table}: ${msg}`, "NOT_NULL_CONSTRAINT", table, msg)
+  }
+  if (raw.code === "SQLITE_CONSTRAINT_CHECK") {
+    return new DatabaseError(`Check constraint violation on ${table}: ${msg}`, "CHECK_CONSTRAINT", table, msg)
+  }
+
+  // SQLite generic constraint (errno 19 or 2067)
+  if (raw.errno === 19 || raw.errno === 2067) {
+    if (msg.includes("UNIQUE")) {
+      return new DatabaseError(msg, "UNIQUE_CONSTRAINT", table, msg)
+    }
+    if (msg.includes("FOREIGN KEY")) {
+      return new DatabaseError(msg, "FOREIGN_KEY_CONSTRAINT", table, msg)
+    }
+    if (msg.includes("NOT NULL")) {
+      return new DatabaseError(msg, "NOT_NULL_CONSTRAINT", table, msg)
+    }
+    if (msg.includes("CHECK")) {
+      return new DatabaseError(msg, "CHECK_CONSTRAINT", table, msg)
+    }
+  }
+
+  // PostgreSQL error codes
+  if (raw.code === "23505") {
+    return new DatabaseError(msg, "UNIQUE_CONSTRAINT", table, msg)
+  }
+  if (raw.code === "23503") {
+    return new DatabaseError(msg, "FOREIGN_KEY_CONSTRAINT", table, msg)
+  }
+  if (raw.code === "23502") {
+    return new DatabaseError(msg, "NOT_NULL_CONSTRAINT", table, msg)
+  }
+
+  return new DatabaseError(msg || "Unknown database error", "UNKNOWN", table, msg)
 }

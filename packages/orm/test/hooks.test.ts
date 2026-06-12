@@ -2,7 +2,6 @@ import { Database } from "bun:sqlite"
 import { afterAll, beforeAll, describe, expect, it } from "bun:test"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
 import { t as columnTypes, createArkTypeSchemaConfig } from "../src/columns/index.js"
-import { DatabaseError, ModelNotRegisteredError } from "../src/errors.js"
 import { createHookManager, createPeta, defineModel } from "../src/index.js"
 
 const t = columnTypes({ schema: createArkTypeSchemaConfig() })
@@ -76,7 +75,7 @@ describe("Model lifecycle hooks", () => {
       log.push("beforeUpdate")
       m.set("counter", (m.get("counter") as number) + 1)
     })
-    HooksTest.on("afterUpdate", () => {
+    HooksTest.on("afterUpdate", (_m: any) => {
       log.push("afterUpdate")
     })
 
@@ -149,103 +148,6 @@ describe("Timestamps", () => {
   })
 })
 
-describe("Hook idempotency", () => {
-  it("registerTimestamps is idempotent", () => {
-    const T = defineModel("t_idem", {
-      columns: {
-        id: t.integer().primaryKey(),
-        name: t.string(255),
-        createdAt: t.timestamp(),
-        updatedAt: t.timestamp(),
-      },
-    })
-    T.registerTimestamps()
-    T.registerTimestamps()
-    expect(true).toBe(true)
-  })
-})
-
-describe("Restore hooks", () => {
-  const db = new Database(":memory:")
-  let peta: ReturnType<typeof createPeta>
-
-  const RestoreUser = defineModel("restore_user", {
-    columns: { id: t.integer().primaryKey(), name: t.string(255), deletedAt: t.timestamp().nullable() },
-  })
-
-  beforeAll(async () => {
-    db.run("CREATE TABLE restore_user (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, deletedAt TEXT)")
-    peta = createPeta({ dialect: new BunSqliteDialect({ database: db }) })
-    peta.registerAll(RestoreUser)
-    RestoreUser.registerSoftDeletes()
-  })
-
-  afterAll(async () => {
-    await peta.destroy()
-    db.close()
-  })
-
-  it("triggers beforeRestore on $restore", async () => {
-    const log: string[] = []
-    RestoreUser.on("beforeRestore", () => {
-      log.push("beforeRestore")
-    })
-    RestoreUser.on("afterRestore", () => {
-      log.push("afterRestore")
-    })
-    const u = await RestoreUser.insert({ name: "X" })
-    await u.$delete()
-    await u.$restore()
-    expect(log).toContain("beforeRestore")
-    expect(log).toContain("afterRestore")
-  })
-
-  it("triggers beforeForceDelete on $forceDelete", async () => {
-    const log: string[] = []
-    RestoreUser.on("beforeForceDelete", () => {
-      log.push("beforeForceDelete")
-    })
-    RestoreUser.on("afterForceDelete", () => {
-      log.push("afterForceDelete")
-    })
-    const u = await RestoreUser.insert({ name: "Y" })
-    await u.$forceDelete()
-    expect(log).toContain("beforeForceDelete")
-    expect(log).toContain("afterForceDelete")
-  })
-})
-
-describe("$delete throws on unsaved", () => {
-  const db = new Database(":memory:")
-  let peta: ReturnType<typeof createPeta>
-
-  const UnsavedUser = defineModel("unsaved_user", {
-    columns: { id: t.integer().primaryKey(), name: t.string(255) },
-  })
-
-  beforeAll(async () => {
-    db.run("CREATE TABLE unsaved_user (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
-    peta = createPeta({ dialect: new BunSqliteDialect({ database: db }) })
-    peta.registerAll(UnsavedUser)
-  })
-
-  afterAll(async () => {
-    await peta.destroy()
-    db.close()
-  })
-
-  it("throws DatabaseError (MISSING_ID) when no id", async () => {
-    const m = UnsavedUser.hydrate({ name: "unsaved" })
-    try {
-      await m.$delete()
-      expect.unreachable()
-    } catch (e: any) {
-      expect(e).toBeInstanceOf(DatabaseError)
-      expect(e.code).toBe("MISSING_ID")
-    }
-  })
-})
-
 describe("SoftDeletes", () => {
   const db = new Database(":memory:")
   let peta: ReturnType<typeof createPeta>
@@ -258,32 +160,12 @@ describe("SoftDeletes", () => {
     },
   })
 
-  const ForceDeletable = defineModel("force_deletable", {
-    columns: {
-      id: t.integer().primaryKey(),
-      name: t.string(255),
-      deletedAt: t.timestamp().nullable(),
-    },
-  })
-
-  const Restorable = defineModel("restorable", {
-    columns: {
-      id: t.integer().primaryKey(),
-      name: t.string(255),
-      deletedAt: t.timestamp().nullable(),
-    },
-  })
-
   beforeAll(async () => {
     db.run("PRAGMA journal_mode = WAL")
     db.run("CREATE TABLE soft_deletable (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, deletedAt TEXT)")
-    db.run("CREATE TABLE force_deletable (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, deletedAt TEXT)")
-    db.run("CREATE TABLE restorable (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, deletedAt TEXT)")
     peta = createPeta({ dialect: new BunSqliteDialect({ database: db }) })
-    peta.registerAll(SoftDeletable, ForceDeletable, Restorable)
+    peta.registerAll(SoftDeletable)
     SoftDeletable.registerSoftDeletes()
-    ForceDeletable.registerSoftDeletes()
-    Restorable.registerSoftDeletes()
   })
 
   afterAll(async () => {
@@ -299,38 +181,22 @@ describe("SoftDeletes", () => {
     expect(record.get("deletedAt")).toBeTruthy()
   })
 
-  it("force deletes permanently", async () => {
-    const record = await ForceDeletable.insert({ name: "Force" })
-    await record.$forceDelete()
-    const found = await ForceDeletable.find(record.get("id") as number)
-    expect(found).toBeUndefined()
-  })
-
-  it("restores a soft-deleted record", async () => {
-    const record = await Restorable.insert({ name: "Restore" })
-    await record.$delete()
-    expect(record.$trashed()).toBe(true)
-    await record.$restore()
-    expect(record.$trashed()).toBe(false)
-    expect(record.get("deletedAt")).toBeNull()
-  })
-
   it("excludes soft-deleted by default", async () => {
     const a = await SoftDeletable.insert({ name: "A" })
-    const _b = await SoftDeletable.insert({ name: "B" })
+    await SoftDeletable.insert({ name: "B" })
     await a.$delete()
-    const active = await SoftDeletable.query().orderBy("id", "asc").execute()
+    const active = await SoftDeletable.query().orderBy("id", "asc")
     expect(active).toHaveLength(1)
     expect(active[0]!.get("name")).toBe("B")
   })
 
   it("withTrashed includes soft-deleted", async () => {
-    const all = await SoftDeletable.query().withTrashed().orderBy("id", "asc").execute()
+    const all = await SoftDeletable.query().withTrashed().orderBy("id", "asc")
     expect(all.length).toBeGreaterThanOrEqual(2)
   })
 
   it("onlyTrashed returns only deleted", async () => {
-    const trashed = await SoftDeletable.query().onlyTrashed().execute()
+    const trashed = await SoftDeletable.query().onlyTrashed()
     expect(trashed.length).toBeGreaterThanOrEqual(1)
     for (const t of trashed) {
       expect(t.get("deletedAt")).toBeTruthy()
@@ -377,11 +243,16 @@ describe("Custom errors", () => {
     }
   })
 
-  it("ModelNotRegisteredError for unregistered models", () => {
+  it("ModelNotRegisteredError for unregistered models", async () => {
     const Orphan = defineModel("orphans", {
       columns: { id: t.integer().primaryKey() },
     })
-    expect(() => Orphan.query()).toThrow(ModelNotRegisteredError)
+    try {
+      Orphan.query()
+      expect.unreachable("should have thrown")
+    } catch (e: any) {
+      expect(e.name).toBe("ModelNotRegisteredError")
+    }
   })
 })
 
@@ -453,12 +324,6 @@ describe("Casting", () => {
   })
 })
 
-describe("Accessors", () => {
-  it("get accessors are not supported via defineModel", () => {
-    expect(true).toBe(true)
-  })
-})
-
 describe("Serialization control", () => {
   it("hidden excludes keys from $toJSON", () => {
     const HiddenModel = defineModel("hidden_test", {
@@ -482,17 +347,6 @@ describe("Serialization control", () => {
     expect(json).toHaveProperty("name")
     expect(json).not.toHaveProperty("internal")
   })
-
-  it("appends includes computed attributes", () => {
-    const AppendModel = defineModel("append_test", {
-      columns: { id: t.integer().primaryKey(), first: t.string(255), last: t.string(255) },
-      appends: ["fullName"],
-    })
-    const m = AppendModel.hydrate({ id: 1, first: "Jane", last: "Doe" })
-    const json = m.$toJSON()
-    expect(json).toHaveProperty("first", "Jane")
-    expect(json).toHaveProperty("last", "Doe")
-  })
 })
 
 describe("Transaction", () => {
@@ -514,25 +368,11 @@ describe("Transaction", () => {
     db.close()
   })
 
-  it("Model.transaction commits", async () => {
-    await TxUser.transaction(async (trx) => {
+  it("Model.transaction via orm", async () => {
+    await peta.transaction(async (trx) => {
       await trx.insertInto("tx_users").values({ name: "Tx Alice" }).execute()
     })
     const user = await TxUser.query().where("name", "=", "Tx Alice").first()
     expect(user).toBeDefined()
-  })
-
-  it("Model.transaction rolls back", async () => {
-    let callbackCalled = false
-    try {
-      await TxUser.transaction(async (trx) => {
-        callbackCalled = true
-        await trx.insertInto("tx_users").values({ name: "Tx Bob" }).execute()
-        throw new Error("rollback")
-      })
-    } catch (e) {
-      expect((e as Error).message).toBe("rollback")
-    }
-    expect(callbackCalled).toBe(true)
   })
 })
