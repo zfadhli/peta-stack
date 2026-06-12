@@ -12,7 +12,6 @@ interface MutationResult {
 }
 
 export interface QueryBuilder {
-  clone(): QueryBuilder
   withoutGlobalScope(name: string): QueryBuilder
   when(condition: unknown, callback: (q: QueryBuilder) => QueryBuilder): QueryBuilder
   unless(condition: unknown, callback: (q: QueryBuilder) => QueryBuilder): QueryBuilder
@@ -97,28 +96,6 @@ export function createQueryBuilder(def: ModelDefinition, peta: PetaLike, kyselyO
   }
 
   const self: QueryBuilder = {
-    clone(): QueryBuilder {
-      // WARNING: clone creates a fresh QueryBuilder that shares the same
-      // Kysely SELECT target but WITHOUT any WHERE/ORDER BY/LIMIT/OFFSET/
-      // JOIN/etc clauses that were applied. This is by design for simple
-      // counting queries, but means all query state set before clone()
-      // is silently dropped.
-      //
-      // Internal methods (first, find, findOrFail, chunk, paginate) no
-      // longer use clone() — they work directly with qb.
-      const c = createQueryBuilder(def, peta, db)
-      for (const el of eagerLoads) {
-        if (el.constraints) {
-          c.with({ [el.name]: el.constraints } as Record<string, (qb: QueryBuilder) => void>)
-        } else {
-          c.with(el.name)
-        }
-      }
-      if (withTrashed) c.withTrashed()
-      if (onlyTrashedMode) c.onlyTrashed()
-      for (const name of omitScopes) c.withoutGlobalScope(name)
-      return c
-    },
     withoutGlobalScope(name: string): QueryBuilder {
       omitScopes.add(name)
       return self
