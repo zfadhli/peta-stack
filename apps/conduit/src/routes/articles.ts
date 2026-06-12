@@ -74,6 +74,19 @@ const UpdateArticleBody = type({
   },
 })
 
+const ListArticlesQuery = type({
+  "tag?": "string",
+  "author?": "string",
+  "favorited?": "string",
+  "limit?": "string",
+  "offset?": "string",
+})
+
+const FeedArticlesQuery = type({
+  "limit?": "string",
+  "offset?": "string",
+})
+
 const ArticleParams = type({ slug: "string" })
 
 // ---------------------------------------------------------------------------
@@ -190,6 +203,7 @@ app.get(
     .summary("Get recent articles globally")
     .tags("Articles")
     .response(200, MultipleArticlesSchema)
+    .query(ListArticlesQuery)
     .onValidationError(onValidationError)
     .handle(async (c) => {
       const qTag = c.req.query("tag")
@@ -279,6 +293,7 @@ app.get(
     .auth("Token")
     .response(200, MultipleArticlesSchema)
     .response(401, "Unauthorized")
+    .query(FeedArticlesQuery)
     .onValidationError(onValidationError)
     .handle(async (c) => {
       const currentUserId = c.var.currentUserId!
