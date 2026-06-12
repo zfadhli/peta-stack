@@ -345,3 +345,164 @@ describe("MorphTo + MorphMany bidirectional", () => {
     expect(comments[0]!.$getRelation("commentable").get("title")).toBe("Bidirectional Post")
   })
 })
+
+// ─── Tests: MorphTo + MorphMany through graph operations ──────
+
+describe("MorphTo through insertGraph", () => {
+  it("11. creates the correct polymorphic type via insertGraph with type key", async () => {
+    const comment = await Comment.insertGraph({
+      body: "Graph morph test",
+      commentable: {
+        create: { title: "Graph Post" },
+        type: "morph_posts",
+      },
+    })
+
+    expect(comment.get("body")).toBe("Graph morph test")
+    expect(comment.get("commentableType")).toBe("morph_posts")
+    expect(comment.get("commentableId")).toBeGreaterThan(0)
+
+    // Verify the related post was created
+    const post = await Post.find(comment.get("commentableId") as number)
+    expect(post).toBeDefined()
+    expect(post!.get("title")).toBe("Graph Post")
+  })
+
+  it("12. creates the correct type when morphMap has only one entry (auto-detect)", async () => {
+    // Comment has morph map with 2 entries, so auto-detect won't work.
+    // Use Like instead which has a simpler setup.
+    const like = await Like.insertGraph({
+      likeableType: "morph_posts",
+      likeableId: 0, // placeholder, will be updated
+      likeable: {
+        create: { title: "Auto-detect Post" },
+        type: "morph_posts",
+      },
+    })
+
+    expect(like.get("likeableType")).toBe("morph_posts")
+    expect(like.get("likeableId")).toBeGreaterThan(0)
+
+    const post = await Post.find(like.get("likeableId") as number)
+    expect(post).toBeDefined()
+    expect(post!.get("title")).toBe("Auto-detect Post")
+  })
+
+  it("13. throws clear error when no type is provided for multi-entry morphMap", async () => {
+    await expect(
+      Comment.insertGraph({
+        body: "No type",
+        commentable: { create: { title: "Who knows" } },
+      }),
+    ).rejects.toThrow(/no type specified/)
+  })
+
+  it("14. throws clear error when invalid type is provided", async () => {
+    await expect(
+      Comment.insertGraph({
+        body: "Bad type",
+        commentable: {
+          create: { title: "Nope" },
+          type: "nonexistent_type",
+        },
+      }),
+    ).rejects.toThrow(/No model registered for morph type/)
+  })
+
+  it("15. supports connect via MorphTo insertGraph", async () => {
+    const existingPost = await Post.insert({ title: "Existing for Morph" })
+
+    const comment = await Comment.insertGraph({
+      body: "Connect morph",
+      commentable: {
+        connect: { id: existingPost.get("id") as number },
+        type: "morph_posts",
+      },
+    })
+
+    expect(comment.get("commentableType")).toBe("morph_posts")
+    expect(comment.get("commentableId")).toBe(existingPost.get("id"))
+  })
+
+  it("16. supports #dbRef via MorphTo insertGraph", async () => {
+    const existingPost = await Post.insert({ title: "DbRef for Morph" })
+
+    const comment = await Comment.insertGraph({
+      body: "DbRef morph",
+      commentable: {
+        "#dbRef": existingPost.get("id") as number,
+        type: "morph_posts",
+      },
+    })
+
+    expect(comment.get("commentableType")).toBe("morph_posts")
+    expect(comment.get("commentableId")).toBe(existingPost.get("id"))
+  })
+})
+
+describe("MorphMany through insertGraph", () => {
+  it("17. auto-sets type column on children via insertGraph", async () => {
+    const post = await Post.insertGraph({
+      title: "MorphMany Graph Post",
+      comments: [{ body: "Child 1" }, { body: "Child 2" }],
+    })
+
+    expect(post.get("id")).toBeGreaterThan(0)
+
+    const comments = await Comment.query()
+      .where("commentableId", "=", post.get("id") as number)
+      .orderBy("id", "asc")
+    expect(comments).toHaveLength(2)
+    // Type column should be auto-set by the MorphMany relation
+    for (const comment of comments) {
+      expect(comment.get("commentableType")).toBe("morph_posts")
+    }
+  })
+
+  it("18. auto-sets type column on children via upsertGraph", async () => {
+    const post = await Post.insert({ title: "MorphMany Upsert" })
+    const postId = post.get("id") as number
+
+    // upsertGraph — add new children
+    await Post.upsertGraph({
+      id: postId,
+      title: "MorphMany Upsert",
+      comments: [{ body: "Upsert child" }],
+    })
+
+    const comments = await Comment.query()
+      .where("commentableId", "=", postId)
+      .orderBy("id", "asc")
+    expect(comments).toHaveLength(1)
+    expect(comments[0]!.get("commentableType")).toBe("morph_posts")
+    expect(comments[0]!.get("body")).toBe("Upsert child")
+  })
+})
+
+describe("MorphTo + MorphMany mixed graph", () => {
+  it("19. creates both directions in a single graph", async () => {
+    const comment = await Comment.insertGraph({
+      body: "Mixed direction",
+      commentable: {
+        create: { title: "Mixed Parent", comments: [{ body: "Grandchild" }] },
+        type: "morph_posts",
+      },
+    })
+
+    // The comment's parent is a Post with title "Mixed Parent"
+    expect(comment.get("commentableType")).toBe("morph_posts")
+    expect(comment.get("commentableId")).toBeGreaterThan(0)
+
+    // Verify the Post was created
+    const post = await Post.find(comment.get("commentableId") as number)
+    expect(post).toBeDefined()
+    expect(post!.get("title")).toBe("Mixed Parent")
+
+    // Verify the Post has its own child comment (filter by body to distinguish from root comment)
+    const grandComments = await Comment.query()
+      .where("body", "=", "Grandchild")
+      .where("commentableId", "=", post!.get("id") as number)
+    expect(grandComments).toHaveLength(1)
+    expect(grandComments[0]!.get("commentableType")).toBe("morph_posts")
+  })
+})

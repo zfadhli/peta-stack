@@ -56,7 +56,7 @@ function groupByArray(items: ModelInstance[], key: string): Record<string, Model
 
 const THUNK_CACHE = new WeakMap<object, ModelDefinition>()
 
-function resolveThunk(thunk: () => ModelDefinition): ModelDefinition {
+export function resolveThunk(thunk: () => ModelDefinition): ModelDefinition {
   let cls = THUNK_CACHE.get(thunk)
   if (!cls) {
     cls = thunk()
@@ -285,6 +285,11 @@ export function defineMorphMany(options: MorphManyOptions): Relation {
     get throughLocalKey() {
       return undefined
     },
+
+    // Morph metadata for graph operations and type column injection
+    _morphType: morphType,
+    _morphId: morphId,
+    _morphTypeValue: typeValue,
 
     query(parent: ModelInstance): ReturnType<typeof createQueryBuilder> {
       return createQueryBuilder(related, (qb: any) => {

@@ -134,6 +134,47 @@ function joinPath(parentPath: string, relName: string): string {
   return parentPath ? `${parentPath}.${relName}` : relName
 }
 
+// ─── MORPH (POLYMORPHIC) HELPERS ──────────────────────────────
+
+// Sentinel key used to mark morphTo relations
+const MORPH_MAP_KEY = "_morphMap"
+
+/** Whether this relation is a MorphTo (polymorphic belongsTo) */
+function isMorphToRelation(relation: Relation): boolean {
+  return (relation as any)?.[MORPH_MAP_KEY] !== undefined
+}
+
+/** Whether this relation is a MorphMany or MorphOne (polymorphic hasMany/hasOne) */
+function isMorphManyRelation(relation: Relation): boolean {
+  return (relation as any)?._morphType !== undefined && !isMorphToRelation(relation)
+}
+
+/** Get the morph type column name (e.g. "commentableType") from a morph relation */
+function getMorphType(relation: Relation): string | undefined {
+  return (relation as any)?._morphType
+}
+
+/** Get the morph type value (e.g. "morph_posts") from a MorphMany/MorphOne relation */
+function getMorphTypeValue(relation: Relation): string | undefined {
+  return (relation as any)?._morphTypeValue
+}
+
+/** Get the morph id column name (e.g. "commentableId") from a morph relation */
+function getMorphId(relation: Relation): string | undefined {
+  return (relation as any)?._morphId
+}
+
+// Inlined resolveThunk to avoid circular dep via morph.ts → query/index.ts
+const THUNK_CACHE = new WeakMap<object, ModelDefinition>()
+function resolveThunk(thunk: () => ModelDefinition): ModelDefinition {
+  let cls = THUNK_CACHE.get(thunk)
+  if (!cls) {
+    cls = thunk()
+    THUNK_CACHE.set(thunk, cls)
+  }
+  return cls
+}
+
 // ─── EXTRACT RELATION DATA FROM A GRAPH NODE ──────────────────
 
 /**
@@ -372,7 +413,7 @@ async function processNode(
     if (relation?.type === "belongsTo") {
       const relPath = joinPath(path, relName)
       assertRelationAllowed(def, relPath, context.allowedGraphSet)
-      const relatedInstance = await processBelongsTo(relation, op as Record<string, unknown>, options, context, relPath)
+      const relatedInstance = await processBelongsTo(relation, op as Record<string, unknown>, options, context, relPath, columnData)
       if (relatedInstance) {
         columnData[relation.foreignKey] = relatedInstance.get(relation.localKey)
       }
@@ -433,7 +474,13 @@ async function processBelongsTo(
   options: InsertGraphOptions,
   context: GraphContext,
   path: string,
+  parentColumnData?: Record<string, unknown>,
 ): Promise<ModelInstance | null> {
+  // Handle MorphTo (polymorphic belongsTo)
+  if (isMorphToRelation(relation)) {
+    return processMorphTo(relation, op, options, context, path, parentColumnData)
+  }
+
   const relatedDef = relation.relatedModelClass
 
   // #dbRef: relate to existing
@@ -460,6 +507,98 @@ async function processBelongsTo(
   // Graph style: plain nested object { name: "John", ... }
   // Treat as a new record to create
   return processNode({ ...op }, relatedDef, null, options, context, path)
+}
+
+/**
+ * Process a MorphTo (polymorphic belongsTo) relation in a graph operation.
+ *
+ * The user must specify which polymorphic type to create via a `type` key
+ * in the operation data:
+ *   { commentable: { create: { title: "..." }, type: "morph_posts" } }
+ *
+ * If the morphMap has only one entry, `type` is optional (auto-detected).
+ */
+async function processMorphTo(
+  relation: Relation,
+  op: Record<string, unknown>,
+  options: InsertGraphOptions,
+  context: GraphContext,
+  path: string,
+  parentColumnData?: Record<string, unknown>,
+): Promise<ModelInstance | null> {
+  const morphMap = (relation as any)._morphMap as Record<string, () => ModelDefinition> | undefined
+  const morphType = getMorphType(relation)!
+  const morphId = getMorphId(relation)!
+
+  if (!morphMap || Object.keys(morphMap).length === 0) {
+    throw new Error(
+      `Cannot process MorphTo relation: no morphMap provided. ` +
+      `Define a morphMap with model thunks when calling defineMorphTo().`,
+    )
+  }
+
+  // Resolve type value from op.type or auto-detect if single entry
+  let typeValue = op.type as string | undefined
+  if (!typeValue) {
+    const keys = Object.keys(morphMap)
+    if (keys.length === 1) {
+      typeValue = keys[0]
+    }
+  }
+  if (!typeValue) {
+    throw new Error(
+      `Cannot resolve MorphTo: no type specified. ` +
+      `Provide a "type" key in the relation data (e.g., { type: "${Object.keys(morphMap)[0]}" }). ` +
+      `Available types: ${Object.keys(morphMap).join(", ")}`,
+    )
+  }
+
+  const thunk = morphMap[typeValue]
+  if (!thunk) {
+    throw new Error(
+      `No model registered for morph type "${typeValue}" in MorphTo. ` +
+      `Available types: ${Object.keys(morphMap).join(", ")}`,
+    )
+  }
+
+  const relatedDef = resolveThunk(thunk)
+
+  // Process #dbRef / connect / create / graph-style
+  let instance: ModelInstance | null = null
+
+  if (op["#dbRef"] != null) {
+    const id = op["#dbRef"]
+    const existing = await relatedDef.find(id as number | string)
+    if (!existing) throw new DatabaseError(`#dbRef ${id} not found on ${relatedDef.name}`, "UNKNOWN")
+    instance = existing
+  } else if (op.connect && typeof op.connect === "object") {
+    const conditions = op.connect as Record<string, unknown>
+    const existing = await findRelated(relatedDef, conditions)
+    if (existing) {
+      instance = existing
+    } else {
+      throw new DatabaseError(
+        `Cannot connect: ${JSON.stringify(conditions)} not found on ${relatedDef.name}`,
+        "UNKNOWN",
+      )
+    }
+  } else if (op.create && typeof op.create === "object") {
+    instance = await processNode(op.create as Record<string, unknown>, relatedDef, null, options, context, path)
+  } else {
+    // Graph style: plain nested object — strip type/morph column keys before creating
+    const createData = { ...op } as Record<string, unknown>
+    delete createData.type
+    delete createData[morphType]
+    delete createData[morphId]
+    instance = await processNode(createData, relatedDef, null, options, context, path)
+  }
+
+  // Set the type column on the parent record's column data
+  if (instance && parentColumnData && typeValue) {
+    parentColumnData[morphType] = typeValue
+  }
+
+  return instance
 }
 
 async function processHasMany(
@@ -505,7 +644,14 @@ async function processHasMany(
       await existing.$save()
       continue
     }
-    await processNode(item, relatedDef, { [fk]: pkValue }, options, context, path)
+    // Build parent FK, including type column for MorphMany/MorphOne
+    const parentData: Record<string, unknown> = { [fk]: pkValue }
+    if (isMorphManyRelation(relation)) {
+      const typeCol = getMorphType(relation)!
+      const typeVal = getMorphTypeValue(relation)
+      if (typeVal !== undefined) parentData[typeCol] = typeVal
+    }
+    await processNode(item, relatedDef, parentData, options, context, path)
   }
 
   // Handle connect items
@@ -609,7 +755,7 @@ async function upsertNode(
     if (relation?.type === "belongsTo") {
       const relPath = joinPath(_path, relName)
       assertRelationAllowed(def, relPath, context.allowedGraphSet)
-      const relatedInstance = await processBelongsTo(relation, op as Record<string, unknown>, options, context, relPath)
+      const relatedInstance = await processBelongsTo(relation, op as Record<string, unknown>, options, context, relPath, columnData)
       if (relatedInstance) {
         columnData[relation.foreignKey] = relatedInstance.get(relation.localKey)
       }
@@ -735,7 +881,13 @@ async function upsertHasMany(
     }
 
     // Insert new (or existing not found)
-    await processNode(item, relatedDef, { [fk]: pkValue }, options, context, path)
+    const parentData: Record<string, unknown> = { [fk]: pkValue }
+    if (isMorphManyRelation(relation)) {
+      const typeCol = getMorphType(relation)!
+      const typeVal = getMorphTypeValue(relation)
+      if (typeVal !== undefined) parentData[typeCol] = typeVal
+    }
+    await processNode(item, relatedDef, parentData, options, context, path)
   }
 
   // Handle delete/unrelate for remaining existing items
