@@ -285,6 +285,82 @@ describe("allowGraph security", () => {
       .orderBy("id", "asc")
     expect(users.length).toBeGreaterThanOrEqual(2)
   })
+
+  // ── Recursive validation ─────────────────────────────────
+
+  it("allows dotted path when full path is whitelisted", async () => {
+    const users = await User.query()
+      .allowGraph("posts.author")
+      .with("posts.author")
+      .orderBy("id", "asc")
+    expect(users.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it("allows deeper nested path when prefix is whitelisted", () => {
+    // Verifies that allowGraph validation passes for nested paths deeper than the
+    // whitelisted prefix (the sync with() call does not throw RelationNotFoundError)
+    expect(() =>
+      User.query()
+        .allowGraph("posts.author")
+        .with("posts.author.profile")
+    ).not.toThrow()
+  })
+
+  it("throws when base name is not in dotted-path whitelist", async () => {
+    expect(() =>
+      User.query()
+        .allowGraph("posts.author")
+        .with("posts")
+    ).toThrow()
+  })
+
+  it("throws when sibling nested path is not in whitelist", async () => {
+    expect(() =>
+      User.query()
+        .allowGraph("posts.author")
+        .with("posts.comments")
+    ).toThrow()
+  })
+
+  it("throws when unrelated relation is not in whitelist", async () => {
+    expect(() =>
+      User.query()
+        .allowGraph("posts.author")
+        .with("profile")
+    ).toThrow()
+  })
+
+  it("allows multiple relations via rest args", async () => {
+    const users = await User.query()
+      .allowGraph("posts", "profile")
+      .with("posts.author")
+      .orderBy("id", "asc")
+    expect(users.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it("allows each from multiple rest args", async () => {
+    const users = await User.query()
+      .allowGraph("posts", "profile")
+      .with("profile")
+      .orderBy("id", "asc")
+    expect(users.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it("allows object-style relation in whitelist", async () => {
+    const users = await User.query()
+      .allowGraph("posts")
+      .with({ posts: (qb) => qb.orderBy("id", "asc") })
+      .orderBy("id", "asc")
+    expect(users.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it("throws on object-style relation not in whitelist", async () => {
+    expect(() =>
+      User.query()
+        .allowGraph("profile")
+        .with({ posts: (qb) => qb })
+    ).toThrow()
+  })
 })
 
 describe("ManyToMany", () => {

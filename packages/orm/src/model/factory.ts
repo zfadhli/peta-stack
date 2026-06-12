@@ -10,6 +10,7 @@ import {
   isDirty,
   resetAttrs,
   setAttr,
+  syncOriginal,
 } from "./state.js"
 import type { ModelConfig, ModelDefinition, ModelInstance } from "./types.js"
 import { FORBIDDEN_KEYS } from "./types.js"
@@ -31,8 +32,6 @@ export function createInstance(
   data: Record<string, unknown>,
   exists: boolean,
 ): ModelInstance {
-  const applied = applyCastsToData(config, data, "get")
-
   const instance: ModelInstance = {
     get exists() {
       return getExists(instance)
@@ -52,15 +51,25 @@ export function createInstance(
 
     get<T = unknown>(key: string): T {
       const val = getAttr(instance, key)
+      let result: unknown = val
       if (config.casts?.[key]) {
-        return castValue(val, config.casts[key]) as T
+        result = castValue(result, config.casts[key])
       }
-      return val as T
+      const attrDef = config.attributes?.[key]
+      if (attrDef?.get) {
+        result = attrDef.get(result as T, instance as any)
+      }
+      return result as T
     },
 
     set(key: string, value: unknown): void {
       if (FORBIDDEN_KEYS.has(key)) return
-      const finalVal = config.casts?.[key] ? castForSet(value, config.casts[key]) : value
+      let result = value
+      const attrDef = config.attributes?.[key]
+      if (attrDef?.set) {
+        result = attrDef.set(result, instance as any)
+      }
+      const finalVal = config.casts?.[key] ? castForSet(result, config.casts[key]) : result
       setAttr(instance, key, finalVal)
     },
 
@@ -68,7 +77,12 @@ export function createInstance(
       const safe: Record<string, unknown> = {}
       for (const [key, value] of Object.entries(data)) {
         if (!FORBIDDEN_KEYS.has(key)) {
-          safe[key] = config.casts?.[key] ? castForSet(value, config.casts[key]) : value
+          let v: unknown = value
+          const attrDef = config.attributes?.[key]
+          if (attrDef?.set) {
+            v = attrDef.set(v, instance as any)
+          }
+          safe[key] = config.casts?.[key] ? castForSet(v, config.casts[key]) : v
         }
       }
       fillAttrs(instance, safe)
@@ -136,7 +150,18 @@ export function createInstance(
     },
   }
 
-  initState(instance, applied, exists)
+  if (exists) {
+    // DB read path — apply casts, NO set mutators
+    const applied = applyCastsToData(config, data || {}, "get")
+    initState(instance, applied, true)
+  } else {
+    // New record path — start empty, fill via set pipeline, then sync original
+    initState(instance, {}, false)
+    if (data && Object.keys(data).length > 0) {
+      instance.fill(data)
+    }
+    syncOriginal(instance)
+  }
 
   // Store the model def for reverse lookups (collection.load, etc.)
   setModelDefOnInstance(instance, def)

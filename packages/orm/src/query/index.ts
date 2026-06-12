@@ -1,5 +1,6 @@
 import { sql as kyselySql } from "kysely"
-import { ModelNotFoundError, RelationNotFoundError } from "../errors.js"
+import { ModelNotFoundError, RelationNotAllowedError, RelationNotFoundError } from "../errors.js"
+import type { InsertGraphOptions, UpsertGraphOptions } from "../relations/graph.js"
 import type { ModelDefinition, ModelInstance } from "../model/types.js"
 import { type EagerLoad, EagerLoader } from "../relations/eager.js"
 
@@ -50,10 +51,24 @@ export interface QueryBuilder extends PromiseLike<ModelInstance[]> {
   chunk(size: number, callback: (chunk: ModelInstance[]) => Promise<void>): Promise<void>
   paginate(page: number, perPage?: number): Promise<import("../pagination/index.js").Paginator>
 
+  // Graph operations (insert/upsert full relation graphs)
+  insertGraph(data: Record<string, unknown> | Record<string, unknown>[], options?: InsertGraphOptions): Promise<any>
+  upsertGraph(data: Record<string, unknown> | Record<string, unknown>[], options?: UpsertGraphOptions): Promise<any>
+
   // Eager loading
   with(...relations: (string | Record<string, (qb: QueryBuilder) => void>)[]): QueryBuilder
-  /** Whitelist allowed relations for eager loading. Throws if a relation is not in the allow list. */
-  allowGraph(expression: string): QueryBuilder
+  /**
+   * Whitelist allowed relations (and nested paths) for eager loading.
+   * Throws if a relation path is not in the allow list.
+   *
+   * Supports dotted paths for granular control:
+   * - `allowGraph("posts")` allows `posts`, `posts.author`, `posts.author.profile`, etc.
+   * - `allowGraph("posts.author")` allows `posts.author` and `posts.author.profile`,
+   *   but NOT bare `posts` or `posts.comments`.
+   *
+   * Multiple arguments are merged: `allowGraph("posts", "profile")`
+   */
+  allowGraph(...expressions: string[]): QueryBuilder
 
   // CRUD (bulk)
   updateMany(data: Record<string, unknown>): Promise<number>
@@ -158,6 +173,26 @@ export function createQueryBuilder(def: ModelDefinition, peta?: any): QueryBuild
         qb = qb.where("deletedAt", "is", null)
       }
     }
+  }
+
+  /**
+   * Recursive prefix check: returns true if any prefix of `relName`
+   * (including the full name) exists in `allowedSet`.
+   *
+   * Examples with allowedSet = {"posts.author"}:
+   *   "posts.author"        → prefixes: "posts"✗, "posts.author"✓ → true
+   *   "posts.comments"      → prefixes: "posts"✗, "posts.comments"✗ → false
+   *   "posts.author.profile"→ prefixes: "posts"✗, "posts.author"✓ → true
+   *   "posts"               → prefixes: "posts"✗ → false
+   */
+  function isRelationAllowed(relName: string, allowedSet: Set<string>): boolean {
+    const parts = relName.split(".")
+    for (let i = 0; i < parts.length; i++) {
+      if (allowedSet.has(parts.slice(0, i + 1).join("."))) {
+        return true
+      }
+    }
+    return false
   }
 
   function assertWhereForMutation(): void {
@@ -404,36 +439,50 @@ export function createQueryBuilder(def: ModelDefinition, peta?: any): QueryBuild
     },
 
     // ─── Eager loading ────────────────────────────────────
-    allowGraph(expression: string): QueryBuilder {
-      const parts = expression
-        .replace(/[[\]']/g, "")
-        .split(/[.\s,]+/)
-        .filter(Boolean)
-      allowedGraphSet = new Set(parts)
+    allowGraph(...expressions: string[]): QueryBuilder {
+      const paths = new Set<string>()
+      for (const expr of expressions) {
+        const parts = expr.replace(/[[\]']/g, "").split(/[\s,]+/).filter(Boolean)
+        for (const part of parts) {
+          // Preserve dotted paths — DO NOT split on '.'
+          paths.add(part)
+        }
+      }
+      allowedGraphSet = paths
       return self
     },
 
     with(...relations: (string | Record<string, (qb: QueryBuilder) => void>)[]): QueryBuilder {
       for (const rel of relations) {
         if (typeof rel === "string") {
-          // Validate against allowGraph if set
-          if (allowedGraphSet) {
-            const baseName = rel.includes(".") ? rel.split(".")[0]! : rel
-            if (!allowedGraphSet.has(baseName)) {
-              throw new RelationNotFoundError(def.name, rel)
-            }
+          // Validate against allowGraph if set — recursive prefix check
+          if (allowedGraphSet && !isRelationAllowed(rel, allowedGraphSet)) {
+            throw new RelationNotAllowedError(def.name, rel)
           }
           eagerLoads.push({ name: rel })
         } else {
           for (const [name, constraints] of Object.entries(rel)) {
-            if (allowedGraphSet && !allowedGraphSet.has(name)) {
-              throw new RelationNotFoundError(def.name, name)
+            // Object keys are single-level (no dots), so direct prefix check is sufficient
+            if (allowedGraphSet && !isRelationAllowed(name, allowedGraphSet)) {
+              throw new RelationNotAllowedError(def.name, name)
             }
             eagerLoads.push({ name, constraints })
           }
         }
       }
       return self
+    },
+
+    // ─── Graph operations ──────────────────────────────────
+    async insertGraph(data: any, options?: any): Promise<any> {
+      const { insertGraph: doInsertGraph } = await import("../relations/graph.js")
+      // Ensure scopes are applied but don't modify the query builder for graph ops
+      return doInsertGraph(def, data, options)
+    },
+
+    async upsertGraph(data: any, options?: any): Promise<any> {
+      const { upsertGraph: doUpsertGraph } = await import("../relations/graph.js")
+      return doUpsertGraph(def, data, options)
     },
 
     // ─── Bulk CRUD ────────────────────────────────────────

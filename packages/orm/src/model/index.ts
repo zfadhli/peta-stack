@@ -1,5 +1,6 @@
 // Re-export all public types and functions
 
+export { Attribute } from "./attribute.js"
 export { applyCastsToData, castForSet, castValue, prepareForDb } from "./casts.js"
 export type { ComputedColumn } from "./computed.js"
 export {
@@ -109,6 +110,16 @@ export function defineModel<TColumns extends ColumnShape>(
     async update(id, data) {
       const mod = await import("./save.js")
       return mod.updateModel(this as any, id, data)
+    },
+
+    async insertGraph(data, options) {
+      const mod = await import("../relations/graph.js")
+      return mod.insertGraph(this as any, data, options)
+    },
+
+    async upsertGraph(data, options) {
+      const mod = await import("../relations/graph.js")
+      return mod.upsertGraph(this as any, data, options)
     },
 
     async delete(id) {

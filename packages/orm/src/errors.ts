@@ -30,6 +30,14 @@ export class RelationNotFoundError extends Error {
   }
 }
 
+export class RelationNotAllowedError extends Error {
+  override name = "RelationNotAllowedError" as const
+
+  constructor(model: string, relation: string) {
+    super(`Relation "${relation}" is not in the allowGraph whitelist for ${model}`)
+  }
+}
+
 export class ModelNotRegisteredError extends Error {
   override name = "ModelNotRegisteredError" as const
 

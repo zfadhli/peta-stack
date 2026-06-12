@@ -2,7 +2,6 @@ import type { Dialect } from "kysely"
 import { Kysely } from "kysely"
 import type { ColumnShape } from "../columns/column.js"
 import type { Database } from "../lib/kysely.js"
-import { setConfig } from "../model/save.js"
 import type { ModelDefinition } from "../model/types.js"
 import type { ORMLike } from "../types.js"
 
@@ -28,9 +27,7 @@ export function createORM(config: ORMConfig): ORMLike & { kysely: Database } {
     register(model: ModelDefinition): void {
       model._init(orm as any)
       modelMap.set(model.name, model)
-      // Store config for save/delete/serialize
-      const { columns, relations, casts, hidden, visible, appends } = model as any
-      setConfig(model, { columns, relations, casts, hidden, visible, appends } as any)
+      // Config is already stored by _init() — no need to re-set here
     },
 
     registerAll(...models: (ModelDefinition | ModelDefinition[])[]): void {

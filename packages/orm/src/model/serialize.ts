@@ -25,6 +25,10 @@ export function modelToJSON(def: ModelDefinition, model: ModelInstance): Record<
       if (casts[key]) {
         value = castValue(value, casts[key])
       }
+      const attrDef = config?.attributes?.[key]
+      if (attrDef?.get) {
+        value = attrDef.get(value, model as any)
+      }
       result[key] = value
     }
   }

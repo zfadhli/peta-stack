@@ -14,6 +14,7 @@ export {
   ModelNotFoundError,
   ModelNotRegisteredError,
   normalizeError,
+  RelationNotAllowedError,
   RelationNotFoundError,
   ValidationError,
 } from "./errors.js"
@@ -21,7 +22,7 @@ export {
 export type { HookCallback, HookManager, LifecycleEvent } from "./hooks/index.js"
 export { createHookManager } from "./hooks/index.js"
 // ─── Model System ──────────────────────────────────────────
-export { defineModel } from "./model/index.js"
+export { Attribute, defineModel } from "./model/index.js"
 export type { ModelConfig, ModelDefinition, ModelInstance } from "./model/types.js"
 export type { ORMConfig } from "./orm/index.js"
 export { createORM, createORM as createPeta } from "./orm/index.js"
@@ -37,6 +38,7 @@ export type { QueryBuilder } from "./query/index.js"
 export { createQueryBuilder } from "./query/index.js"
 // ─── Relations ────────────────────────────────────────────
 export type { Relation, RelationOptions, RelationType } from "./relations/base.js"
+export type { InsertGraphOptions, UpsertGraphOptions } from "./relations/graph.js"
 export {
   belongsTo,
   defineMorphMany,
@@ -46,6 +48,7 @@ export {
   hasManyThrough,
   hasOne,
   manyToMany,
+  resolveMorphRelation,
 } from "./relations/index.js"
 export type { MorphManyOptions, MorphOneOptions, MorphToOptions } from "./relations/morph.js"
 

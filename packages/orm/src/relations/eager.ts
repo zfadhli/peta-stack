@@ -6,6 +6,13 @@ export interface EagerLoad {
   constraints?: ((qb: QueryBuilder) => void) | null
 }
 
+// Sentinel key used to mark morphTo relations on the relation object
+const MORPH_MAP_KEY = "_morphMap"
+
+function isMorphRelation(relation: any): boolean {
+  return relation?.[MORPH_MAP_KEY] !== undefined
+}
+
 export class EagerLoader {
   async loadRelated(models: ModelInstance[], eagerLoad: EagerLoad, def: ModelDefinition): Promise<void> {
     const { name, constraints } = eagerLoad
@@ -23,6 +30,16 @@ export class EagerLoader {
       const relation = def.relations[baseName]
       if (!relation) throw new Error(`Relation "${baseName}" not found on ${def.name}`)
 
+      // Check for morphTo — nested eager loading through polymorphic relations
+      // is not supported because the related model varies per row
+      if (isMorphRelation(relation)) {
+        throw new Error(
+          `Cannot eagerly load nested relation "${nestedName}" through polymorphic ` +
+            `relation "${baseName}" on ${def.name}. ` +
+            `Nested eager loading through polymorphic belongsTo is not supported.`,
+        )
+      }
+
       // First load the base relation
       await relation.loadEager(models, baseName, null)
 
@@ -39,6 +56,12 @@ export class EagerLoader {
 
       if (relatedModels.length > 0) {
         const nestedDef = relation.relatedModelClass
+        if (!nestedDef) {
+          throw new Error(
+            `Cannot load nested relation "${nestedName}": "${baseName}" on ${def.name} ` +
+              `has no relatedModelClass (morphTo without a morphMap?).`,
+          )
+        }
         const nestedRelation = nestedDef.relations[nestedName]
         if (!nestedRelation) {
           throw new Error(`Relation "${nestedName}" not found on ${nestedDef.name}`)

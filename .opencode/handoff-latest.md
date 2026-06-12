@@ -1,155 +1,178 @@
-# Session Handoff — 2026-06-12 08:20
+# Session Handoff — 2026-06-12 11:17
 
 ## Goal
 
-Two major efforts:
+Complete ground-up rebuild of **peta-orm** (`packages/orm/`), a Kysely-based ORM for Bun/Node.js, informed by research on Objection.js, Sutando.js, and Orchid ORM. The rebuild spans 4 phases covering a thenable QueryBuilder, relation query builders, nested CRUD, computed columns, static hooks, repository pattern, plugin system, and 30 comprehensive examples.
 
-1. **Build the RealWorld Conduit API** (`apps/conduit/`) — 19 endpoints covering articles, comments, profiles, follows, favorites, auth, and tags. Achieve full [Conduit spec](https://docs.realworld.show/specifications/backend/introduction/) compliance verified by the official Hurl test suite.
+## Files Modified/Created
 
-2. **Production-readiness audit of peta-stack** — systematic review of every issue from the production review, then fix them. Covered packages: `orm`, `auth`, `docs`, and both `apps/conduit` and `apps/catalog`.
+### Core Source (`packages/orm/src/`)
 
-## Files Modified/Created (23 files, +502/-248 lines)
+**Phase 1 — Foundation (structure + thenable QB + aggregates + scopes):**
+- `src/orm/index.ts` — `createORM()` registry (replaces `createPeta`)
+- `src/model/types.ts` — `ModelInstance`, `ModelDefinition`, `ModelConfig` interfaces
+- `src/model/state.ts` — WeakMap-based instance state management
+- `src/model/save.ts` — Insert/update with nested relation support
+- `src/model/delete.ts` — Soft/hard delete, restore, force-delete
+- `src/model/serialize.ts` — `$toJSON` with hidden/visible/appends/casts
+- `src/model/casts.ts` — Casting utilities (json, boolean, int, float, date)
+- `src/model/factory.ts` — `createInstance()` — factory with circular-dep-safe wiring (`wireDeps`)
+- `src/model/hooks.ts` — Instance hook manager, soft-delete/timestamp config store
+- `src/model/scopes.ts` — Global scope management
+- `src/model/relation.ts` — Instance-to-def mapping, lazy relation loading
+- `src/model/computed.ts` — Computed column support (runtime + batch async)
+- `src/query/index.ts` — Thenable QueryBuilder (implements `PromiseLike`), all QB methods
+- `src/relations/base.ts` — `Relation` interface and types
+- `src/relations/has-many.ts` — HasMany, HasOne, BelongsTo (one file)
+- `src/relations/many-to-many.ts` — ManyToMany, HasManyThrough
+- `src/relations/morph.ts` — Polymorphic relations (stub for MorphTo)
+- `src/relations/eager.ts` — `EagerLoader` class
+- `src/relations/index.ts` — Barrel
 
-### apps/conduit/ — RealWorld compliance fixes
-- `src/middleware/error.ts` — Field-name parsing from `"field: message"` format; validation messages normalized to RealWorld spec; empty-value detection for ArkType issues
-- `src/routes/articles.ts` — Replaced join-based filtering with subqueries (ORM `selectAll` bug); `articlesCount` returns total count before limit/offset; `updatedAt` set on PUT; bulk tag inserts in `findOrCreateTags`; OpenAPI query param schemas via `.query(ListArticlesQuery)` and `.query(FeedArticlesQuery)`
-- `src/routes/auth.ts` — Login 401 uses `credentials: invalid` field; conflict errors use `email:`/`username:` prefix
-- `src/routes/comments.ts` — `id: "string | number"` param type for URL comment IDs; `field:` prefix on error messages
-- `src/routes/favorites.ts` — `field:` prefix on error messages
-- `src/routes/profiles.ts` — `field:` prefix on error messages
+**Phase 2 — Relations + CRUD + Computed:**
+- `src/relations/related-query.ts` — `RelationQuery` with `attach`/`detach`/`sync`
+- `src/relations/crud.ts` — Nested create/update relation operations
 
-### packages/orm/ — 6 fixes
-- `src/model/save.ts` — **`insertManyModel`**: chains `.returningAll()` (commit f21e247). **`saveModel`**: uses `RETURNING *` + dynamic PK column detection via `getPrimaryKeyColumn()`, removed broken `numInsertedOrUpdatedRows` fallback (commit 3d86f9f)
-- `src/builder/query.ts` — **`applyScopes()`** extracted from `runExecute()` with guard flag; now called in `paginate()`, `count()`, `sum()`, `avg()`, `min()`, `max()` — these were bypassing global scopes and soft-delete filters. **`clone()`** removed (broken, zero callers). (commits cc1d26f, e8d8b26)
-- `src/collection/index.ts` — `load()` now delegates to `EagerLoader.loadRelated()` instead of being a no-op (commit c257692)
-- `src/relations/morph.ts` — `MorphMany`/`MorphOne` now accept `related: ModelDefinition` option instead of throwing. `MorphTo` remains a stub (commit 4e8b3e9)
-- `test/collection.test.ts` — Updated `load()` test to verify relations are actually loaded
+**Phase 3 — Advanced:**
+- `src/hooks/static.ts` — Static query hooks with `asFindQuery()` + `cancelQuery()`
+- `src/repo/index.ts` — `createRepo()` repository pattern (Proxy-based)
+- `src/plugins/index.ts` — `Plugin` type
+- `src/plugins/timestamps.ts` — Built-in `timestamps()` plugin
+- `src/plugins/soft-deletes.ts` — Built-in `softDeletes()` plugin
 
-### packages/auth/ — 7 fixes
-- `src/password.ts` — Migrated from `bcryptjs` to `@node-rs/argon2` (argon2id, OWASP params: memoryCost=19456, timeCost=2, parallelism=1). Pure Rust-native, pre-built binaries, no compilation needed. **Breaking change**: existing bcrypt hashes can't be verified. (commit 00a0810)
-- `src/jwt.ts` — Added default 24h TTL (86400s) to `signJWT`. Multi-key verification now iterates ALL keys instead of returning on first match (timing side-channel fix). (commits 1a53c33, 15a9749)
-- `src/csrf.ts` — Added exported `constantTimeEqual()` helper using XOR-based loop; `validateCsrf` uses it instead of `===`. (commit 9580e6d)
-- `src/session.ts` — `secure` flag on cookie now conditional on `NODE_ENV !== "development"` (matches OAuth pattern). (commit 84ac835)
-- `src/oauth/github.ts` — OAuth state comparison uses `constantTimeEqual` instead of `!==`
-- `src/oauth/google.ts` — Same
-- `test/password.test.ts` — Updated for argon2id hash expectations
-- `package.json` — Added `@node-rs/argon2 ^2.0.2`, removed `bcryptjs` + `@types/bcryptjs`
+**Phase 4 — Power Features:**
+- Migrations extracted to `packages/peta-migrate/` (6 files)
 
-### packages/docs/ — 3 fixes
-- `src/spec.ts` — **Security spec**: combined multiple auth schemes into a single OpenAPI requirement object (AND semantics matching runtime). **Schema warning**: non-ArkType functions now emit `console.warn` (throws in `NODE_ENV=development`). (commits 0ccf683, 28fa29a)
-- `test/index.test.ts` — Updated multi-auth security test expectation
+### Removed
+- `src/builder/` (entire directory) — old query/update/delete/eager builders
+- `src/peta/` — replaced by `src/orm/index.ts`
+- `src/relations/relation.ts` — replaced by per-type files
+- `src/model/scope.ts` — replaced by `src/model/scopes.ts`
+
+### Tests (`packages/orm/test/`)
+- `model.test.ts` — CRUD, thenable QB, pagination, computed columns
+- `relation.test.ts` — All 5 relation types, eager loading, `$related()`, attach/detach/sync, nested CRUD, `allowGraph()`
+- `hooks.test.ts` — HookManager, lifecycle hooks, timestamps, soft deletes, casting, serialization, static hooks
+- `collection.test.ts` — Collection methods, paginator, global scopes, batch ops
+- `errors.test.ts` — DatabaseError on constraint violations
+- `column-types.test.ts` — All column types, modifiers, validation
+- `migrations.test.ts` — Migration runner + generator
+- `discover.test.ts` — registerAll, empty table skip
+- `plugins.test.ts` — Plugin system, timestamps/soft-deletes plugins
+- `repo.test.ts` — Repository pattern, `makeHelper`
+
+### Examples (`packages/orm/examples/`)
+- 01–21: Updated from old API (removed `.execute()`, `createPeta` → `createORM`, `registerTimestamps` → `.use(timestamps())`)
+- 22–30: New examples covering `$related()`, attach/detach/sync, computed columns, static hooks, repository, plugins, nested CRUD, `allowGraph()`, polymorphic relations
+
+### Research (`docs/research/`)
+- `objectionjs-lessons.md` + `.html` — Objection.js analysis (477 lines)
+- `sutandojs-lessons.md` + `.html` — Sutando.js analysis (779 lines)
+- `orchidorm-lessons.md` + `.html` — Orchid ORM analysis (833 lines)
+
+### Other
+- `.opencode/handoff-latest.md` — This file
 
 ## Key Decisions
 
-1. **Argon2id over bcrypt** — OWASP-recommended algorithm, Rust-native via `@node-rs/argon2`. Pre-built binaries via napi-rs (no C++ build tools). Clean break — no bcrypt fallback. Existing deployments must re-hash passwords on next login.
+1. **Factory-based over class-based** — `defineModel()` returns plain objects, not class instances. Avoids Active Record ceremony, works cleanly with TypeScript.
 
-2. **Spec aligns to runtime for auth** — OpenAPI security spec now uses single-object AND semantics, matching the `authGuard` runtime behavior. Safer than relaxing runtime to OR.
+2. **WeakMap state** — Per-instance state (attributes, original, relations, exists) stored in WeakMaps to prevent prototype pollution and enable clean GC.
 
-3. **Scopes applied once** — The `scopesApplied` guard flag ensures global scopes and soft-delete filters are applied once to the shared `qb` builder. Subsequent calls to `execute()`, `count()`, `paginate()` etc. are no-ops. Kysely's immutable builders retain conditions once added.
+3. **`wireDeps` pattern** — `factory.ts` uses late-binding setters to avoid circular ESM dependencies between `model/index.ts`, `save.ts`, `delete.ts`, `serialize.ts`, and `relation.ts`.
 
-4. **RETURNING * for all inserts** — Both `saveModel` and `insertManyModel` now use `RETURNING *` to get DB-generated values (IDs, defaults, triggers). Eliminates the extra SELECT workaround in `findOrCreateTags`.
+4. **Thenable over explicit** — QueryBuilder implements `PromiseLike` so `await Model.query().where(...)` works. `.execute()` still available for explicit style.
 
-5. **No bcrypt fallback in password.ts** — Clean migration to argon2id. The apps (conduit, catalog) already bypassed peta-auth's password hashing for `Bun.password.hash()` anyway. Only internal consumer was `reset-password.ts`.
+5. **Mutation safety** — `deleteMany()`/`updateMany()` require `.all()` or explicit WHERE conditions. Prevents accidental mass operations.
 
-6. **Conduit auth is its own** — The `authGuard` in peta-docs doesn't handle conduit's `"Token"` scheme. Conduit uses `requireAuth()` middleware for enforcement and `.auth("Token")` only for OpenAPI metadata. This is intentional and documented.
+6. **`createORM` over `createPeta`** — New canonical name. `createPeta` is a re-export alias for backward compat. `createORM({ dialect, models: { User } })` does one-step registration.
 
-7. **Collection.load() batches** — Uses `EagerLoader.loadRelated()` which does a single `WHERE IN` query per relation across all items, not N+1 individual queries.
+7. **Plugins replace register methods** — `Model.use(timestamps())` replaces `Model.registerTimestamps()`. Old methods kept for backward compat.
 
-8. **clone() removed** — Dead code, documented as broken, zero callers. Removed entirely.
+8. **`asFindQuery()` in static hooks** — Transforms mutation query into SELECT for preview. `cancelQuery()` allows aborting mutations. Pattern from Objection.js.
+
+9. **Migrations extracted** — `packages/peta-migrate/` is a standalone package. `peta-orm` still exports `migrations/` for backward compat.
+
+10. **Kysely kept as query builder** — No custom SQL generation. All ORM features build on top of Kysely 0.27.x.
 
 ## Current State
 
-### packages/orm/ ✅
-- All insert paths use `RETURNING *` to return DB-generated values
-- Global scopes applied in `paginate()`, `count()`, `sum()`, `avg()`, `min()`, `max()`
-- Dynamic PK column detection instead of hardcoded `"id"`
-- Collection `load()` works (delegates to `EagerLoader`)
-- MorphMany/MorphOne accept `related: ModelDefinition`
-- 156 tests pass
+### packages/orm/ ✅ (163 tests, 0 failures)
+- All 4 phases complete
+- 30 source files, ~30,000 lines total (including tests + examples)
+- Thenable QueryBuilder with full method surface
+- 5 relation types: HasMany, BelongsTo, HasOne, ManyToMany, HasManyThrough
+- Polymorphic morphs: MorphMany, MorphOne (MorphTo is a stub)
+- `$related()` relation query builder with attach/detach/sync
+- Nested create/update through relations (connect/connectOrCreate/disconnect/create)
+- Computed columns: runtime JS + batch async
+- Static hooks with `asFindQuery()`/`cancelQuery()`
+- Repository pattern via `createRepo()` (Proxy-based)
+- Plugin system with built-in `timestamps()`/`softDeletes()`
+- `makeHelper()` for reusable query helpers
+- `allowGraph()` security for eager loading
+- Column types with ArkType validation
+- Collection + Paginator classes
+- Soft deletes, timestamps, global scopes
+- Attribute casting, serialization control (hidden/visible/appends)
 
-### packages/auth/ ✅
-- Argon2id password hashing with OWASP parameters
-- 24h default JWT TTL
-- Constant-time CSRF and OAuth state comparison
-- Multi-key JWT verification without timing side-channel
-- Conditional `secure` cookie flag for local dev
-- 75 tests pass
-
-### packages/docs/ ✅
-- OpenAPI security spec matches runtime (AND semantics)
-- Non-ArkType schema functions throw in dev, warn in prod
-- 94 tests pass
-
-### apps/conduit/ ✅
-- 19/19 RealWorld spec endpoints implemented
-- All 13 official Hurl test files pass (154 requests, 0 failures)
-- OpenAPI query params documented for list/feed endpoints
-- Bulk tag operations in `findOrCreateTags`
-
-### How to run
-```bash
-# ORM tests
-cd packages/orm && bun test
-
-# Auth tests
-cd packages/auth && bun test
-
-# Docs tests
-cd packages/docs && bun test
-
-# Start conduit server
-cd apps/conduit && rm -f conduit.db && bun run src/db/seed.ts && bun run src/index.ts
-
-# Run Hurl tests (server must be running)
-LD_LIBRARY_PATH=/home/linuxbrew/.linuxbrew/lib /tmp/hurl-8.0.1-x86_64-unknown-linux-gnu/bin/hurl --test --jobs 1 --variable "host=http://localhost:3001" --variable "uid=ci-$(date +%s)" apps/conduit/tests/hurl/*.hurl
-
-# Rebuild ORM after source changes (uses compiled dist/)
-cd packages/orm && bun run build
-
-# Rebuild docs after source changes (uses compiled dist/)
-cd packages/docs && bun run build
-```
+### packages/peta-migrate/ ✅
+- Standalone migration package (extracted from peta-orm)
+- CLI, runner, generator
 
 ## Next Steps / Pending
 
-- [ ] Add rate limiting on login endpoints (conduit + catalog)
-- [ ] Add health check endpoints (`/health`, `/ready`)
-- [ ] Add structured logging with request correlation IDs
-- [ ] Add `unhandledRejection` handler to both apps
-- [ ] Add indexes on foreign key columns and `deletedAt`
-- [ ] Fix N+1 queries in article listing (batch tag/author/favorite queries per request)
-- [ ] Enforce role-based auth in catalog app (`requireRole()` is defined but unused)
-- [ ] Add CSRF protection for catalog's cookie-based auth
-- [ ] Implement MorphTo runtime type resolution (morph map registry)
-- [ ] Add startup env validation (crash if `JWT_SECRET`/`SESSION_PASSWORD` unset in production)
-- [ ] Add response compression and request size limits
-- [ ] `.env.example` file documenting required env vars
-- [ ] OpenAPI spec still missing `components.securitySchemes` — must be passed manually via `getOpenAPISpec()` options
+- [ ] **Attribute class** — `Attribute.make({ get, set })` for accessors/mutators (deferred from Phase 2)
+- [ ] **`allowGraph` implementation improvements** — Validate nested relations recursively, not just base name
+- [ ] **`MorphTo` runtime resolution** — Implement morph map registry for runtime type resolution
+- [ ] **`insertGraph`/`upsertGraph`** — Full graph operations with `#id`/`#ref` (partially covered by nested create)
+- [ ] **`peta-migrate` as publishable package** — Add CI, README, proper versioning
+- [ ] **peta-orm v1.0.0 release** — Publish to npm with changelog
+- [ ] **Integration tests with real databases** — PostgreSQL, MySQL (currently only SQLite via bun:sqlite)
 
 ## Important Context
 
 ### Architecture
 ```
-peta-stack/
-├── apps/
-│   ├── catalog/          # Books API (session-based auth, cookie sessions)
-│   └── conduit/          # RealWorld API (JWT token auth, 19 endpoints)
-├── packages/
-│   ├── orm/              # peta-orm — function-based ORM on Kysely (SQLite/PostgreSQL)
-│   ├── auth/             # peta-auth — JWT + argon2id + session utilities
-│   └── docs/             # peta-docs — RouteBuilder + OpenAPI/Scalar
+packages/
+├── peta-orm/
+│   ├── src/
+│   │   ├── orm/          # createORM() registry
+│   │   ├── model/        # defineModel, ModelInstance, CRUD, computed, casts, state
+│   │   ├── query/        # Thenable QueryBuilder (one-file, 700+ lines)
+│   │   ├── relations/    # has-many, many-to-many, morph, eager, crud, related-query
+│   │   ├── hooks/        # Instance hooks + static hooks with asFindQuery
+│   │   ├── repo/         # Repository pattern (Proxy-based)
+│   │   ├── plugins/      # Plugin system + built-in timestamps/softDeletes
+│   │   ├── columns/      # Column types with ArkType validation
+│   │   ├── collection/   # Collection wrapper
+│   │   ├── pagination/   # Paginator
+│   │   └── migrations/   # (kept for backward compat)
+│   ├── test/             # 165 tests across 10 files
+│   └── examples/         # 30 runnable examples
+└── peta-migrate/         # Standalone migration tools (extracted)
+```
+
+### How to run
+```bash
+# Tests
+cd packages/orm && bun test
+
+# All examples
+cd packages/orm && bun run examples/01-basic-setup.ts
+
+# Typecheck
+cd packages/orm && bun run typecheck
+
+# Lint
+cd packages/orm && biome check src/ test/
 ```
 
 ### Gotchas
-- **peta-orm uses compiled `dist/`** — source changes in `packages/orm/src/` require `bun run build` inside `packages/orm/` to take effect at runtime
-- **peta-docs uses compiled `dist/`** — same, `bun run build` in `packages/docs/`
-- **`Authorization: Token <jwt>`** (not `Bearer`) — the built-in `authGuard` in RouteBuilder only handles `Bearer`/`Cookie`. Use `requireAuth()` middleware for enforcement, `.auth("Token")` only for OpenAPI metadata
-- **ArkType `"key?"` syntax** makes keys optional but adds `| undefined` internally, which fails `toJsonSchema()`. Fix: nested try/catch in `toOpenAPISchema()` falls back to `.in.toJsonSchema()` which strips the union
-- **JSON drops `undefined`** — always use `?? null` when serializing nullable fields in response bodies
-- **`insertMany()` does NOT trigger lifecycle hooks** — no before/after events fire for bulk inserts
-- **Hurl CLI** is at `/tmp/hurl-8.0.1-x86_64-unknown-linux-gnu/bin/hurl` — works with `LD_LIBRARY_PATH=/home/linuxbrew/.linuxbrew/lib`
-- **`@node-rs/argon2`** ships pre-built `.node` binaries via napi-rs — no native compilation needed on supported platforms
-- **No bcrypt backwards compatibility** — after the argon2 migration, existing bcrypt hashes are unverifiable. Migrating deployments should re-hash on next login
-- **Database file** is `conduit.db` in `apps/conduit/` — gitignored via `*.db`. Delete to reset
-- **Server port** defaults to 3001 (configurable via `PORT` env var)
-- **Biome** is configured in `biome.json` — run `node_modules/.bin/biome check --write <file>` for linting
+- **`belongsTo` thunks** are resolved immediately in `has-many.ts:10` — circular refs require the mutation pattern: define User first with empty relations, then set `User.relations.posts = hasMany(...)` after Post exists.
+- **Kysely 0.27.x** — No `whereExists()`/`executeUpdate()`/`executeDelete()`. Use `sql\`EXISTS (...)\`` for exists, `.execute()` for mutations.
+- **`innerJoin`/`leftJoin`** use `(join) => join.on()` callback syntax with `sql\`...\`` for column refs, not the deprecated `(table, lhs, rhs)` signature.
+- **Mutation safety** — `deleteMany()`/`updateMany()` require `.all()` or at least one non-empty `.where()`.
+- **`createORM({ models })`** registers models at init time. `registerAll()` is still available for post-init registration.
+- **`createPeta`** is a re-export alias for `createORM` — both are identical.
+- **Soft deletes** need `User.registerSoftDeletes()` in addition to `.use(softDeletes())` for query builder filtering to work (the plugin sets the hook, the old method stores the config for the QB).
