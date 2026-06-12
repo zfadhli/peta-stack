@@ -48,11 +48,19 @@ const userRepo = createRepo(User, {
 
 // Chain custom methods together
 const results = await userRepo.search("lice").active()
-console.log("Active users matching 'lice':", results.length, "—", results.map((u: any) => u.get("name")))
+console.log(
+  "Active users matching 'lice':",
+  results.length,
+  "—",
+  results.map((u: any) => u.get("name")),
+)
 
 // Compose with standard QB methods
 const admins = await userRepo.admins().orderBy("name", "asc")
-console.log("Admins:", admins.map((u: any) => u.get("name")))
+console.log(
+  "Admins:",
+  admins.map((u: any) => u.get("name")),
+)
 
 // Use with pagination
 const page = await userRepo.search("a").paginate(1, 10)

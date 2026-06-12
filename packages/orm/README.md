@@ -374,6 +374,17 @@ bun run bin/peta migrate:status
 | 19 | [collections-deep](./examples/19-collections-deep.ts) | full Collection + Paginator API |
 | 20 | [advanced-relations](./examples/20-advanced-relations.ts) | HasManyThrough, polymorphic morphs, pivot extras |
 | 21 | [migrations](./examples/21-migrations.ts) | MigrationRunner, MigrationGenerator, CLI |
+| 22 | [related-query-builder](./examples/22-related-query-builder.ts) | `$related()` — scoped query builder for relations |
+| 23 | [attach-detach-sync](./examples/23-attach-detach-sync.ts) | Many-to-many pivot management via `$related()` |
+| 24 | [computed-columns](./examples/24-computed-columns.ts) | Runtime + batch async computed columns |
+| 25 | [static-hooks](./examples/25-static-hooks.ts) | `asFindQuery()` preview + `cancelQuery()` abort |
+| 26 | [repository-pattern](./examples/26-repository-pattern.ts) | `createRepo()` — chainable custom query methods |
+| 27 | [plugins-and-helpers](./examples/27-plugins-and-helpers.ts) | `.use()` plugin system + `makeHelper()` |
+| 28 | [nested-create-update](./examples/28-nested-create-update.ts) | Create and update models with related data in a single call |
+| 29 | [allow-graph](./examples/29-allow-graph.ts) | `allowGraph()` — recursive whitelist for eager loading |
+| 30 | [polymorphic-relations](./examples/30-polymorphic-relations.ts) | Polymorphic MorphMany/MorphOne/MorphTo with runtime resolution |
+| 31 | [graph-operations](./examples/31-graph-operations.ts) | `insertGraph()`/`upsertGraph()` with `#id`/`#ref` |
+| 32 | [accessors-mutators](./examples/32-accessors-mutators.ts) | `Attribute.make({ get, set })` — accessors and mutators |
 
 ---
 

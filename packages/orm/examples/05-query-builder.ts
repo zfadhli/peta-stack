@@ -44,9 +44,7 @@ const active = await Post.query().where("published", "=", 1)
 console.log("Active posts:", active.length)
 
 // orWhere — combines conditions with OR
-const popularOrActive = await Post.query()
-  .where("votes", ">", 15)
-  .orWhere("published", "=", 1)
+const popularOrActive = await Post.query().where("votes", ">", 15).orWhere("published", "=", 1)
 console.log("Popular or active:", popularOrActive.length)
 
 // whereRef — column-to-column comparison
@@ -62,8 +60,7 @@ const withPosts = await User.query().has("posts")
 console.log("Users with posts:", withPosts.length)
 
 // whereHas — filter with constraint on the relation
-const filtered = await User.query()
-  .whereHas("posts", (qb) => qb.where("published", "=", 1))
+const filtered = await User.query().whereHas("posts", (qb) => qb.where("published", "=", 1))
 console.log("Users with published posts:", filtered.length)
 
 // whereDoesntHave

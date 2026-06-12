@@ -135,9 +135,7 @@ console.log("\n=== Single MorphTo lookup ===")
 const singleComment = await Comment.find(1)
 if (singleComment) {
   const commentable = await Comment.relations.commentable.getResults(singleComment)
-  console.log(
-    `Comment "${singleComment.get("body")}" → ${commentable?.get("title")}`,
-  )
+  console.log(`Comment "${singleComment.get("body")}" → ${commentable?.get("title")}`)
 }
 
 await db.destroy()

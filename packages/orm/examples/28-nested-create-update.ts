@@ -33,7 +33,9 @@ const Post = defineModel("posts", {
 User.relations.posts = hasMany(() => Post, { foreignKey: "userId" })
 
 const database = new Database(":memory:")
-database.run("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE)")
+database.run(
+  "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE)",
+)
 database.run("CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, title TEXT NOT NULL)")
 database.run("CREATE TABLE tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
 database.run("CREATE TABLE post_tags (postId INTEGER NOT NULL, tagId INTEGER NOT NULL, PRIMARY KEY (postId, tagId))")
@@ -66,7 +68,10 @@ console.log("Author ID:", post.get("userId"))
 const author = await post!.$related("author").executeTakeFirst()
 console.log("Author name:", author?.get("name"))
 const tags = await post!.$related("tags")
-console.log("Post tags:", tags.map((t) => t.get("name")))
+console.log(
+  "Post tags:",
+  tags.map((t) => t.get("name")),
+)
 
 // Nested update: modify tags
 await Post.update(post.get("id") as number, {
@@ -78,6 +83,9 @@ await Post.update(post.get("id") as number, {
 })
 
 const updatedTags = await post!.$related("tags")
-console.log("After update, tags:", updatedTags.map((t) => t.get("name")))
+console.log(
+  "After update, tags:",
+  updatedTags.map((t) => t.get("name")),
+)
 
 await db.destroy()

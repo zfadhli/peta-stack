@@ -26,10 +26,7 @@ export interface RepoMethods {
  * const users = await userRepo.search('john').paginate(1, 20)
  * ```
  */
-export function createRepo<TMethods extends RepoMethods>(
-  model: ModelDefinition,
-  methods: TMethods,
-) {
+export function createRepo<TMethods extends RepoMethods>(model: ModelDefinition, methods: TMethods) {
   const customMethods = new Map<string, QueryMethod>()
   if (methods.queryMethods) {
     for (const [name, fn] of Object.entries(methods.queryMethods)) {

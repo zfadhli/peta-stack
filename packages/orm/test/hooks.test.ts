@@ -387,7 +387,9 @@ describe("Static hooks (asFindQuery)", () => {
 
   beforeAll(async () => {
     db.run("PRAGMA journal_mode = WAL")
-    db.run("CREATE TABLE static_users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, active INTEGER DEFAULT 1)")
+    db.run(
+      "CREATE TABLE static_users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, active INTEGER DEFAULT 1)",
+    )
     peta = createPeta({ dialect: new BunSqliteDialect({ database: db }) })
     peta.registerAll(StaticUser)
     await StaticUser.insert({ name: "A", active: 1 })

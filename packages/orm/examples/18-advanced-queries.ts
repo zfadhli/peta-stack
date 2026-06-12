@@ -18,7 +18,9 @@ const Post = defineModel("posts", {
 
 const database = new Database(":memory:")
 database.run("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, score REAL DEFAULT 0)")
-database.run("CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, title TEXT NOT NULL, votes INTEGER DEFAULT 0)")
+database.run(
+  "CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, title TEXT NOT NULL, votes INTEGER DEFAULT 0)",
+)
 
 const db = createORM({
   dialect: new BunSqliteDialect({ database }),
@@ -42,16 +44,11 @@ for (const u of users) {
 }
 
 // innerJoin
-const joined = await Post.query()
-  .innerJoin("users", "posts.userId", "users.id")
-  .select("posts.title")
+const joined = await Post.query().innerJoin("users", "posts.userId", "users.id").select("posts.title")
 console.log("Joined posts:", joined.length)
 
 // groupBy / having
-const grouped = await Post.query()
-  .select("userId")
-  .groupBy("userId")
-  .having("userId", ">", 0)
+const grouped = await Post.query().select("userId").groupBy("userId").having("userId", ">", 0)
 console.log("Groups:", grouped.length)
 
 // toSQL
@@ -60,9 +57,11 @@ console.log("SQL:", compiled.sql)
 
 // Chunk
 const names: string[] = []
-await User.query().orderBy("id", "asc").chunk(2, async (chunk) => {
-  names.push(...chunk.map((u) => u.get("name") as string))
-})
+await User.query()
+  .orderBy("id", "asc")
+  .chunk(2, async (chunk) => {
+    names.push(...chunk.map((u) => u.get("name") as string))
+  })
 console.log("All names:", names)
 
 // updateMany (requires .all() or explicit WHERE)

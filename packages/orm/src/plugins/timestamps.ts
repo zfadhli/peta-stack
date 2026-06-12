@@ -8,10 +8,7 @@ import type { Plugin } from "./index.js"
  *   .use(timestamps())
  * ```
  */
-export function timestamps(opts?: {
-  createdAt?: string
-  updatedAt?: string
-}): Plugin {
+export function timestamps(opts?: { createdAt?: string; updatedAt?: string }): Plugin {
   const createdAtCol = opts?.createdAt ?? "createdAt"
   const updatedAtCol = opts?.updatedAt ?? "updatedAt"
 

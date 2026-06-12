@@ -15,8 +15,7 @@ const User = defineModel("users", {
     createdAt: t.timestamp(),
     updatedAt: t.timestamp(),
   },
-})
-  .use(timestamps())
+}).use(timestamps())
 
 const database = new Database(":memory:")
 database.run(

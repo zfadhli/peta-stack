@@ -1,4 +1,4 @@
-// Peta ORM — 30-graph-operations
+// Peta ORM — 31-graph-operations
 // insertGraph() / upsertGraph() — full graph operations with #id/#ref
 //
 // Insert or upsert an entire object graph (model + nested relations of any depth)
@@ -54,21 +54,13 @@ Post.relations.tags = manyToMany(() => Tag, {
 // ─── Setup ─────────────────────────────────────────────────────
 
 const database = new Database(":memory:")
-database.run(
-  "CREATE TABLE users_30 (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)",
-)
-database.run(
-  "CREATE TABLE profiles_30 (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER, bio TEXT)",
-)
+database.run("CREATE TABLE users_30 (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
+database.run("CREATE TABLE profiles_30 (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER, bio TEXT)")
 database.run(
   "CREATE TABLE posts_30 (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, title TEXT NOT NULL)",
 )
-database.run(
-  "CREATE TABLE tags_30 (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)",
-)
-database.run(
-  "CREATE TABLE post_tags_30 (postId INTEGER NOT NULL, tagId INTEGER NOT NULL)",
-)
+database.run("CREATE TABLE tags_30 (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
+database.run("CREATE TABLE post_tags_30 (postId INTEGER NOT NULL, tagId INTEGER NOT NULL)")
 
 const db = createORM({
   dialect: new BunSqliteDialect({ database }),
@@ -107,9 +99,7 @@ const post = await Post.insertGraph({
   author: { name: "Charlie" },
 })
 const author = await User.find(post.get("userId") as number)
-console.log(
-  `Post "${post.get("title")}" has author "${author?.get("name")}" (userId=${post.get("userId")})`,
-)
+console.log(`Post "${post.get("title")}" has author "${author?.get("name")}" (userId=${post.get("userId")})`)
 
 // ─── 4. #id / #ref (shared references) ────────────────────────
 
@@ -137,9 +127,7 @@ const tagPost = await Post.insertGraph({
   },
 })
 console.log(`Post with tags: ${tagPost.get("title")}`)
-const pivots = database
-  .query("SELECT tagId FROM post_tags_30 WHERE postId = ?")
-  .all(tagPost.get("id") as number)
+const pivots = database.query("SELECT tagId FROM post_tags_30 WHERE postId = ?").all(tagPost.get("id") as number)
 console.log(`  ${pivots.length} tag(s) associated`)
 
 // ─── 6. #dbRef (relate to existing) ────────────────────────────
@@ -171,8 +159,14 @@ const updated = await User.upsertGraph({
   id: uid,
   name: "Upsert Me Updated",
   posts: [
-    { id: (await Post.query().where("title", "=", "Keep").where("userId", "=", uid).executeTakeFirst())!.get("id"), title: "Keep Updated" },
-    { id: (await Post.query().where("title", "=", "Update").where("userId", "=", uid).executeTakeFirst())!.get("id"), title: "Update Updated" },
+    {
+      id: (await Post.query().where("title", "=", "Keep").where("userId", "=", uid).executeTakeFirst())!.get("id"),
+      title: "Keep Updated",
+    },
+    {
+      id: (await Post.query().where("title", "=", "Update").where("userId", "=", uid).executeTakeFirst())!.get("id"),
+      title: "Update Updated",
+    },
     { title: "New Post" },
   ],
 })
@@ -196,9 +190,7 @@ await User.upsertGraph(
   {
     id: ndu,
     name: "No Delete",
-    posts: [
-      { title: "New Post" },
-    ],
+    posts: [{ title: "New Post" }],
   },
   { noDelete: ["posts"] },
 )

@@ -2,7 +2,7 @@ import { Database } from "bun:sqlite"
 import { afterAll, beforeAll, describe, expect, it } from "bun:test"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
 import { t as columnTypes, createArkTypeSchemaConfig } from "../src/columns/index.js"
-import { createPeta, defineModel, timestamps, softDeletes } from "../src/index.js"
+import { createPeta, defineModel, softDeletes, timestamps } from "../src/index.js"
 import type { Plugin } from "../src/plugins/index.js"
 
 const t = columnTypes({ schema: createArkTypeSchemaConfig() })
@@ -22,7 +22,9 @@ describe("Plugin system", () => {
   it("timestamps() plugin sets createdAt/updatedAt on create", async () => {
     const db = new Database(":memory:")
     db.run("PRAGMA journal_mode = WAL")
-    db.run("CREATE TABLE ts_plugin (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, createdAt TEXT, updatedAt TEXT)")
+    db.run(
+      "CREATE TABLE ts_plugin (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, createdAt TEXT, updatedAt TEXT)",
+    )
     const peta = createPeta({ dialect: new BunSqliteDialect({ database: db }) })
 
     const TimestampedModel = defineModel("ts_plugin", {
@@ -48,11 +50,18 @@ describe("Plugin system", () => {
   it("timestamps() updates updatedAt on save", async () => {
     const db = new Database(":memory:")
     db.run("PRAGMA journal_mode = WAL")
-    db.run("CREATE TABLE ts_update (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, createdAt TEXT, updatedAt TEXT)")
+    db.run(
+      "CREATE TABLE ts_update (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, createdAt TEXT, updatedAt TEXT)",
+    )
     const peta = createPeta({ dialect: new BunSqliteDialect({ database: db }) })
 
     const Model = defineModel("ts_update", {
-      columns: { id: t.integer().primaryKey(), name: t.string(255), createdAt: t.timestamp(), updatedAt: t.timestamp() },
+      columns: {
+        id: t.integer().primaryKey(),
+        name: t.string(255),
+        createdAt: t.timestamp(),
+        updatedAt: t.timestamp(),
+      },
     }).use(timestamps())
 
     peta.registerAll(Model)

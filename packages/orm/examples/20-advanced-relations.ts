@@ -10,10 +10,14 @@ const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 const User = defineModel("users", {
   columns: { id: t.integer().primaryKey(), name: t.string(255) },
   relations: {
-    posts: hasManyThrough(() => Post, () => Profile, {
-      foreignKey: "userId",
-      throughForeignKey: "postId",
-    }),
+    posts: hasManyThrough(
+      () => Post,
+      () => Profile,
+      {
+        foreignKey: "userId",
+        throughForeignKey: "postId",
+      },
+    ),
   },
 })
 

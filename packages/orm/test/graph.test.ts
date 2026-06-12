@@ -73,24 +73,16 @@ let peta: ReturnType<typeof createPeta>
 beforeAll(async () => {
   db = new Database(":memory:")
   db.run("PRAGMA journal_mode = WAL")
-  db.run(
-    "CREATE TABLE graph_users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)",
-  )
-  db.run(
-    "CREATE TABLE graph_profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER, bio TEXT)",
-  )
+  db.run("CREATE TABLE graph_users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
+  db.run("CREATE TABLE graph_profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER, bio TEXT)")
   db.run(
     "CREATE TABLE graph_posts (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, title TEXT NOT NULL)",
   )
   db.run(
     "CREATE TABLE graph_comments (id INTEGER PRIMARY KEY AUTOINCREMENT, postId INTEGER NOT NULL, body TEXT NOT NULL)",
   )
-  db.run(
-    "CREATE TABLE graph_tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)",
-  )
-  db.run(
-    "CREATE TABLE graph_post_tags (postId INTEGER NOT NULL, tagId INTEGER NOT NULL)",
-  )
+  db.run("CREATE TABLE graph_tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
+  db.run("CREATE TABLE graph_post_tags (postId INTEGER NOT NULL, tagId INTEGER NOT NULL)")
 
   peta = createPeta({ dialect: new BunSqliteDialect({ database: db }) })
   peta.registerAll(User, Profile, Post, Comment, Tag)
@@ -154,7 +146,9 @@ describe("insertGraph", () => {
 
     expect(user.get("name")).toBe("Mixed Graph")
 
-    const profile = await Profile.query().where("userId", "=", user.get("id") as number).executeTakeFirst()
+    const profile = await Profile.query()
+      .where("userId", "=", user.get("id") as number)
+      .executeTakeFirst()
     expect(profile).toBeDefined()
     expect(profile!.get("bio")).toBe("My bio")
 
@@ -247,9 +241,7 @@ describe("insertGraph", () => {
   })
 
   it("10. throws when #ref used without allowRefs", async () => {
-    expect(
-      User.insertGraph([{ "#id": "x", name: "X" }, { "#ref": "x" }]),
-    ).rejects.toThrow("allowRefs")
+    expect(User.insertGraph([{ "#id": "x", name: "X" }, { "#ref": "x" }])).rejects.toThrow("allowRefs")
   })
 
   it("11. inserts with #dbRef (relate to existing)", async () => {
@@ -393,10 +385,7 @@ describe("upsertGraph", () => {
         {
           id: post.get("id") as number,
           title: "Nested Parent Updated",
-          comments: [
-            { id: comment1.get("id") as number, body: "Updated Comment" },
-            { body: "New Comment" },
-          ],
+          comments: [{ id: comment1.get("id") as number, body: "Updated Comment" }, { body: "New Comment" }],
         },
       ],
     })
@@ -404,7 +393,9 @@ describe("upsertGraph", () => {
     const updatedPost = await Post.find(post.get("id") as number)
     expect(updatedPost!.get("title")).toBe("Nested Parent Updated")
 
-    const comments = await Comment.query().where("postId", "=", post.get("id") as number).orderBy("id", "asc")
+    const comments = await Comment.query()
+      .where("postId", "=", post.get("id") as number)
+      .orderBy("id", "asc")
     expect(comments).toHaveLength(2)
     expect(comments[0]!.get("body")).toBe("Updated Comment")
     expect(comments[1]!.get("body")).toBe("New Comment")
@@ -433,9 +424,9 @@ describe("upsertGraph", () => {
       },
     })
 
-    const pivots = db
-      .query("SELECT tagId FROM graph_post_tags WHERE postId = ?")
-      .all(post.get("id") as number) as { tagId: number }[]
+    const pivots = db.query("SELECT tagId FROM graph_post_tags WHERE postId = ?").all(post.get("id") as number) as {
+      tagId: number
+    }[]
     const pivotTagIds = pivots.map((p) => p.tagId)
 
     expect(pivotTagIds).toContain(tag1.get("id") as number)

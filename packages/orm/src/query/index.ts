@@ -1,8 +1,8 @@
 import { sql as kyselySql } from "kysely"
 import { ModelNotFoundError, RelationNotAllowedError, RelationNotFoundError } from "../errors.js"
-import type { InsertGraphOptions, UpsertGraphOptions } from "../relations/graph.js"
 import type { ModelDefinition, ModelInstance } from "../model/types.js"
 import { type EagerLoad, EagerLoader } from "../relations/eager.js"
+import type { InsertGraphOptions, UpsertGraphOptions } from "../relations/graph.js"
 
 // Helper to create raw SQL expressions compatible with Kysely 0.27
 function rawSql(str: string): any {
@@ -442,7 +442,10 @@ export function createQueryBuilder(def: ModelDefinition, peta?: any): QueryBuild
     allowGraph(...expressions: string[]): QueryBuilder {
       const paths = new Set<string>()
       for (const expr of expressions) {
-        const parts = expr.replace(/[[\]']/g, "").split(/[\s,]+/).filter(Boolean)
+        const parts = expr
+          .replace(/[[\]']/g, "")
+          .split(/[\s,]+/)
+          .filter(Boolean)
         for (const part of parts) {
           // Preserve dotted paths — DO NOT split on '.'
           paths.add(part)
@@ -495,7 +498,7 @@ export function createQueryBuilder(def: ModelDefinition, peta?: any): QueryBuild
       if (hasStaticHooks(def as any, "beforeUpdate")) {
         const hooks = getStaticHooks(def as any, "beforeUpdate")
         let cancelled = false
-        let cancelResult: unknown = undefined
+        let cancelResult: unknown
 
         const asFindQuery = () => {
           const { createQueryBuilder } = requireCreateQB()
@@ -547,14 +550,17 @@ export function createQueryBuilder(def: ModelDefinition, peta?: any): QueryBuild
       if (hasBefore) {
         const hooks = getStaticHooks(def as any, "beforeDelete")
         let cancelled = false
-        let cancelResult: unknown = undefined
+        let cancelResult: unknown
 
         const asFindQuery = () => {
           const selectQb = createQueryBuilder(def)
           for (const op of whereOps) op(selectQb)
           return selectQb
         }
-        const cancelQuery = (result: unknown) => { cancelled = true; cancelResult = result }
+        const cancelQuery = (result: unknown) => {
+          cancelled = true
+          cancelResult = result
+        }
 
         for (const hook of hooks) {
           await hook({ asFindQuery, cancelQuery, inputItems: undefined })

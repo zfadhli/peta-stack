@@ -23,9 +23,7 @@ const t = (name: string) =>
 
 describe("Attribute.make()", () => {
   it("throws when neither get nor set is provided", () => {
-    expect(() => (Attribute.make as any)({})).toThrow(
-      "Attribute.make() requires at least one of `get` or `set`",
-    )
+    expect(() => (Attribute.make as any)({})).toThrow("Attribute.make() requires at least one of `get` or `set`")
   })
 
   it("accepts only get", () => {
@@ -99,9 +97,7 @@ describe("Attribute accessors & mutators", () => {
     db.run(
       "CREATE TABLE attr_users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT, password TEXT, role TEXT DEFAULT 'user')",
     )
-    db.run(
-      "CREATE TABLE no_accessors (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)",
-    )
+    db.run("CREATE TABLE no_accessors (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
     peta = createPeta({ dialect: new BunSqliteDialect({ database: db }) })
     peta.registerAll(User, NoAccessors)
   })
@@ -354,8 +350,7 @@ describe("Attribute accessors & mutators", () => {
       },
       attributes: {
         fullName: Attribute.make({
-          get: (_v: undefined, instance) =>
-            `${instance.get("firstName")} ${instance.get("lastName")}`,
+          get: (_v: undefined, instance) => `${instance.get("firstName")} ${instance.get("lastName")}`,
         }),
       },
     })

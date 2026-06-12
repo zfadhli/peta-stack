@@ -52,15 +52,14 @@ setRelationQueryModule({ createRelationQuery })
 // ─── DEFINE MODEL FACTORY ────────────────────────────────────
 import type { ColumnShape } from "../columns/column.js"
 import { ModelNotRegisteredError } from "../errors.js"
+import { addStaticHook } from "../hooks/static.js"
 import type { QueryBuilder } from "../query/index.js"
 import { createQueryBuilder } from "../query/index.js"
 import type { ORMLike } from "../types.js"
-import { createInstance } from "./factory.js"
+import { createInstance, createInstance } from "./factory.js"
 import { getHooksFor, registerSoftDeletesFor, registerTimestampsFor } from "./hooks.js"
-import { addStaticHook } from "../hooks/static.js"
 import { setConfig } from "./save.js"
 import { addScope, getScopes, removeScope } from "./scopes.js"
-import { createInstance } from "./factory.js"
 import type { ModelConfig, ModelDefinition } from "./types.js"
 
 export function defineModel<TColumns extends ColumnShape>(

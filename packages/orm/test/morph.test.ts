@@ -119,12 +119,8 @@ let peta: ReturnType<typeof createPeta>
 beforeAll(async () => {
   db = new Database(":memory:")
   db.run("PRAGMA journal_mode = WAL")
-  db.run(
-    "CREATE TABLE morph_posts (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL)",
-  )
-  db.run(
-    "CREATE TABLE morph_videos (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL)",
-  )
+  db.run("CREATE TABLE morph_posts (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL)")
+  db.run("CREATE TABLE morph_videos (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL)")
   db.run(
     "CREATE TABLE morph_likes (id INTEGER PRIMARY KEY AUTOINCREMENT, likeableType TEXT NOT NULL, likeableId INTEGER NOT NULL, userId TEXT)",
   )
@@ -267,9 +263,7 @@ describe("MorphTo eager loading", () => {
       likeableId: video.get("id") as number,
     })
 
-    const likes = await Like.query()
-      .with("likeable")
-      .orderBy("id", "asc")
+    const likes = await Like.query().with("likeable").orderBy("id", "asc")
 
     expect(likes).toHaveLength(2)
 
@@ -287,9 +281,7 @@ describe("MorphTo error handling", () => {
       likeableId: 1,
     })
 
-    expect(() => Like.relations.likeable.query(like)).toThrow(
-      /No model registered for morph type/,
-    )
+    expect(() => Like.relations.likeable.query(like)).toThrow(/No model registered for morph type/)
   })
 
   it("9. throws on null type column", async () => {
@@ -299,18 +291,14 @@ describe("MorphTo error handling", () => {
     })
     like.set("likeableType", null)
 
-    expect(() => Like.relations.likeable.query(like)).toThrow(
-      /"likeableType" is null/,
-    )
+    expect(() => Like.relations.likeable.query(like)).toThrow(/"likeableType" is null/)
   })
 
   it("10. throws on nested eager loading through morphTo", async () => {
     // The with() call itself is synchronous and doesn't throw.
     // The error occurs when the query is executed (thenable / await).
     const qb = Like.query().with("likeable.id")
-    await expect(qb.execute()).rejects.toThrow(
-      /Nested eager loading through polymorphic belongsTo is not supported/,
-    )
+    await expect(qb.execute()).rejects.toThrow(/Nested eager loading through polymorphic belongsTo is not supported/)
   })
 })
 
@@ -326,7 +314,9 @@ describe("MorphMany (forward direction)", () => {
       likeableId: post.get("id") as number,
     })
 
-    const posts = await Post.query().with("likes").where("id", "=", post.get("id") as number)
+    const posts = await Post.query()
+      .with("likes")
+      .where("id", "=", post.get("id") as number)
     expect(posts).toHaveLength(1)
     const likes = posts[0]!.$getRelation("likes") as any[]
     expect(likes).toHaveLength(2)
@@ -343,11 +333,15 @@ describe("MorphTo + MorphMany bidirectional", () => {
     })
 
     // MorphMany: Post → comments
-    const posts = await Post.query().with("comments").where("id", "=", post.get("id") as number)
+    const posts = await Post.query()
+      .with("comments")
+      .where("id", "=", post.get("id") as number)
     expect(posts[0]!.$getRelation("comments")).toHaveLength(1)
 
     // MorphTo: Comment → commentable
-    const comments = await Comment.query().with("commentable").where("id", "=", comment.get("id") as number)
+    const comments = await Comment.query()
+      .with("commentable")
+      .where("id", "=", comment.get("id") as number)
     expect(comments[0]!.$getRelation("commentable").get("title")).toBe("Bidirectional Post")
   })
 })

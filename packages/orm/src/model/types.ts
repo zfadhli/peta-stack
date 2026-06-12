@@ -1,9 +1,9 @@
-import type { Attribute } from "./attribute.js"
 import type { ColumnShape } from "../columns/column.js"
 import type { QueryBuilder } from "../query/index.js"
 import type { Relation } from "../relations/base.js"
 import type { InsertGraphOptions, UpsertGraphOptions } from "../relations/graph.js"
 import type { ORMLike } from "../types.js"
+import type { Attribute } from "./attribute.js"
 
 // ─── FORBIDDEN KEYS ──────────────────────────────────────────
 export const FORBIDDEN_KEYS = new Set(["__proto__", "constructor", "prototype"])

@@ -20,7 +20,12 @@ const User = defineModel("users", {
 })
 
 const Post = defineModel("posts", {
-  columns: { id: t.integer().primaryKey(), userId: t.integer(), title: t.string(255), published: t.integer().default(1) },
+  columns: {
+    id: t.integer().primaryKey(),
+    userId: t.integer(),
+    title: t.string(255),
+    published: t.integer().default(1),
+  },
   relations: { author: belongsTo(() => User) },
 })
 
@@ -48,7 +53,10 @@ console.log("All posts:", allPosts.length)
 
 const publicPosts = await alice.$related("posts").where("published", "=", 1)
 console.log("Public posts:", publicPosts.length)
-console.log("Titles:", publicPosts.map((p) => p.get("title")))
+console.log(
+  "Titles:",
+  publicPosts.map((p) => p.get("title")),
+)
 
 const recent = await alice.$related("posts").orderBy("id", "desc").limit(1)
 console.log("Most recent:", recent[0]?.get("title"))

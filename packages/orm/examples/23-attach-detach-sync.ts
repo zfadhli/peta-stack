@@ -48,6 +48,9 @@ await post.$related("tags").syncWithoutDetaching([tagB.get("id") as number])
 
 // Query current tags
 const currentTags = await post.$related("tags")
-console.log("Current tags:", currentTags.map((t) => t.get("name")))
+console.log(
+  "Current tags:",
+  currentTags.map((t) => t.get("name")),
+)
 
 await db.destroy()

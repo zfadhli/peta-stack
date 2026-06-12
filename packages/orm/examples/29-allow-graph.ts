@@ -47,9 +47,7 @@ const database = new Database(":memory:")
 database.run("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
 database.run("CREATE TABLE profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, bio TEXT)")
 database.run("CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, title TEXT NOT NULL)")
-database.run(
-  "CREATE TABLE comments (id INTEGER PRIMARY KEY AUTOINCREMENT, postId INTEGER NOT NULL, body TEXT)",
-)
+database.run("CREATE TABLE comments (id INTEGER PRIMARY KEY AUTOINCREMENT, postId INTEGER NOT NULL, body TEXT)")
 
 const db = createORM({
   dialect: new BunSqliteDialect({ database }),
@@ -63,9 +61,7 @@ await Comment.insert({ postId: post1.get("id") as number, body: "Nice post!" })
 
 // ─── Basic usage — single base relation ──────────────────────
 // allowGraph() whitelists which relations can be eagerly loaded
-const users = await User.query()
-  .allowGraph("posts")
-  .with("posts")
+const users = await User.query().allowGraph("posts").with("posts")
 console.log("Users with posts:", users.length)
 
 // ─── Blocked: non-whitelisted relation ───────────────────────
@@ -78,9 +74,7 @@ try {
 
 // ─── Nested routes via prefix matching ───────────────────────
 // "posts" is in allowGraph → allows "posts.author" (prefix match)
-const withAuthor = await User.query()
-  .allowGraph("posts")
-  .with("posts.author")
+const withAuthor = await User.query().allowGraph("posts").with("posts.author")
 console.log("Users with posts + author:", withAuthor.length)
 
 // ─── NEW: Dotted-path allowlist (recursive validation) ──────
@@ -88,9 +82,7 @@ console.log("Users with posts + author:", withAuthor.length)
 // but NOT bare "posts" or "posts.comments".
 
 // Allowed: "posts.author" matches the whitelisted path
-const specific = await User.query()
-  .allowGraph("posts.author")
-  .with("posts.author")
+const specific = await User.query().allowGraph("posts.author").with("posts.author")
 console.log("Specific nested load:", specific.length)
 
 // Blocked: bare "posts" is NOT whitelisted (only "posts.author" is)
@@ -109,9 +101,7 @@ try {
 
 // ─── NEW: Multiple arguments ─────────────────────────────────
 // allowGraph("posts", "profile") allows both relations
-const multi = await User.query()
-  .allowGraph("posts", "profile")
-  .with("posts", "profile")
+const multi = await User.query().allowGraph("posts", "profile").with("posts", "profile")
 console.log("Multiple allowGraph relations:", multi.length)
 
 // ─── Object-style with constraints ──────────────────────────

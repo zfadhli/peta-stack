@@ -154,9 +154,7 @@ export function defineMorphTo(options: MorphToOptions): Relation {
     query(parent: ModelInstance): ReturnType<typeof createQueryBuilder> {
       const typeValue = parent.get(morphType) as string | undefined
       if (!typeValue) {
-        throw new Error(
-          `Cannot resolve morphTo "${options.name}": "${morphType}" is null on ${defName(parent)}`,
-        )
+        throw new Error(`Cannot resolve morphTo "${options.name}": "${morphType}" is null on ${defName(parent)}`)
       }
 
       const thunk = morphMap[typeValue]
@@ -170,9 +168,7 @@ export function defineMorphTo(options: MorphToOptions): Relation {
       const relatedDef = resolveThunk(thunk)
       const id = parent.get(morphId)
       if (id == null) {
-        throw new Error(
-          `Cannot resolve morphTo "${options.name}": "${morphId}" is null on ${defName(parent)}`,
-        )
+        throw new Error(`Cannot resolve morphTo "${options.name}": "${morphId}" is null on ${defName(parent)}`)
       }
       return relatedDef.query().where("id", "=", id)
     },
@@ -228,9 +224,7 @@ export function defineMorphTo(options: MorphToOptions): Relation {
         }
 
         const relatedDef = resolveThunk(thunk)
-        const ids = typeModels
-          .map((m) => m.get(morphId))
-          .filter((id) => id != null)
+        const ids = typeModels.map((m) => m.get(morphId)).filter((id) => id != null)
 
         if (ids.length === 0) {
           for (const model of typeModels) {

@@ -13,8 +13,7 @@ const User = defineModel("users", {
     name: t.string(255),
     deletedAt: t.timestamp().nullable(),
   },
-})
-  .use(softDeletes())
+}).use(softDeletes())
 
 const database = new Database(":memory:")
 database.run("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, deletedAt TEXT)")
@@ -38,7 +37,12 @@ console.log("Bob trashed:", bob!.$trashed())
 
 // Default query excludes soft-deleted
 const active = await User.query().orderBy("id", "asc")
-console.log("Active users:", active.length, "—", active.map((u) => u.get("name")))
+console.log(
+  "Active users:",
+  active.length,
+  "—",
+  active.map((u) => u.get("name")),
+)
 
 // Include trashed
 const all = await User.query().withTrashed().orderBy("id", "asc")

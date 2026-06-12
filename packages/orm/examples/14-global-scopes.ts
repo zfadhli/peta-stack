@@ -32,10 +32,20 @@ await User.insert({ name: "Charlie", active: 1 })
 
 // Global scope applied automatically (no .execute() needed)
 const active = await User.query().orderBy("id", "asc")
-console.log("Active users (scoped):", active.length, "—", active.map((u) => u.get("name")))
+console.log(
+  "Active users (scoped):",
+  active.length,
+  "—",
+  active.map((u) => u.get("name")),
+)
 
 // Bypass scope
 const all = await User.query().withoutGlobalScope("active").orderBy("id", "asc")
-console.log("All users (unscoped):", all.length, "—", all.map((u) => u.get("name")))
+console.log(
+  "All users (unscoped):",
+  all.length,
+  "—",
+  all.map((u) => u.get("name")),
+)
 
 await db.destroy()

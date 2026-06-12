@@ -64,11 +64,17 @@ function getPivotInfo(relation: Relation): { throughTable: string; foreignPivotK
   }
 }
 
-async function findRelated(def: ModelDefinition, conditions: Record<string, unknown>): Promise<ModelInstance | undefined> {
+async function findRelated(
+  def: ModelDefinition,
+  conditions: Record<string, unknown>,
+): Promise<ModelInstance | undefined> {
   return def.query().where(Object.keys(conditions)[0], "=", Object.values(conditions)[0]).executeTakeFirst()
 }
 
-async function resolveTargetId(def: ModelDefinition, target: number | string | Record<string, unknown>): Promise<unknown> {
+async function resolveTargetId(
+  def: ModelDefinition,
+  target: number | string | Record<string, unknown>,
+): Promise<unknown> {
   if (typeof target === "number" || typeof target === "string") {
     return target
   }
@@ -117,11 +123,7 @@ function extractGraphRelationData(
 
 // ─── REF COLLECTION & RESOLUTION ──────────────────────────────
 
-function collectRefs(
-  node: Record<string, unknown>,
-  def: ModelDefinition,
-  refMap: Map<string, RefEntry>,
-): void {
+function collectRefs(node: Record<string, unknown>, def: ModelDefinition, refMap: Map<string, RefEntry>): void {
   const id = node["#id"]
   if (id && typeof id === "string") {
     if (refMap.has(id)) {
@@ -232,9 +234,7 @@ export async function insertGraph(
     const node = nodes[i]
     if (typeof node === "object" && node !== null && "#ref" in node) {
       if (!context.allowRefs) {
-        throw new Error(
-          `#ref is used but allowRefs option is not enabled. Set { allowRefs: true } to use #ref.`,
-        )
+        throw new Error(`#ref is used but allowRefs option is not enabled. Set { allowRefs: true } to use #ref.`)
       }
       const refId = node["#ref"]
       const entry = context.refMap.get(refId)
@@ -395,10 +395,7 @@ async function processBelongsTo(
     const conditions = op.connect as Record<string, unknown>
     const existing = await findRelated(relatedDef, conditions)
     if (existing) return existing
-    throw new DatabaseError(
-      `Cannot connect: ${JSON.stringify(conditions)} not found on ${relatedDef.name}`,
-      "UNKNOWN",
-    )
+    throw new DatabaseError(`Cannot connect: ${JSON.stringify(conditions)} not found on ${relatedDef.name}`, "UNKNOWN")
   }
 
   // { create: { ... } }: create related with relations
@@ -457,7 +454,7 @@ async function processHasMany(
   }
 
   // Handle connect items
-  const connectItems = !Array.isArray(op) ? (op as any)?.connect ?? [] : []
+  const connectItems = !Array.isArray(op) ? ((op as any)?.connect ?? []) : []
   for (const target of connectItems) {
     const targetId = await resolveTargetId(relatedDef, target)
     if (targetId != null) {
@@ -482,18 +479,19 @@ async function processManyToMany(
   const { throughTable, foreignPivotKey, relatedPivotKey } = getPivotInfo(relation)
   const db = getDb(relatedDef)
 
-  const items: Record<string, unknown>[] = Array.isArray(op)
-    ? op
-    : (op as any)?.create
-      ? (op as any).create
-      : []
+  const items: Record<string, unknown>[] = Array.isArray(op) ? op : (op as any)?.create ? (op as any).create : []
 
   for (const item of items) {
     if (item["#dbRef"] != null) {
       const id = item["#dbRef"]
       try {
-        await db.insertInto(throughTable).values({ [foreignPivotKey]: pkValue, [relatedPivotKey]: id }).execute()
-      } catch { /* skip duplicate */ }
+        await db
+          .insertInto(throughTable)
+          .values({ [foreignPivotKey]: pkValue, [relatedPivotKey]: id })
+          .execute()
+      } catch {
+        /* skip duplicate */
+      }
       continue
     }
     // Create the related record
@@ -501,19 +499,29 @@ async function processManyToMany(
     const relatedId = related.get(relation.localKey ?? "id")
     if (relatedId != null) {
       try {
-        await db.insertInto(throughTable).values({ [foreignPivotKey]: pkValue, [relatedPivotKey]: relatedId }).execute()
-      } catch { /* skip duplicate */ }
+        await db
+          .insertInto(throughTable)
+          .values({ [foreignPivotKey]: pkValue, [relatedPivotKey]: relatedId })
+          .execute()
+      } catch {
+        /* skip duplicate */
+      }
     }
   }
 
   // Handle connect items
-  const connectItems = !Array.isArray(op) ? (op as any)?.connect ?? [] : []
+  const connectItems = !Array.isArray(op) ? ((op as any)?.connect ?? []) : []
   for (const target of connectItems) {
     const targetId = await resolveTargetId(relatedDef, target)
     if (targetId != null) {
       try {
-        await db.insertInto(throughTable).values({ [foreignPivotKey]: pkValue, [relatedPivotKey]: targetId }).execute()
-      } catch { /* skip duplicate */ }
+        await db
+          .insertInto(throughTable)
+          .values({ [foreignPivotKey]: pkValue, [relatedPivotKey]: targetId })
+          .execute()
+      } catch {
+        /* skip duplicate */
+      }
     }
   }
 }
@@ -614,7 +622,10 @@ async function upsertHasMany(
   const fk = relation.foreignKey
 
   // Fetch existing children from DB
-  const existingChildren = await relatedDef.query().where(fk, "=", pkValue as any).execute()
+  const existingChildren = await relatedDef
+    .query()
+    .where(fk, "=", pkValue as any)
+    .execute()
   const existingMap = new Map<unknown, ModelInstance>()
   for (const child of existingChildren) {
     const pkCol = getPrimaryKeyColumn(relatedDef)
@@ -622,11 +633,7 @@ async function upsertHasMany(
   }
 
   // Process incoming items
-  const items: Record<string, unknown>[] = Array.isArray(op)
-    ? op
-    : (op as any)?.create
-      ? (op as any).create
-      : []
+  const items: Record<string, unknown>[] = Array.isArray(op) ? op : (op as any)?.create ? (op as any).create : []
 
   const incomingIds = new Set<unknown>()
 
@@ -703,17 +710,19 @@ async function upsertManyToMany(
   // Fetch existing pivot rows
   let existingPivotIds = new Set<unknown>()
   try {
-    const pivots = await db.selectFrom(throughTable).select(relatedPivotKey).where(foreignPivotKey, "=", pkValue).execute()
+    const pivots = await db
+      .selectFrom(throughTable)
+      .select(relatedPivotKey)
+      .where(foreignPivotKey, "=", pkValue)
+      .execute()
     existingPivotIds = new Set(pivots.map((p: any) => p[relatedPivotKey]))
-  } catch { /* table may not exist yet */ }
+  } catch {
+    /* table may not exist yet */
+  }
 
   const incomingIds = new Set<unknown>()
 
-  const items: Record<string, unknown>[] = Array.isArray(op)
-    ? op
-    : (op as any)?.create
-      ? (op as any).create
-      : []
+  const items: Record<string, unknown>[] = Array.isArray(op) ? op : (op as any)?.create ? (op as any).create : []
 
   for (const item of items) {
     if (item["#dbRef"] != null) {
@@ -721,8 +730,13 @@ async function upsertManyToMany(
       incomingIds.add(id)
       if (!existingPivotIds.has(id)) {
         try {
-          await db.insertInto(throughTable).values({ [foreignPivotKey]: pkValue, [relatedPivotKey]: id }).execute()
-        } catch { /* skip */ }
+          await db
+            .insertInto(throughTable)
+            .values({ [foreignPivotKey]: pkValue, [relatedPivotKey]: id })
+            .execute()
+        } catch {
+          /* skip */
+        }
       }
       continue
     }
@@ -745,8 +759,13 @@ async function upsertManyToMany(
       // Ensure pivot row exists
       if (!existingPivotIds.has(itemId)) {
         try {
-          await db.insertInto(throughTable).values({ [foreignPivotKey]: pkValue, [relatedPivotKey]: itemId }).execute()
-        } catch { /* skip */ }
+          await db
+            .insertInto(throughTable)
+            .values({ [foreignPivotKey]: pkValue, [relatedPivotKey]: itemId })
+            .execute()
+        } catch {
+          /* skip */
+        }
       }
     } else {
       // Create new child and pivot
@@ -755,22 +774,32 @@ async function upsertManyToMany(
       if (relatedId != null) {
         incomingIds.add(relatedId)
         try {
-          await db.insertInto(throughTable).values({ [foreignPivotKey]: pkValue, [relatedPivotKey]: relatedId }).execute()
-        } catch { /* skip */ }
+          await db
+            .insertInto(throughTable)
+            .values({ [foreignPivotKey]: pkValue, [relatedPivotKey]: relatedId })
+            .execute()
+        } catch {
+          /* skip */
+        }
       }
     }
   }
 
   // Handle connect items
-  const connectItems = !Array.isArray(op) ? (op as any)?.connect ?? [] : []
+  const connectItems = !Array.isArray(op) ? ((op as any)?.connect ?? []) : []
   for (const target of connectItems) {
     const targetId = await resolveTargetId(relatedDef, target)
     if (targetId != null) {
       incomingIds.add(targetId)
       if (!existingPivotIds.has(targetId)) {
         try {
-          await db.insertInto(throughTable).values({ [foreignPivotKey]: pkValue, [relatedPivotKey]: targetId }).execute()
-        } catch { /* skip */ }
+          await db
+            .insertInto(throughTable)
+            .values({ [foreignPivotKey]: pkValue, [relatedPivotKey]: targetId })
+            .execute()
+        } catch {
+          /* skip */
+        }
       }
     }
   }
@@ -786,13 +815,25 @@ async function upsertManyToMany(
         if (shouldUnrelate) {
           // For many-to-many, unrelate means remove pivot row
           try {
-            await db.deleteFrom(throughTable).where(foreignPivotKey, "=", pkValue).where(relatedPivotKey, "=", pivotId).execute()
-          } catch { /* skip */ }
+            await db
+              .deleteFrom(throughTable)
+              .where(foreignPivotKey, "=", pkValue)
+              .where(relatedPivotKey, "=", pivotId)
+              .execute()
+          } catch {
+            /* skip */
+          }
         } else if (shouldDelete) {
           await (await relatedDef.find(pivotId as number | string))?.$delete()
           try {
-            await db.deleteFrom(throughTable).where(foreignPivotKey, "=", pkValue).where(relatedPivotKey, "=", pivotId).execute()
-          } catch { /* skip */ }
+            await db
+              .deleteFrom(throughTable)
+              .where(foreignPivotKey, "=", pkValue)
+              .where(relatedPivotKey, "=", pivotId)
+              .execute()
+          } catch {
+            /* skip */
+          }
         }
       }
     }

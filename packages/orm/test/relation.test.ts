@@ -261,88 +261,53 @@ describe("has / whereHas", () => {
 
 describe("allowGraph security", () => {
   it("allows whitelisted relations", async () => {
-    const users = await User.query()
-      .allowGraph("posts")
-      .with("posts")
-      .orderBy("id", "asc")
+    const users = await User.query().allowGraph("posts").with("posts").orderBy("id", "asc")
     expect(users.length).toBeGreaterThanOrEqual(2)
     const first = users[0]!
     expect(first.$hasRelation("posts")).toBe(true)
   })
 
   it("throws on non-whitelisted relations", async () => {
-    expect(() =>
-      User.query()
-        .allowGraph("profile")
-        .with("posts")
-    ).toThrow()
+    expect(() => User.query().allowGraph("profile").with("posts")).toThrow()
   })
 
   it("allows nested routes in whitelist", async () => {
-    const users = await User.query()
-      .allowGraph("posts")
-      .with("posts.author")
-      .orderBy("id", "asc")
+    const users = await User.query().allowGraph("posts").with("posts.author").orderBy("id", "asc")
     expect(users.length).toBeGreaterThanOrEqual(2)
   })
 
   // ── Recursive validation ─────────────────────────────────
 
   it("allows dotted path when full path is whitelisted", async () => {
-    const users = await User.query()
-      .allowGraph("posts.author")
-      .with("posts.author")
-      .orderBy("id", "asc")
+    const users = await User.query().allowGraph("posts.author").with("posts.author").orderBy("id", "asc")
     expect(users.length).toBeGreaterThanOrEqual(2)
   })
 
   it("allows deeper nested path when prefix is whitelisted", () => {
     // Verifies that allowGraph validation passes for nested paths deeper than the
     // whitelisted prefix (the sync with() call does not throw RelationNotFoundError)
-    expect(() =>
-      User.query()
-        .allowGraph("posts.author")
-        .with("posts.author.profile")
-    ).not.toThrow()
+    expect(() => User.query().allowGraph("posts.author").with("posts.author.profile")).not.toThrow()
   })
 
   it("throws when base name is not in dotted-path whitelist", async () => {
-    expect(() =>
-      User.query()
-        .allowGraph("posts.author")
-        .with("posts")
-    ).toThrow()
+    expect(() => User.query().allowGraph("posts.author").with("posts")).toThrow()
   })
 
   it("throws when sibling nested path is not in whitelist", async () => {
-    expect(() =>
-      User.query()
-        .allowGraph("posts.author")
-        .with("posts.comments")
-    ).toThrow()
+    expect(() => User.query().allowGraph("posts.author").with("posts.comments")).toThrow()
   })
 
   it("throws when unrelated relation is not in whitelist", async () => {
-    expect(() =>
-      User.query()
-        .allowGraph("posts.author")
-        .with("profile")
-    ).toThrow()
+    expect(() => User.query().allowGraph("posts.author").with("profile")).toThrow()
   })
 
   it("allows multiple relations via rest args", async () => {
-    const users = await User.query()
-      .allowGraph("posts", "profile")
-      .with("posts.author")
-      .orderBy("id", "asc")
+    const users = await User.query().allowGraph("posts", "profile").with("posts.author").orderBy("id", "asc")
     expect(users.length).toBeGreaterThanOrEqual(2)
   })
 
   it("allows each from multiple rest args", async () => {
-    const users = await User.query()
-      .allowGraph("posts", "profile")
-      .with("profile")
-      .orderBy("id", "asc")
+    const users = await User.query().allowGraph("posts", "profile").with("profile").orderBy("id", "asc")
     expect(users.length).toBeGreaterThanOrEqual(2)
   })
 
@@ -358,7 +323,7 @@ describe("allowGraph security", () => {
     expect(() =>
       User.query()
         .allowGraph("profile")
-        .with({ posts: (qb) => qb })
+        .with({ posts: (qb) => qb }),
     ).toThrow()
   })
 })

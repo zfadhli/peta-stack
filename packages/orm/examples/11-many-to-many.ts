@@ -41,7 +41,10 @@ await post.$related("tags").attach(tsTag.get("id") as number)
 
 // Query tags via $related()
 const tags = await post.$related("tags")
-console.log("Post tags:", tags.map((t: any) => t.get("name")))
+console.log(
+  "Post tags:",
+  tags.map((t: any) => t.get("name")),
+)
 
 // Detach a tag
 await post.$related("tags").detach(jsTag.get("id") as number)
