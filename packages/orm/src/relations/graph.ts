@@ -413,7 +413,14 @@ async function processNode(
     if (relation?.type === "belongsTo") {
       const relPath = joinPath(path, relName)
       assertRelationAllowed(def, relPath, context.allowedGraphSet)
-      const relatedInstance = await processBelongsTo(relation, op as Record<string, unknown>, options, context, relPath, columnData)
+      const relatedInstance = await processBelongsTo(
+        relation,
+        op as Record<string, unknown>,
+        options,
+        context,
+        relPath,
+        columnData,
+      )
       if (relatedInstance) {
         columnData[relation.foreignKey] = relatedInstance.get(relation.localKey)
       }
@@ -533,7 +540,7 @@ async function processMorphTo(
   if (!morphMap || Object.keys(morphMap).length === 0) {
     throw new Error(
       `Cannot process MorphTo relation: no morphMap provided. ` +
-      `Define a morphMap with model thunks when calling defineMorphTo().`,
+        `Define a morphMap with model thunks when calling defineMorphTo().`,
     )
   }
 
@@ -548,8 +555,8 @@ async function processMorphTo(
   if (!typeValue) {
     throw new Error(
       `Cannot resolve MorphTo: no type specified. ` +
-      `Provide a "type" key in the relation data (e.g., { type: "${Object.keys(morphMap)[0]}" }). ` +
-      `Available types: ${Object.keys(morphMap).join(", ")}`,
+        `Provide a "type" key in the relation data (e.g., { type: "${Object.keys(morphMap)[0]}" }). ` +
+        `Available types: ${Object.keys(morphMap).join(", ")}`,
     )
   }
 
@@ -557,7 +564,7 @@ async function processMorphTo(
   if (!thunk) {
     throw new Error(
       `No model registered for morph type "${typeValue}" in MorphTo. ` +
-      `Available types: ${Object.keys(morphMap).join(", ")}`,
+        `Available types: ${Object.keys(morphMap).join(", ")}`,
     )
   }
 
@@ -755,7 +762,14 @@ async function upsertNode(
     if (relation?.type === "belongsTo") {
       const relPath = joinPath(_path, relName)
       assertRelationAllowed(def, relPath, context.allowedGraphSet)
-      const relatedInstance = await processBelongsTo(relation, op as Record<string, unknown>, options, context, relPath, columnData)
+      const relatedInstance = await processBelongsTo(
+        relation,
+        op as Record<string, unknown>,
+        options,
+        context,
+        relPath,
+        columnData,
+      )
       if (relatedInstance) {
         columnData[relation.foreignKey] = relatedInstance.get(relation.localKey)
       }

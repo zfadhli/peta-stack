@@ -470,9 +470,7 @@ describe("MorphMany through insertGraph", () => {
       comments: [{ body: "Upsert child" }],
     })
 
-    const comments = await Comment.query()
-      .where("commentableId", "=", postId)
-      .orderBy("id", "asc")
+    const comments = await Comment.query().where("commentableId", "=", postId).orderBy("id", "asc")
     expect(comments).toHaveLength(1)
     expect(comments[0]!.get("commentableType")).toBe("morph_posts")
     expect(comments[0]!.get("body")).toBe("Upsert child")
