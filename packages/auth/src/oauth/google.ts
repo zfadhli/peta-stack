@@ -1,3 +1,4 @@
+import { constantTimeEqual } from "../csrf.js"
 import {
   getOAuthRedirectURL,
   handleAccessTokenError,
@@ -121,7 +122,7 @@ export function defineOAuthGoogleEventHandler(options: {
       return redirect(authUrl.toString(), cookies || undefined)
     }
 
-    if (!queryState || queryState !== state.expectedState) {
+    if (!queryState || !state.expectedState || !constantTimeEqual(queryState, state.expectedState)) {
       return handleInvalidState("google", onError)
     }
 

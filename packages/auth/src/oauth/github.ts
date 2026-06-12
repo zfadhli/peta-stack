@@ -1,3 +1,4 @@
+import { constantTimeEqual } from "../csrf.js"
 import {
   getOAuthRedirectURL,
   handleAccessTokenError,
@@ -115,7 +116,7 @@ export function defineOAuthGitHubEventHandler(options: {
       return redirect(authUrl.toString(), state.setCookie)
     }
 
-    if (!queryState || queryState !== state.expectedState) {
+    if (!queryState || !state.expectedState || !constantTimeEqual(queryState, state.expectedState)) {
       return handleInvalidState("github", onError)
     }
 

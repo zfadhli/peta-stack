@@ -7,6 +7,20 @@ export interface CSRFOptions {
 }
 
 /**
+ * Constant-time string comparison to prevent timing side-channel attacks.
+ * Always iterates over the full length of the input, regardless of where
+ * the first difference occurs.
+ */
+export function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  let result = 0
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  }
+  return result === 0
+}
+
+/**
  * Generate a CSRF token and store it in the session.
  *
  * @example
@@ -25,6 +39,8 @@ export async function generateCsrf(session: IronSession, options?: CSRFOptions):
 /**
  * Validate a CSRF token against the value stored in the session.
  *
+ * Uses constant-time comparison to prevent timing side-channel attacks.
+ *
  * @example
  * ```ts
  * if (!validateCsrf(session, submittedToken)) {
@@ -35,5 +51,5 @@ export async function generateCsrf(session: IronSession, options?: CSRFOptions):
 export function validateCsrf(session: IronSession, token: string, options?: CSRFOptions): boolean {
   const key = options?.key ?? "_csrfToken"
   const stored = session[key]
-  return typeof stored === "string" && stored === token
+  return typeof stored === "string" && constantTimeEqual(stored, token)
 }
