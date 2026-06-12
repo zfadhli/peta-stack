@@ -1,5 +1,5 @@
 // Peta ORM — 17-instance-methods
-// fill, dirty, reset, $reload, $load, $relatedQuery
+// fill, dirty, reset, $reload, $load, $related
 
 import { Database } from "bun:sqlite"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
@@ -25,7 +25,7 @@ peta.registerAll(User, Post)
 
 const user = await User.insert({ name: "Alice", email: "alice@example.com" })
 
-// Fill multiple attributes
+// Fill multiple attributes at once
 user.fill({ name: "Alice Smith", email: "alice.smith@example.com" })
 console.log("Dirty after fill:", user.isDirty, "—", user.dirtyAttributes)
 
@@ -33,7 +33,7 @@ console.log("Dirty after fill:", user.isDirty, "—", user.dirtyAttributes)
 await user.$save()
 console.log("Dirty after save:", user.isDirty)
 
-// Reset to original
+// Reset to original values
 user.set("name", "Temporary")
 console.log("Before reset:", user.get("name"))
 user.reset()
@@ -43,6 +43,10 @@ console.log("After reset:", user.get("name"))
 const _post = await Post.insert({ userId: user.get("id") as number, title: "My Post" })
 await user.$load("posts")
 console.log("Loaded posts:", (user.$getRelation("posts") as any[])?.length)
+
+// $related() — query builder scoped to a relation
+const relatedPosts = await user.$related("posts")
+console.log("Related posts:", relatedPosts.length)
 
 // $reload — refresh from database
 user.set("name", "Gone")

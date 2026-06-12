@@ -1,5 +1,5 @@
-// Peta ORM — 11-many-to-many
-// ManyToMany via pivot table, $related(), attach/detach/sync
+// Peta ORM — 23-attach-detach-sync
+// Many-to-many pivot management via $related()
 
 import { Database } from "bun:sqlite"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
@@ -16,9 +16,6 @@ const Post = defineModel("posts", {
 
 const Tag = defineModel("tags", {
   columns: { id: t.integer().primaryKey(), name: t.string(255) },
-  relations: {
-    posts: manyToMany(() => Post, { through: "post_tags", foreignPivotKey: "tagId", relatedPivotKey: "postId" }),
-  },
 })
 
 const database = new Database(":memory:")
@@ -30,23 +27,28 @@ const peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
 peta.registerAll(Post, Tag)
 
 const post = await Post.insert({ title: "My Post" })
-const jsTag = await Tag.insert({ name: "js" })
-const tsTag = await Tag.insert({ name: "ts" })
+const tagA = await Tag.insert({ name: "javascript" })
+const tagB = await Tag.insert({ name: "typescript" })
+const tagC = await Tag.insert({ name: "rust" })
 
-// Attach tags via $related() (inserts pivot rows)
-await post.$related("tags").attach(jsTag.get("id") as number)
-await post.$related("tags").attach(tsTag.get("id") as number)
+// Attach — add pivot rows
+await post.$related("tags").attach(tagA.get("id") as number)
+await post.$related("tags").attach(tagB.get("id") as number, { extra: "metadata" } as any)
 
-// Query tags via $related() (no .execute() needed)
-const tags = await post.$related("tags")
-console.log("Post tags:", tags.map((t: any) => t.get("name")))
+// Detach — remove specific pivot rows
+await post.$related("tags").detach(tagB.get("id") as number)
 
-// Detach a tag
-await post.$related("tags").detach(jsTag.get("id") as number)
-console.log("After detach:", (await post.$related("tags")).length) // 1
+// Sync — replace all with exact set
+await post.$related("tags").sync([tagA.get("id") as number, tagC.get("id") as number])
 
-// Sync to exact set
-await post.$related("tags").sync([jsTag.get("id") as number, tsTag.get("id") as number])
-console.log("After sync:", (await post.$related("tags")).length) // 2
+// Sync without detaching — only add, don't remove
+await post.$related("tags").syncWithoutDetaching([tagB.get("id") as number])
+
+// Update existing pivot row
+await post.$related("tags").updateExistingPivot(tagA.get("id") as number, { extra: "updated" } as any)
+
+// Query current tags
+const currentTags = await post.$related("tags")
+console.log("Current tags:", currentTags.map((t) => t.get("name")))
 
 await peta.destroy()

@@ -20,7 +20,8 @@ const peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
 peta.registerAll(User)
 
 const app = new Elysia().use(petaPlugin({ peta })).get("/users", async () => {
-  const users = await User.query().execute()
+  // Thenable QB — no .execute() needed
+  const users = await User.query()
   return users.map((u) => u.$toJSON())
 })
 

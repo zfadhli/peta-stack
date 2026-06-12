@@ -1,5 +1,6 @@
 // Peta ORM — 03-crud
 // insert, find, update, delete, reload, paginate, count
+// The QueryBuilder is thenable — no .execute() needed
 
 import { Database } from "bun:sqlite"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
@@ -32,7 +33,7 @@ await User.insert({ name: "Charlie", email: "c@d.com" })
 const alice = await User.find(1)
 console.log("Found:", alice?.get("name"))
 
-// Update
+// Update via instance
 alice?.set("name", "Alice Smith")
 await alice?.$save()
 console.log("Updated:", (await User.find(1))?.get("name"))
@@ -42,10 +43,9 @@ const bob = await User.find(2)
 await bob?.$delete()
 console.log("After delete, count:", await User.query().count())
 
-// Reload
+// Reload (re-fetch from DB, discarding local changes)
 const charlie = await User.find(3)
 charlie?.set("name", "Charlie Updated")
-const _oldName = charlie?.get("name")
 await charlie?.$reload()
 console.log("Reloaded name:", charlie?.get("name"), "(original preserved)")
 

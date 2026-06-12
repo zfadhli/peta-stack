@@ -1,5 +1,5 @@
 // Peta ORM — 13-casting
-// $casts, $hidden, $appends, accessors
+// casts, hidden, appends, accessors
 
 import { Database } from "bun:sqlite"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
@@ -15,11 +15,10 @@ const User = defineModel("users", {
     flags: t.integer().default(0),
   },
   casts: {
-    metadata: "json",
-    flags: "boolean",
+    metadata: "json",    // auto-parse JSON strings to objects
+    flags: "boolean",    // auto-convert integers to booleans
   },
-  hidden: ["metadata"],
-  appends: [],
+  hidden: ["metadata"],  // exclude from $toJSON
 })
 
 const database = new Database(":memory:")
@@ -32,7 +31,7 @@ peta.registerAll(User)
 
 const user = await User.insert({ name: "Alice", metadata: JSON.stringify({ foo: 1, bar: 2 }), flags: 1 })
 
-// Casting: JSON string → object
+// Casting: JSON string → object (auto-parsed on get)
 console.log("Metadata (parsed):", user.get("metadata"))
 
 // Casting: integer → boolean

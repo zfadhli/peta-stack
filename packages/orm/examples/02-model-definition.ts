@@ -41,7 +41,7 @@ try {
   console.log("Validation caught:", e instanceof ValidationError ? e.message : e)
 }
 
-// JSON column
+// JSON column (casts: "json" auto-parses)
 const bob = await User.insert({ name: "Bob", email: "b@c.com", metadata: { foo: 1, bar: [2, 3] } })
 console.log("JSON metadata:", bob.get("metadata"))
 

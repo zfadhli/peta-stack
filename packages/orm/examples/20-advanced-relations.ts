@@ -1,5 +1,5 @@
 // Peta ORM — 20-advanced-relations
-// HasManyThrough, polymorphic morphs, pivot extras
+// HasManyThrough, eager loading
 
 import { Database } from "bun:sqlite"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
@@ -8,7 +8,6 @@ import { t as columnTypes, createArkTypeSchemaConfig, createPeta, defineModel, h
 const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
 // HasManyThrough: User → Profile → Post
-// The through table (profiles) carries the FK to the related table (posts).
 const User = defineModel("users", {
   columns: { id: t.integer().primaryKey(), name: t.string(255) },
   relations: {
@@ -44,8 +43,8 @@ const post2 = await Post.insert({ title: "Post 2" })
 await Profile.insert({ userId: user.get("id") as number, postId: post1.get("id") as number, bio: "Hi!" })
 await Profile.insert({ userId: user.get("id") as number, postId: post2.get("id") as number, bio: "Hi again!" })
 
-// Eager load via with()
-const users = await User.query().with("posts").execute()
+// Eager load (no .execute() needed)
+const users = await User.query().with("posts")
 for (const u of users) {
   const userPosts = u.$getRelation("posts") as any[]
   console.log(`${u.get("name")} has ${userPosts.length} posts via hasManyThrough`)

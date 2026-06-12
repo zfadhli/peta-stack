@@ -1,5 +1,6 @@
 // Peta ORM — 01-basic-setup
-// Peta init + SQLite setup + insert/find
+// ORM init + SQLite setup + insert/find
+// The QueryBuilder is thenable — no .execute() needed
 
 import { Database } from "bun:sqlite"
 import { BunSqliteDialect } from "kysely-bun-sqlite"

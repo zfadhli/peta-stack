@@ -21,7 +21,7 @@ for (const name of ["Alice", "Bob", "Charlie", "Diana"]) {
   await User.insert({ name, role: name === "Alice" || name === "Diana" ? "admin" : "user" })
 }
 
-// Collection from query
+// Collection from query (using .collect() terminal — also works without it)
 const users = await User.query().orderBy("id", "asc").collect()
 console.log("Total:", users.length)
 console.log("First:", users.first()?.get("name"))

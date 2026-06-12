@@ -1,5 +1,6 @@
 // Peta ORM — 14-global-scopes
 // addGlobalScope(), withoutGlobalScope()
+// Thenable QB — no .execute() needed
 
 import { Database } from "bun:sqlite"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
@@ -28,8 +29,8 @@ await User.insert({ name: "Alice", active: 1 })
 await User.insert({ name: "Bob", active: 0 })
 await User.insert({ name: "Charlie", active: 1 })
 
-// Global scope applied automatically
-const active = await User.query().orderBy("id", "asc").execute()
+// Global scope applied automatically (no .execute() needed)
+const active = await User.query().orderBy("id", "asc")
 console.log(
   "Active users (scoped):",
   active.length,
@@ -39,7 +40,7 @@ console.log(
 // → 2: Alice, Charlie
 
 // Bypass scope
-const all = await User.query().withoutGlobalScope("active").orderBy("id", "asc").execute()
+const all = await User.query().withoutGlobalScope("active").orderBy("id", "asc")
 console.log(
   "All users (unscoped):",
   all.length,

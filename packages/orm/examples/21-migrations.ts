@@ -1,5 +1,5 @@
 // Peta ORM — 21-migrations
-// MigrationRunner, MigrationGenerator, CLI
+// MigrationRunner, MigrationGenerator
 
 import { Database } from "bun:sqlite"
 import { Kysely } from "kysely"
@@ -58,7 +58,7 @@ console.log("Pending:", status.pending.length)
 await runner.down([migration])
 console.log("After rollback, completed:", (await runner.getCompleted()).length)
 
-// Migration Generator
+// Migration Generator — generates TypeScript migration code from model definitions
 const models = new Map<string, any>()
 models.set("users", { table: "users", columns: User.columns, relations: User.relations, name: "User" })
 models.set("posts", { table: "posts", columns: Post.columns, relations: Post.relations, name: "Post" })

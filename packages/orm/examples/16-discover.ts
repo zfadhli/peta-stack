@@ -1,5 +1,5 @@
 // Peta ORM — 16-discover
-// peta.discover(), rest params
+// createPeta, registerAll, peta.models
 
 import { Database } from "bun:sqlite"
 import { BunSqliteDialect } from "kysely-bun-sqlite"

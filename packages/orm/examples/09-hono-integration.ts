@@ -28,11 +28,13 @@ const app = new Hono()
 
 app.use("*", petaMiddleware({ peta }))
 
+// GET /users — list all (no .execute() needed)
 app.get("/users", async (c) => {
-  const users = await User.query().execute()
+  const users = await User.query()
   return c.json(users.map((u) => u.$toJSON()))
 })
 
+// POST /users — create
 app.post("/users", async (c) => {
   try {
     const body = await c.req.json()
@@ -46,6 +48,7 @@ app.post("/users", async (c) => {
   }
 })
 
+// GET /users/:id — find by PK
 app.get("/users/:id", async (c) => {
   const id = Number(c.req.param("id"))
   const user = await User.find(id)
@@ -55,19 +58,15 @@ app.get("/users/:id", async (c) => {
 
 // ── Self-test ──────────────────────────────────────────
 
-// GET /users
 let res = await app.fetch(new Request("http://localhost/users"))
 console.log("GET /users →", res.status, JSON.stringify(await res.json()))
 
-// GET /users/:id — found
 res = await app.fetch(new Request("http://localhost/users/1"))
 console.log("GET /users/1 →", res.status, JSON.stringify(await res.json()))
 
-// GET /users/:id — not found
 res = await app.fetch(new Request("http://localhost/users/999"))
 console.log("GET /users/999 →", res.status, JSON.stringify(await res.json()))
 
-// POST /users — created
 res = await app.fetch(
   new Request("http://localhost/users", {
     method: "POST",
@@ -77,7 +76,6 @@ res = await app.fetch(
 )
 console.log("POST /users →", res.status, JSON.stringify(await res.json()))
 
-// POST /users — validation error (name too short)
 res = await app.fetch(
   new Request("http://localhost/users", {
     method: "POST",
@@ -87,7 +85,6 @@ res = await app.fetch(
 )
 console.log("POST /users (short name) →", res.status, JSON.stringify(await res.json()))
 
-// Verify total
 res = await app.fetch(new Request("http://localhost/users"))
 const all = (await res.json()) as any[]
 console.log("Total users:", all.length)

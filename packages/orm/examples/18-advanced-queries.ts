@@ -1,5 +1,6 @@
 // Peta ORM — 18-advanced-queries
 // groupBy/having, sum/avg/min/max, chunk, toSQL, updateMany
+// Thenable QB — no .execute() needed for select queries
 
 import { Database } from "bun:sqlite"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
@@ -42,8 +43,8 @@ await User.query()
   })
 console.log("All names:", names)
 
-// updateMany
-const affected = await User.query().updateMany({ score: 0 })
+// updateMany (requires .all() or explicit WHERE for safety)
+const affected = await User.query().all().updateMany({ score: 0 })
 console.log("Reset scores for", affected, "users")
 
 await peta.destroy()
