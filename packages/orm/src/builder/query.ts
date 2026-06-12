@@ -62,13 +62,18 @@ export function createQueryBuilder(def: ModelDefinition, peta: PetaLike, kyselyO
   let withTrashed = false
   let onlyTrashedMode = false
   const omitScopes = new Set<string>()
+  let scopesApplied = false
 
   function validateColumn(ref: string): string {
     if (!SAFE_COLUMN.test(ref)) throw new Error(`Invalid column reference: ${ref}`)
     return ref
   }
 
-  async function runExecute(): Promise<ModelInstance[]> {
+  /** Apply global scopes and soft-delete filters to the query builder. */
+  function applyScopes(): void {
+    if (scopesApplied) return
+    scopesApplied = true
+
     const scopes = def.getGlobalScopes?.()
     if (scopes) {
       for (const [name, fn] of scopes) {
@@ -78,6 +83,10 @@ export function createQueryBuilder(def: ModelDefinition, peta: PetaLike, kyselyO
     const hasDeletedColumn = "deletedAt" in def.columns
     if (!withTrashed && hasDeletedColumn) qb = qb.where("deletedAt", "is", null)
     if (onlyTrashedMode && hasDeletedColumn) qb = qb.where("deletedAt", "is not", null)
+  }
+
+  async function runExecute(): Promise<ModelInstance[]> {
+    applyScopes()
     const rows = (await qb.selectAll().execute()) as Record<string, unknown>[]
     const models = rows.map((row) => def._hydrate(row))
     if (eagerLoads.length > 0) {
@@ -153,22 +162,27 @@ export function createQueryBuilder(def: ModelDefinition, peta: PetaLike, kyselyO
       return { sql: compiled.sql, parameters: compiled.parameters }
     },
     async count(): Promise<number> {
+      applyScopes()
       const result = await qb.select((eb: any) => eb.fn.countAll().as("count")).executeTakeFirst()
       return Number(result?.count ?? 0)
     },
     async sum(column: string): Promise<number> {
+      applyScopes()
       const result = await qb.select((eb: any) => eb.fn.sum(column).as("sum")).executeTakeFirst()
       return Number(result?.sum ?? 0)
     },
     async avg(column: string): Promise<number> {
+      applyScopes()
       const result = await qb.select((eb: any) => eb.fn.avg(column).as("avg")).executeTakeFirst()
       return Number(result?.avg ?? 0)
     },
     async min(column: string): Promise<number> {
+      applyScopes()
       const result = await qb.select((eb: any) => eb.fn.min(column).as("min")).executeTakeFirst()
       return Number(result?.min ?? 0)
     },
     async max(column: string): Promise<number> {
+      applyScopes()
       const result = await qb.select((eb: any) => eb.fn.max(column).as("max")).executeTakeFirst()
       return Number(result?.max ?? 0)
     },
@@ -190,19 +204,12 @@ export function createQueryBuilder(def: ModelDefinition, peta: PetaLike, kyselyO
     async paginate(page: number, perPage = 20) {
       page = Math.max(1, Math.floor(page))
       perPage = Math.max(1, Math.min(perPage, 1000))
-      // Use qb directly — Kysely builders are immutable, so each
-      // operation returns a new instance without modifying the original.
-      const hasDeletedColumn = "deletedAt" in def.columns
+      applyScopes()
       // Count total (without limit/offset)
-      let countQb = qb
-      if (!withTrashed && hasDeletedColumn) countQb = countQb.where("deletedAt", "is", null)
-      if (onlyTrashedMode && hasDeletedColumn) countQb = countQb.where("deletedAt", "is not", null)
-      const countResult = await countQb.select((eb: any) => eb.fn.countAll().as("count")).executeTakeFirst()
+      const countResult = await qb.select((eb: any) => eb.fn.countAll().as("count")).executeTakeFirst()
       const total = Number(countResult?.count ?? 0)
-      // Fetch items (with limit/offset) + apply runtime filters
-      let fetchQb = qb.limit(perPage).offset((page - 1) * perPage)
-      if (!withTrashed && hasDeletedColumn) fetchQb = fetchQb.where("deletedAt", "is", null)
-      if (onlyTrashedMode && hasDeletedColumn) fetchQb = fetchQb.where("deletedAt", "is not", null)
+      // Fetch items (with limit/offset)
+      const fetchQb = qb.limit(perPage).offset((page - 1) * perPage)
       const rows = (await fetchQb.selectAll().execute()) as Record<string, unknown>[]
       const models = rows.map((row) => def._hydrate(row))
       if (eagerLoads.length > 0) {
