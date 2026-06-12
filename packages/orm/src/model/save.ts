@@ -78,14 +78,32 @@ export async function insertManyModel(
 ): Promise<ModelInstance[]> {
   const peta = def._peta
   if (!peta) throw new Error(`${def.table} has not been registered with Peta`)
+  if (dataArray.length === 0) return []
+
   const db: any = kyselyOverride ?? peta.kysely
   const prepared = dataArray.map((row) => prepareForDb(def, row))
+
   try {
-    await db.insertInto(def.table).values(prepared).execute()
+    // RETURNING * lets us read back DB-generated values (auto-increment IDs,
+    // column defaults, trigger values). Works on SQLite 3.35+ (Kysely's
+    // SqliteAdapter.supportsReturning is true) and all PostgreSQL versions.
+    const rows: Record<string, unknown>[] = await db.insertInto(def.table).values(prepared).returningAll().execute()
+    return rows.map((row) => def._hydrate(row))
   } catch (e: unknown) {
+    // Fallback for dialects that don't support RETURNING (MySQL, older SQLite).
+    // The RETURNING syntax error is detected and we retry without it.
+    // Real errors (constraint violations, etc.) are re-thrown via normalizeError.
+    const errMsg = e instanceof Error ? e.message : String(e)
+    if (errMsg.includes("syntax error") || errMsg.includes("near") || errMsg.includes("does not support RETURNING")) {
+      try {
+        await db.insertInto(def.table).values(prepared).execute()
+        return dataArray.map((row) => def._hydrate(row))
+      } catch (e2: unknown) {
+        throw normalizeError(e2, def.table) ?? e2
+      }
+    }
     throw normalizeError(e, def.table) ?? e
   }
-  return dataArray.map((row) => def._hydrate(row))
 }
 
 export async function reloadModel(def: ModelDefinition, model: ModelInstance): Promise<void> {

@@ -105,23 +105,17 @@ async function findOrCreateTags(names: string[]): Promise<number[]> {
     nameToId.set(tag.get<string>("name"), tag.get<number>("id"))
   }
 
-  // 2. Bulk insert — only the tags that don't exist yet
+  // 2. Bulk insert — only the tags that don't exist yet.
+  //    insertMany now uses RETURNING *, so returned models have real DB-generated IDs.
   const missing = cleaned.filter((n) => !nameToId.has(n))
   if (missing.length > 0) {
-    await Tag.insertMany(missing.map((name) => ({ name })))
-  }
-
-  // 3. Re-fetch all to capture auto-generated IDs for new rows
-  //    (insertMany returns models hydrated from input, not from DB,
-  //     so auto-generated id columns are absent)
-  if (missing.length > 0) {
-    const all = await Tag.query().whereIn("name", cleaned).execute()
-    for (const tag of all) {
+    const newTags = await Tag.insertMany(missing.map((name) => ({ name })))
+    for (const tag of newTags) {
       nameToId.set(tag.get<string>("name"), tag.get<number>("id"))
     }
   }
 
-  // 4. Return IDs in input order (after dedup)
+  // 3. Return IDs in input order (after dedup)
   return cleaned.map((n) => nameToId.get(n)!)
 }
 
