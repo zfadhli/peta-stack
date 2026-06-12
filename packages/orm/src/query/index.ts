@@ -2,8 +2,8 @@ import { sql as kyselySql } from "kysely"
 import { ModelNotFoundError, RelationNotAllowedError, RelationNotFoundError } from "../errors.js"
 import type { ModelDefinition, ModelInstance } from "../model/types.js"
 import { type EagerLoad, EagerLoader } from "../relations/eager.js"
-import { isRelationAllowed } from "../relations/graph.js"
 import type { InsertGraphOptions, UpsertGraphOptions } from "../relations/graph.js"
+import { isRelationAllowed } from "../relations/graph.js"
 
 // Helper to create raw SQL expressions compatible with Kysely 0.27
 function rawSql(str: string): any {

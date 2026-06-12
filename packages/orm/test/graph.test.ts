@@ -2,7 +2,15 @@ import { Database } from "bun:sqlite"
 import { afterAll, beforeAll, describe, expect, it } from "bun:test"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
 import { t as columnTypes, createArkTypeSchemaConfig } from "../src/columns/index.js"
-import { belongsTo, createPeta, defineModel, hasMany, hasOne, manyToMany, RelationNotAllowedError } from "../src/index.js"
+import {
+  belongsTo,
+  createPeta,
+  defineModel,
+  hasMany,
+  hasOne,
+  manyToMany,
+  RelationNotAllowedError,
+} from "../src/index.js"
 
 const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 

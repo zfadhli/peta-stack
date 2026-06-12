@@ -119,11 +119,7 @@ function resolveAllowGraph(options: InsertGraphOptions): Set<string> | undefined
  * Throws RelationNotAllowedError if the path is not permitted.
  * Does nothing if allowedSet is undefined (no restriction).
  */
-function assertRelationAllowed(
-  def: ModelDefinition,
-  fullPath: string,
-  allowedSet: Set<string> | undefined,
-): void {
+function assertRelationAllowed(def: ModelDefinition, fullPath: string, allowedSet: Set<string> | undefined): void {
   if (!allowedSet || allowedSet.size === 0) return
   if (!isRelationAllowed(fullPath, allowedSet)) {
     throw new RelationNotAllowedError(def.name, fullPath)
