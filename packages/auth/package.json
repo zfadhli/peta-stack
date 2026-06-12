@@ -51,7 +51,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "bcryptjs": "^3.0.3",
+    "@node-rs/argon2": "^2.0.2",
     "cookie": "^1.0.2",
     "iron-webcrypto": "^1.2.1",
     "jose": "^6.2.3"
@@ -75,7 +75,6 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.16",
-    "@types/bcryptjs": "^3.0.0",
     "@types/bun": "latest",
     "elysia": "latest",
     "h3": "latest",

@@ -2,8 +2,9 @@ import { describe, expect, it } from "bun:test"
 import { hashPassword, verifyPassword } from "../src/index.js"
 
 describe("password hashing", () => {
-  it("hashes and verifies a password", async () => {
+  it("hashes and verifies a password with argon2id", async () => {
     const hash = await hashPassword("hunter2")
+    expect(hash.startsWith("$argon2id$")).toBe(true)
     expect(await verifyPassword(hash, "hunter2")).toBe(true)
   })
 
@@ -12,9 +13,9 @@ describe("password hashing", () => {
     expect(await verifyPassword(hash, "wrong")).toBe(false)
   })
 
-  it("uses custom cost", async () => {
-    const hash = await hashPassword("test", { cost: 8 })
-    expect(hash.startsWith("$2a$08$") || hash.startsWith("$2b$08$") || hash.startsWith("$2y$08$")).toBe(true)
-    expect(await verifyPassword(hash, "test")).toBe(true)
+  it("respects custom argon2id parameters", async () => {
+    const hash = await hashPassword("custom", { memoryCost: 8192, timeCost: 1, parallelism: 1 })
+    expect(hash.startsWith("$argon2id$")).toBe(true)
+    expect(await verifyPassword(hash, "custom")).toBe(true)
   })
 })
