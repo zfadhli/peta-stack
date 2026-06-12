@@ -1,5 +1,5 @@
 // Peta ORM — 12-transactions
-// Model.transaction(), rollback
+// orm.transaction(), rollback
 
 import { Database } from "bun:sqlite"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
@@ -20,7 +20,7 @@ const db = createORM({
 })
 
 // Successful transaction
-const result = await User.transaction(async (trx) => {
+const result = await db.transaction(async (trx) => {
   await trx.insertInto("users").values({ name: "Alice" }).execute()
   await trx.insertInto("users").values({ name: "Bob" }).execute()
   return "done"
@@ -30,7 +30,7 @@ console.log("Users after commit:", await User.query().count())
 
 // Rolled-back transaction
 try {
-  await User.transaction(async (trx) => {
+  await db.transaction(async (trx) => {
     await trx.insertInto("users").values({ name: "Charlie" }).execute()
     throw new Error("something went wrong")
   })

@@ -8,13 +8,7 @@
 
 import { Database } from "bun:sqlite"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
-import {
-  Attribute,
-  t as columnTypes,
-  createArkTypeSchemaConfig,
-  createORM,
-  defineModel,
-} from "../src/index.js"
+import { Attribute, t as columnTypes, createArkTypeSchemaConfig, createORM, defineModel } from "../src/index.js"
 
 const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
@@ -72,9 +66,7 @@ const database = new Database(":memory:")
 database.run(
   "CREATE TABLE users_32 (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT, password TEXT, role TEXT DEFAULT 'user')",
 )
-database.run(
-  "CREATE TABLE plain_users_32 (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)",
-)
+database.run("CREATE TABLE plain_users_32 (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
 
 const db = createORM({
   dialect: new BunSqliteDialect({ database }),
@@ -88,7 +80,7 @@ const user = User.hydrate({ id: 1, name: "  Alice  ", email: "alice@test.com" })
 user.set("name", "  Alice  ")
 console.log(`After set("name", "  Alice  "):`)
 console.log(`  attributes.name = "${user.attributes.name}"`) // "Alice" (trimmed)
-console.log(`  get("name")      = "${user.get("name")}"`)     // "ALICE" (uppercased)
+console.log(`  get("name")      = "${user.get("name")}"`) // "ALICE" (uppercased)
 
 // ─── 2. Get accessor: transforms on read ─────────────────────
 
@@ -96,15 +88,15 @@ console.log("\n=== 2. Get accessor ===")
 user.set("password", "secret123")
 console.log(`After set("password", "secret123"):`)
 console.log(`  attributes.password = "${user.attributes.password}"`) // "hash_secret123"
-console.log(`  get("password")     = "${user.get("password")}"`)     // "***"
+console.log(`  get("password")     = "${user.get("password")}"`) // "***"
 
 // ─── 3. Read-only accessor ───────────────────────────────────
 
 console.log("\n=== 3. Read-only accessor ===")
 user.set("email", "ALICE@EXAMPLE.COM")
 console.log(`After set("email", "ALICE@EXAMPLE.COM"):`)
-console.log(`  attributes.email = "${user.attributes.email}"`)   // "ALICE@EXAMPLE.COM" (raw)
-console.log(`  get("email")     = "${user.get("email")}"`)        // "alice@example.com" (lowercased)
+console.log(`  attributes.email = "${user.attributes.email}"`) // "ALICE@EXAMPLE.COM" (raw)
+console.log(`  get("email")     = "${user.get("email")}"`) // "alice@example.com" (lowercased)
 
 // ─── 4. Write-only mutator ───────────────────────────────────
 
@@ -112,7 +104,7 @@ console.log("\n=== 4. Write-only mutator ===")
 user.set("role", "ADMIN")
 console.log(`After set("role", "ADMIN"):`)
 console.log(`  attributes.role = "${user.attributes.role}"`) // "admin" (lowercased)
-console.log(`  get("role")     = "${user.get("role")}"`)     // "admin"
+console.log(`  get("role")     = "${user.get("role")}"`) // "admin"
 
 // ─── 5. fill() applies set mutators ──────────────────────────
 
@@ -123,9 +115,9 @@ user.fill({
   role: "EDITOR",
 })
 console.log(`After fill({ name: "  Bob  ", password: "newpass", role: "EDITOR" }):`)
-console.log(`  attributes.name     = "${user.attributes.name}"`)    // "Bob"
+console.log(`  attributes.name     = "${user.attributes.name}"`) // "Bob"
 console.log(`  attributes.password = "${user.attributes.password}"`) // "hash_newpass"
-console.log(`  attributes.role     = "${user.attributes.role}"`)    // "editor"
+console.log(`  attributes.role     = "${user.attributes.role}"`) // "editor"
 
 // ─── 6. Insert applies set mutators (new record) ──────────────
 
@@ -137,16 +129,16 @@ const inserted = await User.insert({
   role: "SUPERADMIN",
 })
 console.log("After User.insert({ name: '  Charlie  ', password: 'charlie123', ... }):")
-console.log(`  attributes.name     = "${inserted.attributes.name}"`)    // "Charlie"
+console.log(`  attributes.name     = "${inserted.attributes.name}"`) // "Charlie"
 console.log(`  attributes.password = "${inserted.attributes.password}"`) // "hash_charlie123"
-console.log(`  attributes.role     = "${inserted.attributes.role}"`)    // "superadmin"
+console.log(`  attributes.role     = "${inserted.attributes.role}"`) // "superadmin"
 
 // ─── 7. get() still applies accessor after insert ────────────
 
 console.log("\n=== 7. get() applies accessor after insert ===")
-console.log(`  get("name")     = "${inserted.get("name")}"`)     // "CHARLIE"
+console.log(`  get("name")     = "${inserted.get("name")}"`) // "CHARLIE"
 console.log(`  get("password") = "${inserted.get("password")}"`) // "***"
-console.log(`  get("email")    = "${inserted.get("email")}"`)    // "charlie@test.com"
+console.log(`  get("email")    = "${inserted.get("email")}"`) // "charlie@test.com"
 
 // ─── 8. Serialization applies accessors ──────────────────────
 
@@ -161,7 +153,7 @@ console.log("\n=== 9. DB read (hydrate) does not apply set mutators ===")
 const fetched = await User.find(inserted.get("id") as number)
 console.log("After find from DB:")
 console.log(`  attributes.name = "${fetched!.attributes.name}"`) // "Charlie" (already stored trimmed)
-console.log(`  get("name")     = "${fetched!.get("name")}"`)     // "CHARLIE" (accessor applies)
+console.log(`  get("name")     = "${fetched!.get("name")}"`) // "CHARLIE" (accessor applies)
 
 // ─── 10. Dirty tracking with mutators ────────────────────────
 
@@ -174,7 +166,7 @@ console.log(`After set to same value: isDirty = ${clean.isDirty()}`) // false
 
 clean.set("name", "  Diana Updated  ") // mutator trims to "Diana Updated"
 console.log(`After set to different value: isDirty = ${clean.isDirty()}`) // true
-console.log(`  dirtyAttributes.name = "${clean.dirtyAttributes.name}"`)    // "Diana Updated"
+console.log(`  dirtyAttributes.name = "${clean.dirtyAttributes.name}"`) // "Diana Updated"
 
 // ─── 11. Model without attributes (backward compat) ──────────
 

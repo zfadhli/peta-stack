@@ -9,25 +9,28 @@ const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
 const User = defineModel("users", {
   columns: { id: t.integer().primaryKey(), name: t.string(255) },
-  relations: {
-    posts: hasManyThrough(
-      () => Post,
-      () => Profile,
-      {
-        foreignKey: "userId",
-        throughForeignKey: "postId",
-      },
-    ),
-  },
+  relations: {},
 })
 
 const Profile = defineModel("profiles", {
   columns: { id: t.integer().primaryKey(), userId: t.integer(), postId: t.integer(), bio: t.text() },
+  relations: {},
 })
 
 const Post = defineModel("posts", {
   columns: { id: t.integer().primaryKey(), title: t.string(255) },
+  relations: {},
 })
+
+// Wire up after all models exist (avoids TDZ issues with thunks)
+User.relations.posts = hasManyThrough(
+  () => Post,
+  () => Profile,
+  {
+    foreignKey: "userId",
+    throughForeignKey: "postId",
+  },
+)
 
 const database = new Database(":memory:")
 database.run("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")

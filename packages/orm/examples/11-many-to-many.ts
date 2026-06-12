@@ -9,17 +9,17 @@ const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
 const Post = defineModel("posts", {
   columns: { id: t.integer().primaryKey(), title: t.string(255) },
-  relations: {
-    tags: manyToMany(() => Tag, { through: "post_tags", foreignPivotKey: "postId", relatedPivotKey: "tagId" }),
-  },
+  relations: {},
 })
 
 const Tag = defineModel("tags", {
   columns: { id: t.integer().primaryKey(), name: t.string(255) },
-  relations: {
-    posts: manyToMany(() => Post, { through: "post_tags", foreignPivotKey: "tagId", relatedPivotKey: "postId" }),
-  },
+  relations: {},
 })
+
+// Wire up after all models exist (avoids TDZ issues with thunks)
+Post.relations.tags = manyToMany(() => Tag, { through: "post_tags", foreignPivotKey: "postId", relatedPivotKey: "tagId" })
+Tag.relations.posts = manyToMany(() => Post, { through: "post_tags", foreignPivotKey: "tagId", relatedPivotKey: "postId" })
 
 const database = new Database(":memory:")
 database.run("CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL)")

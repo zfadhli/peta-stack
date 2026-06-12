@@ -9,14 +9,16 @@ const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
 const Post = defineModel("posts", {
   columns: { id: t.integer().primaryKey(), title: t.string(255) },
-  relations: {
-    tags: manyToMany(() => Tag, { through: "post_tags", foreignPivotKey: "postId", relatedPivotKey: "tagId" }),
-  },
+  relations: {},
 })
 
 const Tag = defineModel("tags", {
   columns: { id: t.integer().primaryKey(), name: t.string(255) },
+  relations: {},
 })
+
+// Wire up after all models exist
+Post.relations.tags = manyToMany(() => Tag, { through: "post_tags", foreignPivotKey: "postId", relatedPivotKey: "tagId" })
 
 const database = new Database(":memory:")
 database.run("CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL)")

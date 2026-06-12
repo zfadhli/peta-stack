@@ -9,12 +9,16 @@ const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
 const User = defineModel("users", {
   columns: { id: t.integer().primaryKey(), name: t.string(255), email: t.text() },
-  relations: { posts: hasMany(() => Post, { foreignKey: "userId" }) },
+  relations: {},
 })
 
 const Post = defineModel("posts", {
   columns: { id: t.integer().primaryKey(), userId: t.integer(), title: t.string(255) },
+  relations: {},
 })
+
+// Wire up after all models exist
+User.relations.posts = hasMany(() => Post, { foreignKey: "userId" })
 
 const database = new Database(":memory:")
 database.run("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT)")

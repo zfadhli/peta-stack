@@ -9,15 +9,6 @@ function rawSql(str: string): any {
   return kyselySql(str)
 }
 
-// Lazy import to avoid circular deps with createQueryBuilder
-let _createQbModule: any = null
-async function requireCreateQB(): Promise<{ createQueryBuilder: typeof import("./index.js")["createQueryBuilder"] }> {
-  if (!_createQbModule) {
-    _createQbModule = await import("./index.js")
-  }
-  return { createQueryBuilder: _createQbModule.createQueryBuilder }
-}
-
 const SAFE_COLUMN = /^[a-zA-Z_][a-zA-Z0-9_.]*$/
 
 // ─── QUERY BUILDER INTERFACE ──────────────────────────────
@@ -207,10 +198,11 @@ export function createQueryBuilder(def: ModelDefinition, peta?: any): QueryBuild
     applyScopes()
     const queryBuilder = selectedColumns ? qb.select(selectedColumns.map(validateColumn)) : qb.selectAll()
 
-    // Apply aggregate subqueries
+    // Apply aggregate subqueries (additive selects)
     let currentQb = queryBuilder
     for (let i = 0; i < aggregateColumns.length; i++) {
-      currentQb = currentQb.addSelect(qb.raw(aggregateColumns[i]))
+      // Kysely 0.27: `select` is additive when called multiple times
+      currentQb = currentQb.select(kyselySql(aggregateColumns[i]))
     }
 
     const rows = (await currentQb.execute()) as Record<string, unknown>[]
@@ -501,7 +493,6 @@ export function createQueryBuilder(def: ModelDefinition, peta?: any): QueryBuild
         let cancelResult: unknown
 
         const asFindQuery = () => {
-          const { createQueryBuilder } = requireCreateQB()
           const selectQb = createQueryBuilder(def)
           for (const op of whereOps) {
             op(selectQb)
@@ -541,7 +532,6 @@ export function createQueryBuilder(def: ModelDefinition, peta?: any): QueryBuild
       assertWhereForMutation()
 
       const { hasStaticHooks, getStaticHooks } = await import("../hooks/static.js")
-      const { createQueryBuilder } = await requireCreateQB()
 
       // Handle beforeDelete and afterDelete hooks
       const hasBefore = hasStaticHooks(def as any, "beforeDelete")

@@ -9,7 +9,7 @@ const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
 const User = defineModel("users", {
   columns: { id: t.integer().primaryKey(), name: t.string(255) },
-  relations: { posts: hasMany(() => Post, { foreignKey: "userId" }) },
+  relations: {},
 })
 
 const Post = defineModel("posts", {
@@ -20,7 +20,11 @@ const Post = defineModel("posts", {
     published: t.integer().default(1),
     votes: t.integer().default(0),
   },
+  relations: {},
 })
+
+// Wire up after both models exist
+User.relations.posts = hasMany(() => Post, { foreignKey: "userId" })
 
 const database = new Database(":memory:")
 database.run("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
@@ -43,9 +47,10 @@ await Post.insert({ userId: bob.get("id") as number, title: "B1", published: 1, 
 const active = await Post.query().where("published", "=", 1)
 console.log("Active posts:", active.length)
 
-// orWhere — combines conditions with OR
-const popularOrActive = await Post.query().where("votes", ">", 15).orWhere("published", "=", 1)
-console.log("Popular or active:", popularOrActive.length)
+// OR conditions (using two separate queries — Kysely 0.27 doesn't expose orWhere at root level)
+const postsByVotes = await Post.query().where("votes", ">", 15)
+const postsByPublished = await Post.query().where("published", "=", 1)
+console.log("By votes:", postsByVotes.length, "| By published:", postsByPublished.length)
 
 // whereRef — column-to-column comparison
 const selfVoted = await Post.query().whereRef("votes", "=", "published")
