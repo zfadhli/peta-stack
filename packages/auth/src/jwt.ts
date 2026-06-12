@@ -53,14 +53,17 @@ export async function signJWT(payload: Record<string, unknown>, options: JWTOpti
  * ```
  */
 export async function verifyJWT<T = Record<string, unknown>>(token: string, options: JWTOptions): Promise<T | null> {
+  let result: T | null = null
+
   for (const secret of Object.values(toPasswordMap(options.password))) {
     if (!secret) continue
     try {
       const { payload } = await jose.jwtVerify(token, toKey(secret))
-      return payload as T
+      if (!result) result = payload as T
     } catch {
       // try next password
     }
   }
-  return null
+
+  return result
 }
