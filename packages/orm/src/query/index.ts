@@ -2,6 +2,7 @@ import { sql as kyselySql } from "kysely"
 import { ModelNotFoundError, RelationNotAllowedError, RelationNotFoundError } from "../errors.js"
 import type { ModelDefinition, ModelInstance } from "../model/types.js"
 import { type EagerLoad, EagerLoader } from "../relations/eager.js"
+import { isRelationAllowed } from "../relations/graph.js"
 import type { InsertGraphOptions, UpsertGraphOptions } from "../relations/graph.js"
 
 // Helper to create raw SQL expressions compatible with Kysely 0.27
@@ -164,26 +165,6 @@ export function createQueryBuilder(def: ModelDefinition, peta?: any): QueryBuild
         qb = qb.where("deletedAt", "is", null)
       }
     }
-  }
-
-  /**
-   * Recursive prefix check: returns true if any prefix of `relName`
-   * (including the full name) exists in `allowedSet`.
-   *
-   * Examples with allowedSet = {"posts.author"}:
-   *   "posts.author"        → prefixes: "posts"✗, "posts.author"✓ → true
-   *   "posts.comments"      → prefixes: "posts"✗, "posts.comments"✗ → false
-   *   "posts.author.profile"→ prefixes: "posts"✗, "posts.author"✓ → true
-   *   "posts"               → prefixes: "posts"✗ → false
-   */
-  function isRelationAllowed(relName: string, allowedSet: Set<string>): boolean {
-    const parts = relName.split(".")
-    for (let i = 0; i < parts.length; i++) {
-      if (allowedSet.has(parts.slice(0, i + 1).join("."))) {
-        return true
-      }
-    }
-    return false
   }
 
   function assertWhereForMutation(): void {
@@ -471,13 +452,18 @@ export function createQueryBuilder(def: ModelDefinition, peta?: any): QueryBuild
     // ─── Graph operations ──────────────────────────────────
     async insertGraph(data: any, options?: any): Promise<any> {
       const { insertGraph: doInsertGraph } = await import("../relations/graph.js")
-      // Ensure scopes are applied but don't modify the query builder for graph ops
-      return doInsertGraph(def, data, options)
+      return doInsertGraph(def, data, {
+        ...options,
+        allowGraph: allowedGraphSet ? [...allowedGraphSet] : options?.allowGraph,
+      })
     },
 
     async upsertGraph(data: any, options?: any): Promise<any> {
       const { upsertGraph: doUpsertGraph } = await import("../relations/graph.js")
-      return doUpsertGraph(def, data, options)
+      return doUpsertGraph(def, data, {
+        ...options,
+        allowGraph: allowedGraphSet ? [...allowedGraphSet] : options?.allowGraph,
+      })
     },
 
     // ─── Bulk CRUD ────────────────────────────────────────

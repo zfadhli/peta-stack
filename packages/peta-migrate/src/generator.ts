@@ -1,5 +1,4 @@
-import type { Column, ColumnShape } from "peta-orm"
-import type { ModelDefinition } from "peta-orm"
+import type { Column, ColumnShape, ModelDefinition } from "peta-orm"
 
 export interface GeneratorOptions {
   name?: string

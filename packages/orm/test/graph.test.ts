@@ -2,7 +2,7 @@ import { Database } from "bun:sqlite"
 import { afterAll, beforeAll, describe, expect, it } from "bun:test"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
 import { t as columnTypes, createArkTypeSchemaConfig } from "../src/columns/index.js"
-import { belongsTo, createPeta, defineModel, hasMany, hasOne, manyToMany } from "../src/index.js"
+import { belongsTo, createPeta, defineModel, hasMany, hasOne, manyToMany, RelationNotAllowedError } from "../src/index.js"
 
 const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
@@ -432,5 +432,95 @@ describe("upsertGraph", () => {
     expect(pivotTagIds).toContain(tag1.get("id") as number)
     expect(pivotTagIds).toContain(tag3.get("id") as number)
     expect(pivotTagIds).not.toContain(tag2.get("id") as number)
+  })
+})
+
+// ─── Tests: allowGraph + insertGraph/upsertGraph ─────────────
+
+describe("allowGraph with insertGraph/upsertGraph", () => {
+  it("20. passes when whitelisted relation is used in insertGraph via QB", async () => {
+    const user = await User.query()
+      .allowGraph("posts")
+      .insertGraph({ name: "AG User 1", posts: [{ title: "AG Post 1" }] })
+
+    expect(user.get("name")).toBe("AG User 1")
+    const posts = await Post.query().where("userId", "=", user.get("id") as number)
+    expect(posts).toHaveLength(1)
+  })
+
+  it("21. throws when non-whitelisted relation is used in insertGraph via QB", async () => {
+    await expect(
+      User.query()
+        .allowGraph("posts")
+        .insertGraph({ name: "AG User 2", profile: { bio: "Not allowed" } }),
+    ).rejects.toThrow(RelationNotAllowedError)
+  })
+
+  it("22. allows nested relation under whitelisted prefix", async () => {
+    const user = await User.query()
+      .allowGraph("posts")
+      .insertGraph({
+        name: "AG User 3",
+        posts: [{ title: "Parent", comments: [{ body: "Nested allowed" }] }],
+      })
+
+    const posts = await Post.query().where("userId", "=", user.get("id") as number)
+    expect(posts).toHaveLength(1)
+    const comments = await Comment.query().where("postId", "=", posts[0]!.get("id") as number)
+    expect(comments).toHaveLength(1)
+  })
+
+  it("23. throws when nested relation sibling is not under a whitelisted prefix", async () => {
+    await expect(
+      User.query()
+        .allowGraph("posts.author")
+        .insertGraph({
+          name: "AG User 4",
+          posts: [{ title: "Parent", tags: { create: [{ name: "blocked-tag" }] } }],
+        }),
+    ).rejects.toThrow(RelationNotAllowedError)
+  })
+
+  it("24. passes when allowGraph is passed via options on model-level insertGraph", async () => {
+    const user = await User.insertGraph(
+      { name: "AG User 5", posts: [{ title: "Option Post" }] },
+      { allowGraph: ["posts"] },
+    )
+
+    expect(user.get("name")).toBe("AG User 5")
+    const posts = await Post.query().where("userId", "=", user.get("id") as number)
+    expect(posts).toHaveLength(1)
+  })
+
+  it("25. passes when whitelisted relation is used in upsertGraph via QB", async () => {
+    const user = await User.insert({ name: "AG Upsert" })
+    const userId = user.get("id") as number
+
+    const updated = await User.query()
+      .allowGraph("posts")
+      .upsertGraph({
+        id: userId,
+        name: "AG Upsert Updated",
+        posts: [{ title: "AG Upsert Post" }],
+      })
+
+    expect(updated.get("name")).toBe("AG Upsert Updated")
+    const posts = await Post.query().where("userId", "=", userId)
+    expect(posts).toHaveLength(1)
+  })
+
+  it("26. throws when non-whitelisted relation is used in upsertGraph via QB", async () => {
+    const user = await User.insert({ name: "AG Upsert Block" })
+    const userId = user.get("id") as number
+
+    await expect(
+      User.query()
+        .allowGraph("posts")
+        .upsertGraph({
+          id: userId,
+          name: "AG Upsert Block",
+          profile: { bio: "Blocked" },
+        }),
+    ).rejects.toThrow(RelationNotAllowedError)
   })
 })

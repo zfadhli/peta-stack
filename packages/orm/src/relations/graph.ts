@@ -1,8 +1,18 @@
-import { DatabaseError, RelationNotFoundError } from "../errors.js"
+import { DatabaseError, RelationNotAllowedError, RelationNotFoundError } from "../errors.js"
 import type { ModelDefinition, ModelInstance } from "../model/types.js"
 import type { Relation } from "./base.js"
 
 // ─── PUBLIC TYPES ──────────────────────────────────────────────
+
+export function isRelationAllowed(relName: string, allowedSet: Set<string>): boolean {
+  const parts = relName.split(".")
+  for (let i = 0; i < parts.length; i++) {
+    if (allowedSet.has(parts.slice(0, i + 1).join("."))) {
+      return true
+    }
+  }
+  return false
+}
 
 export interface InsertGraphOptions {
   /** Allow `#id` / `#ref` special properties in the graph */
@@ -12,6 +22,12 @@ export interface InsertGraphOptions {
    * instead of inserted. Can be an array of relation names to scope.
    */
   relate?: boolean | string[]
+  /**
+   * Whitelist of relation paths allowed for this graph operation.
+   * Accepts an array of dotted paths or a Set. If not set, all relations are allowed.
+   * When used via the query builder, the QB's `allowGraph()` set is forwarded automatically.
+   */
+  allowGraph?: string[] | Set<string>
 }
 
 export interface UpsertGraphOptions extends InsertGraphOptions {
@@ -36,6 +52,7 @@ interface GraphContext {
   refMap: Map<string, RefEntry>
   processedRefs: Map<string, ModelInstance>
   allowRefs: boolean
+  allowedGraphSet: Set<string> | undefined
 }
 
 // ─── HELPERS ───────────────────────────────────────────────────
@@ -87,6 +104,38 @@ function isRelPathAllowed(relName: string, option: boolean | string[] | undefine
   if (option === undefined || option === false) return false
   if (option === true) return true
   return option.includes(relName)
+}
+
+/**
+ * Resolve allowGraph from options (supports both string[] and Set<string>).
+ */
+function resolveAllowGraph(options: InsertGraphOptions): Set<string> | undefined {
+  if (!options.allowGraph) return undefined
+  return options.allowGraph instanceof Set ? options.allowGraph : new Set(options.allowGraph)
+}
+
+/**
+ * Assert that a relation path is allowed by the allowGraph set.
+ * Throws RelationNotAllowedError if the path is not permitted.
+ * Does nothing if allowedSet is undefined (no restriction).
+ */
+function assertRelationAllowed(
+  def: ModelDefinition,
+  fullPath: string,
+  allowedSet: Set<string> | undefined,
+): void {
+  if (!allowedSet || allowedSet.size === 0) return
+  if (!isRelationAllowed(fullPath, allowedSet)) {
+    throw new RelationNotAllowedError(def.name, fullPath)
+  }
+}
+
+/**
+ * Build the full dotted path for a nested relation.
+ * If parentPath is empty, returns just relName. Otherwise parentPath + "." + relName.
+ */
+function joinPath(parentPath: string, relName: string): string {
+  return parentPath ? `${parentPath}.${relName}` : relName
 }
 
 // ─── EXTRACT RELATION DATA FROM A GRAPH NODE ──────────────────
@@ -220,6 +269,7 @@ export async function insertGraph(
     refMap: new Map(),
     processedRefs: new Map(),
     allowRefs: options.allowRefs ?? false,
+    allowedGraphSet: resolveAllowGraph(options),
   }
 
   const nodes = Array.isArray(data) ? data : [data]
@@ -250,7 +300,7 @@ export async function insertGraph(
   // Phase 3: process each root node
   const results: ModelInstance[] = []
   for (const node of nodes) {
-    const result = await processNode(node, def, null, options, context)
+    const result = await processNode(node, def, null, options, context, "")
     results.push(result)
   }
 
@@ -276,6 +326,7 @@ export async function upsertGraph(
     refMap: new Map(),
     processedRefs: new Map(),
     allowRefs: options.allowRefs ?? false,
+    allowedGraphSet: resolveAllowGraph(options),
   }
 
   const nodes = Array.isArray(data) ? data : [data]
@@ -304,6 +355,7 @@ async function processNode(
   parentFK: Record<string, unknown> | null,
   options: InsertGraphOptions,
   context: GraphContext,
+  path: string,
 ): Promise<ModelInstance> {
   // Deduplicate: if this node's #id was already processed, return cached instance
   const nodeId = node["#id"]
@@ -322,7 +374,9 @@ async function processNode(
   for (const [relName, op] of Object.entries(relationOps)) {
     const relation = def.relations[relName]
     if (relation?.type === "belongsTo") {
-      const relatedInstance = await processBelongsTo(relation, op as Record<string, unknown>, options, context)
+      const relPath = joinPath(path, relName)
+      assertRelationAllowed(def, relPath, context.allowedGraphSet)
+      const relatedInstance = await processBelongsTo(relation, op as Record<string, unknown>, options, context, relPath)
       if (relatedInstance) {
         columnData[relation.foreignKey] = relatedInstance.get(relation.localKey)
       }
@@ -359,15 +413,18 @@ async function processNode(
     if (!relation) continue
     if (relation.type === "belongsTo") continue // already handled
 
+    const relPath = joinPath(path, relName)
+    assertRelationAllowed(def, relPath, context.allowedGraphSet)
+
     const relOptions = {
       ...options,
       relate: options.relate,
     }
 
     if (relation.type === "hasMany" || relation.type === "hasOne") {
-      await processHasMany(instance, relation, op, pkValue, relOptions, context)
+      await processHasMany(instance, relation, op, pkValue, relOptions, context, relPath)
     } else if (relation.type === "manyToMany") {
-      await processManyToMany(instance, relation, op, pkValue, relOptions, context)
+      await processManyToMany(instance, relation, op, pkValue, relOptions, context, relPath)
     }
   }
 
@@ -379,6 +436,7 @@ async function processBelongsTo(
   op: Record<string, unknown>,
   options: InsertGraphOptions,
   context: GraphContext,
+  path: string,
 ): Promise<ModelInstance | null> {
   const relatedDef = relation.relatedModelClass
 
@@ -400,12 +458,12 @@ async function processBelongsTo(
 
   // { create: { ... } }: create related with relations
   if (op.create && typeof op.create === "object") {
-    return processNode(op.create as Record<string, unknown>, relatedDef, null, options, context)
+    return processNode(op.create as Record<string, unknown>, relatedDef, null, options, context, path)
   }
 
   // Graph style: plain nested object { name: "John", ... }
   // Treat as a new record to create
-  return processNode({ ...op }, relatedDef, null, options, context)
+  return processNode({ ...op }, relatedDef, null, options, context, path)
 }
 
 async function processHasMany(
@@ -415,6 +473,7 @@ async function processHasMany(
   pkValue: unknown,
   options: InsertGraphOptions,
   context: GraphContext,
+  path: string,
 ): Promise<void> {
   const relatedDef = relation.relatedModelClass
   const fk = relation.foreignKey
@@ -450,7 +509,7 @@ async function processHasMany(
       await existing.$save()
       continue
     }
-    await processNode(item, relatedDef, { [fk]: pkValue }, options, context)
+    await processNode(item, relatedDef, { [fk]: pkValue }, options, context, path)
   }
 
   // Handle connect items
@@ -474,6 +533,7 @@ async function processManyToMany(
   pkValue: unknown,
   options: InsertGraphOptions,
   context: GraphContext,
+  path: string,
 ): Promise<void> {
   const relatedDef = relation.relatedModelClass
   const { throughTable, foreignPivotKey, relatedPivotKey } = getPivotInfo(relation)
@@ -495,7 +555,7 @@ async function processManyToMany(
       continue
     }
     // Create the related record
-    const related = await processNode(item, relatedDef, null, options, context)
+    const related = await processNode(item, relatedDef, null, options, context, path)
     const relatedId = related.get(relation.localKey ?? "id")
     if (relatedId != null) {
       try {
@@ -551,7 +611,9 @@ async function upsertNode(
   for (const [relName, op] of Object.entries(relationOps)) {
     const relation = def.relations[relName]
     if (relation?.type === "belongsTo") {
-      const relatedInstance = await processBelongsTo(relation, op as Record<string, unknown>, options, context)
+      const relPath = joinPath(_path, relName)
+      assertRelationAllowed(def, relPath, context.allowedGraphSet)
+      const relatedInstance = await processBelongsTo(relation, op as Record<string, unknown>, options, context, relPath)
       if (relatedInstance) {
         columnData[relation.foreignKey] = relatedInstance.get(relation.localKey)
       }
@@ -599,10 +661,13 @@ async function upsertNode(
     if (!relation) continue
     if (relation.type === "belongsTo") continue
 
+    const relPath = joinPath(_path, relName)
+    assertRelationAllowed(def, relPath, context.allowedGraphSet)
+
     if (relation.type === "hasMany" || relation.type === "hasOne") {
-      await upsertHasMany(instance, relation, op, pkValue, options, context, `${_path}.${relName}`)
+      await upsertHasMany(instance, relation, op, pkValue, options, context, relPath)
     } else if (relation.type === "manyToMany") {
-      await upsertManyToMany(instance, relation, op, pkValue, options, context, `${_path}.${relName}`)
+      await upsertManyToMany(instance, relation, op, pkValue, options, context, relPath)
     }
   }
 
@@ -659,11 +724,13 @@ async function upsertHasMany(
           for (const [relName, relOp] of Object.entries(nestedOps)) {
             const rel = relatedDef.relations[relName]
             if (!rel) continue
+            const nestedPath = `${path}.${relName}`
+            assertRelationAllowed(relatedDef, nestedPath, context.allowedGraphSet)
             const childPk = existing.get(getPrimaryKeyColumn(relatedDef))
             if (rel.type === "hasMany" || rel.type === "hasOne") {
-              await upsertHasMany(existing, rel, relOp, childPk, options, context, `${path}.${relName}`)
+              await upsertHasMany(existing, rel, relOp, childPk, options, context, nestedPath)
             } else if (rel.type === "manyToMany") {
-              await upsertManyToMany(existing, rel, relOp, childPk, options, context, `${path}.${relName}`)
+              await upsertManyToMany(existing, rel, relOp, childPk, options, context, nestedPath)
             }
           }
           continue
@@ -672,7 +739,7 @@ async function upsertHasMany(
     }
 
     // Insert new (or existing not found)
-    await processNode(item, relatedDef, { [fk]: pkValue }, options, context)
+    await processNode(item, relatedDef, { [fk]: pkValue }, options, context, path)
   }
 
   // Handle delete/unrelate for remaining existing items
@@ -769,7 +836,7 @@ async function upsertManyToMany(
       }
     } else {
       // Create new child and pivot
-      const related = await processNode(item, relatedDef, null, options, context)
+      const related = await processNode(item, relatedDef, null, options, context, path)
       const relatedId = related.get(relation.localKey ?? "id")
       if (relatedId != null) {
         incomingIds.add(relatedId)
