@@ -10,11 +10,15 @@ export interface MorphToOptions {
 }
 export interface MorphManyOptions extends RelationOptions {
   name: string
+  /** The target model definition (e.g. Comment for a Post's comments). */
+  related: ModelDefinition
   type?: string
   id?: string
 }
 export interface MorphOneOptions extends RelationOptions {
   name: string
+  /** The target model definition (e.g. Image for a User's avatar). */
+  related: ModelDefinition
   type?: string
   id?: string
 }
@@ -48,9 +52,7 @@ export function defineMorphMany(options: MorphManyOptions): Relation {
   const idColumn = options.id ?? `${options.name}Id`
   return {
     type: "hasMany" as const,
-    get relatedModelClass(): ModelDefinition {
-      throw new Error("MorphMany.relatedModelClass must be configured")
-    },
+    relatedModelClass: options.related,
     get foreignKey(): string {
       return idColumn
     },
@@ -97,9 +99,7 @@ export function defineMorphOne(options: MorphOneOptions): Relation {
   const idColumn = options.id ?? `${options.name}Id`
   return {
     type: "hasOne" as const,
-    get relatedModelClass(): ModelDefinition {
-      throw new Error("MorphOne.relatedModelClass must be configured")
-    },
+    relatedModelClass: options.related,
     get foreignKey(): string {
       return idColumn
     },
