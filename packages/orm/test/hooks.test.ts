@@ -376,3 +376,64 @@ describe("Transaction", () => {
     expect(user).toBeDefined()
   })
 })
+
+describe("Static hooks (asFindQuery)", () => {
+  const db = new Database(":memory:")
+  let peta: ReturnType<typeof createPeta>
+
+  const StaticUser = defineModel("static_users", {
+    columns: { id: t.integer().primaryKey(), name: t.string(255), active: t.integer().default(1) },
+  })
+
+  beforeAll(async () => {
+    db.run("PRAGMA journal_mode = WAL")
+    db.run("CREATE TABLE static_users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, active INTEGER DEFAULT 1)")
+    peta = createPeta({ dialect: new BunSqliteDialect({ database: db }) })
+    peta.registerAll(StaticUser)
+    await StaticUser.insert({ name: "A", active: 1 })
+    await StaticUser.insert({ name: "B", active: 1 })
+    await StaticUser.insert({ name: "C", active: 0 })
+  })
+
+  afterAll(async () => {
+    await peta.destroy()
+    db.close()
+  })
+
+  it("beforeDelete hook receives asFindQuery", async () => {
+    const affectedIds: unknown[] = []
+
+    const unsub = StaticUser.beforeDelete(({ asFindQuery }) => {
+      const qb = asFindQuery()
+      // We must await the query inside the hook
+      return qb.execute().then((rows) => {
+        for (const row of rows) {
+          affectedIds.push(row.get("id"))
+        }
+      })
+    })
+
+    await StaticUser.query().where("active", "=", 0).all().deleteMany()
+
+    expect(affectedIds.length).toBeGreaterThanOrEqual(1)
+    unsub()
+  })
+
+  it("cancelQuery prevents the mutation", async () => {
+    await StaticUser.insert({ name: "E", active: 1 })
+
+    const unsub = StaticUser.beforeDelete(({ cancelQuery }) => {
+      cancelQuery(0) // Pretend we deleted 0 — cancels the actual delete
+    })
+
+    const result = await StaticUser.query().where("name", "=", "E").all().deleteMany()
+
+    expect(result).toBe(0)
+
+    // The record should still exist (mutation was cancelled)
+    const found = await StaticUser.query().where("name", "=", "E").first()
+    expect(found).toBeDefined()
+
+    unsub()
+  })
+})

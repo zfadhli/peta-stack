@@ -56,8 +56,10 @@ import { createQueryBuilder } from "../query/index.js"
 import type { ORMLike } from "../types.js"
 import { createInstance } from "./factory.js"
 import { getHooksFor, registerSoftDeletesFor, registerTimestampsFor } from "./hooks.js"
+import { addStaticHook } from "../hooks/static.js"
 import { setConfig } from "./save.js"
 import { addScope, getScopes, removeScope } from "./scopes.js"
+import { createInstance } from "./factory.js"
 import type { ModelConfig, ModelDefinition } from "./types.js"
 
 export function defineModel<TColumns extends ColumnShape>(
@@ -138,6 +140,32 @@ export function defineModel<TColumns extends ColumnShape>(
 
     getGlobalScopes(): Map<string, (qb: QueryBuilder) => void> | undefined {
       return getScopes(this as any)
+    },
+
+    // Static hooks
+    beforeDelete(callback: any) {
+      return addStaticHook(def as any, "beforeDelete", callback)
+    },
+    afterDelete(callback: any) {
+      return addStaticHook(def as any, "afterDelete", callback)
+    },
+    beforeUpdate(callback: any) {
+      return addStaticHook(def as any, "beforeUpdate", callback)
+    },
+    afterUpdate(callback: any) {
+      return addStaticHook(def as any, "afterUpdate", callback)
+    },
+    beforeCreate(callback: any) {
+      return addStaticHook(def as any, "beforeCreate", callback)
+    },
+    afterCreate(callback: any) {
+      return addStaticHook(def as any, "afterCreate", callback)
+    },
+    beforeFind(callback: any) {
+      return addStaticHook(def as any, "beforeFind", callback)
+    },
+    afterFind(callback: any) {
+      return addStaticHook(def as any, "afterFind", callback)
     },
 
     _init(orm: ORMLike) {

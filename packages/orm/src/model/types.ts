@@ -57,6 +57,16 @@ export interface ModelDefinition<TColumns extends ColumnShape = ColumnShape> {
   on(event: string, callback: (model: ModelInstance) => void | Promise<void>): () => void
   getHooks(): import("../hooks/index.js").HookManager
 
+  // Static query hooks (once per query, not per instance)
+  beforeDelete(callback: import("../hooks/static.js").StaticHookCallback): () => void
+  afterDelete(callback: import("../hooks/static.js").StaticHookCallback): () => void
+  beforeUpdate(callback: import("../hooks/static.js").StaticHookCallback): () => void
+  afterUpdate(callback: import("../hooks/static.js").StaticHookCallback): () => void
+  beforeCreate(callback: import("../hooks/static.js").StaticHookCallback): () => void
+  afterCreate(callback: import("../hooks/static.js").StaticHookCallback): () => void
+  beforeFind(callback: import("../hooks/static.js").StaticHookCallback): () => void
+  afterFind(callback: import("../hooks/static.js").StaticHookCallback): () => void
+
   addGlobalScope(name: string, callback: (qb: QueryBuilder) => void): void
   removeGlobalScope(name: string): void
   getGlobalScopes(): Map<string, (qb: QueryBuilder) => void> | undefined

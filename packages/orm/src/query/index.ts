@@ -8,6 +8,15 @@ function rawSql(str: string): any {
   return kyselySql(str)
 }
 
+// Lazy import to avoid circular deps with createQueryBuilder
+let _createQbModule: any = null
+async function requireCreateQB(): Promise<{ createQueryBuilder: typeof import("./index.js")["createQueryBuilder"] }> {
+  if (!_createQbModule) {
+    _createQbModule = await import("./index.js")
+  }
+  return { createQueryBuilder: _createQbModule.createQueryBuilder }
+}
+
 const SAFE_COLUMN = /^[a-zA-Z_][a-zA-Z0-9_.]*$/
 
 // ─── QUERY BUILDER INTERFACE ──────────────────────────────
@@ -408,6 +417,34 @@ export function createQueryBuilder(def: ModelDefinition, peta?: any): QueryBuild
       applyScopes()
       assertWhereForMutation()
 
+      // Check for static beforeUpdate hooks
+      const { hasStaticHooks, getStaticHooks } = await import("../hooks/static.js")
+      if (hasStaticHooks(def as any, "beforeUpdate")) {
+        const hooks = getStaticHooks(def as any, "beforeUpdate")
+        let cancelled = false
+        let cancelResult: unknown = undefined
+
+        const asFindQuery = () => {
+          const { createQueryBuilder } = requireCreateQB()
+          const selectQb = createQueryBuilder(def)
+          for (const op of whereOps) {
+            op(selectQb)
+          }
+          return selectQb
+        }
+
+        const cancelQuery = (result: unknown) => {
+          cancelled = true
+          cancelResult = result
+        }
+
+        for (const hook of hooks) {
+          await hook({ asFindQuery, cancelQuery, inputItems: [data] })
+        }
+
+        if (cancelled) return cancelResult as number
+      }
+
       // Build an UPDATE query and replay WHERE conditions
       let updateQb: any = db.updateTable(def.table).set(data)
       for (const op of whereOps) {
@@ -427,19 +464,68 @@ export function createQueryBuilder(def: ModelDefinition, peta?: any): QueryBuild
       applyScopes()
       assertWhereForMutation()
 
+      const { hasStaticHooks, getStaticHooks } = await import("../hooks/static.js")
+      const { createQueryBuilder } = await requireCreateQB()
+
+      // Handle beforeDelete and afterDelete hooks
+      const hasBefore = hasStaticHooks(def as any, "beforeDelete")
+      const hasAfter = hasStaticHooks(def as any, "afterDelete")
+
+      if (hasBefore) {
+        const hooks = getStaticHooks(def as any, "beforeDelete")
+        let cancelled = false
+        let cancelResult: unknown = undefined
+
+        const asFindQuery = () => {
+          const selectQb = createQueryBuilder(def)
+          for (const op of whereOps) op(selectQb)
+          return selectQb
+        }
+        const cancelQuery = (result: unknown) => { cancelled = true; cancelResult = result }
+
+        for (const hook of hooks) {
+          await hook({ asFindQuery, cancelQuery, inputItems: undefined })
+        }
+        if (cancelled) return cancelResult as number
+      }
+
+      // For afterDelete hooks, capture the rows BEFORE deleting
+      let deletedRows: any[] = []
+      if (hasAfter) {
+        const previewQb = createQueryBuilder(def)
+        for (const op of whereOps) op(previewQb)
+        deletedRows = await previewQb.execute()
+      }
+
       // Build a DELETE query and replay WHERE conditions
       let deleteQb: any = db.deleteFrom(def.table)
       for (const op of whereOps) {
         deleteQb = op(deleteQb)
       }
 
+      let numDeleted = 0
       try {
         const result = await deleteQb.execute()
-        return Number(result.numDeletedRows ?? 0)
+        numDeleted = Number(result.numDeletedRows ?? 0)
       } catch (e: any) {
         const { normalizeError } = await import("../errors.js")
         throw normalizeError(e, def.table)
       }
+
+      // Run afterDelete hooks with captured rows
+      if (hasAfter && deletedRows.length > 0) {
+        const hooks = getStaticHooks(def as any, "afterDelete")
+        const afterAsFindQuery = () => {
+          const selectQb = createQueryBuilder(def)
+          for (const op of whereOps) op(selectQb)
+          return selectQb
+        }
+        for (const hook of hooks) {
+          await hook({ asFindQuery: afterAsFindQuery, cancelQuery: () => {}, inputItems: undefined })
+        }
+      }
+
+      return numDeleted
     },
 
     // ─── Soft deletes ─────────────────────────────────────
