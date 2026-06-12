@@ -54,6 +54,7 @@ export interface ModelDefinition<TColumns extends ColumnShape = ColumnShape> {
 
   hydrate(row: Record<string, unknown>): ModelInstance
 
+  use(plugin: import("../plugins/index.js").Plugin): ModelDefinition
   on(event: string, callback: (model: ModelInstance) => void | Promise<void>): () => void
   getHooks(): import("../hooks/index.js").HookManager
 

@@ -126,6 +126,11 @@ export function defineModel<TColumns extends ColumnShape>(
       return hm.on(event as any, callback)
     },
 
+    use(plugin: any) {
+      plugin(this)
+      return this
+    },
+
     getHooks() {
       return getHooksFor(this as any)
     },

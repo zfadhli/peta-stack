@@ -44,5 +44,10 @@ export {
   manyToMany,
 } from "./relations/index.js"
 export type { MorphManyOptions, MorphOneOptions, MorphToOptions } from "./relations/morph.js"
+// ─── Plugins ────────────────────────────────────────────────
+export type { Plugin } from "./plugins/index.js"
+export { timestamps } from "./plugins/timestamps.js"
+export { softDeletes } from "./plugins/soft-deletes.js"
+
 // ─── Types ─────────────────────────────────────────────────
 export type { ModelId, ORMLike } from "./types.js"
