@@ -35,6 +35,17 @@ export function toOpenAPISchema(schema: unknown): SchemaObject {
     }
   }
 
+  if (typeof schema === "function") {
+    const isDev = typeof process !== "undefined" && process.env.NODE_ENV === "development"
+    const msg =
+      "[peta-docs] A non-ArkType function was passed where a schema is expected. " +
+      "OpenAPI spec generation only supports ArkType types and plain JSON Schema objects. " +
+      "Either use an ArkType type, or pre-convert your schema to a JSON Schema object."
+    console.warn(msg)
+    if (isDev) throw new TypeError(msg)
+    return {}
+  }
+
   if (typeof schema === "object" && !Array.isArray(schema)) {
     return schema as SchemaObject
   }
