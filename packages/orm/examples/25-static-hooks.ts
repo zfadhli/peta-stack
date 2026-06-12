@@ -1,5 +1,6 @@
 // Peta ORM — 25-static-hooks
-// asFindQuery() — preview affected rows, cancelQuery() — abort mutations
+// beforeDelete / beforeUpdate with asFindQuery() preview
+// cancelQuery() — abort mutations
 // Static hooks run once per query, not per instance
 
 import { Database } from "bun:sqlite"
@@ -22,28 +23,43 @@ await User.insert({ name: "Alice" })
 await User.insert({ name: "Bob" })
 await User.insert({ name: "Charlie" })
 
-// beforeDelete hook — preview what will be deleted using asFindQuery()
-const affectedIds: number[] = []
+// ── beforeDelete: preview what will be deleted ──────────────
+const deletedIds: number[] = []
 User.beforeDelete(async ({ asFindQuery }) => {
   const rows = await asFindQuery().select("id")
   for (const row of rows) {
-    affectedIds.push(row.get("id") as number)
+    deletedIds.push(row.get("id") as number)
   }
-  console.log("About to delete IDs:", affectedIds)
+  console.log("About to delete IDs:", deletedIds)
 })
 
-// cancelQuery — prevent the mutation and return a custom result
+// ── beforeUpdate: preview what will be changed ──────────────
+const updatedIds: number[] = []
+User.beforeUpdate(async ({ asFindQuery }) => {
+  const rows = await asFindQuery().select("id")
+  for (const row of rows) {
+    updatedIds.push(row.get("id") as number)
+  }
+  console.log("About to update IDs:", updatedIds)
+})
+
+// ── cancelQuery: abort a mutation ──────────────────────────
 User.beforeDelete(({ cancelQuery }) => {
   // If the query targets too many records, cancel
-  cancelQuery(0) // return 0 instead of actually deleting
+  if (deletedIds.length > 1) {
+    console.log("Cancelling delete — too many records")
+    cancelQuery(0)
+  }
 })
 
-// Perform a delete (will be cancelled by the hook)
+// Perform a delete (will be cancelled because it matches >1 record)
 const result = await User.query().where("active", "=", 1).all().deleteMany()
 console.log("Deleted count (cancelled):", result) // 0
 console.log("All users still exist:", (await User.query().count()) === 3)
 
-// The beforeDelete hook still ran and collected the IDs
-console.log("IDs that would have been deleted:", affectedIds)
+// Perform an update
+await User.query().where("name", "=", "Charlie").all().updateMany({ name: "Charles" })
+console.log("Updated IDs:", updatedIds)
+console.log("New name:", (await User.find(3))?.get("name"))
 
 await peta.destroy()

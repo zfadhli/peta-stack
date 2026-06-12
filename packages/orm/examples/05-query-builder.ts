@@ -1,5 +1,5 @@
 // Peta ORM — 05-query-builder
-// where, orderBy, has, whereHas, whereDoesntHave, count
+// where, orderBy, orWhere, whereRef, has, whereHas, whereDoesntHave, withCount
 // Thenable QB — no .execute() needed
 
 import { Database } from "bun:sqlite"
@@ -19,14 +19,14 @@ const Post = defineModel("posts", {
     userId: t.integer(),
     title: t.string(255),
     published: t.integer().default(1),
+    votes: t.integer().default(0),
   },
-  // NOTE: the inverse should be belongsTo, but for demo purposes we use hasMany correctly here
 })
 
 const database = new Database(":memory:")
 database.run("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
 database.run(
-  "CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, title TEXT NOT NULL, published INTEGER DEFAULT 1)",
+  "CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, title TEXT NOT NULL, published INTEGER DEFAULT 1, votes INTEGER DEFAULT 0)",
 )
 
 const peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
@@ -34,29 +34,51 @@ peta.registerAll(User, Post)
 
 const alice = await User.insert({ name: "Alice" })
 const bob = await User.insert({ name: "Bob" })
-await Post.insert({ userId: alice.get("id") as number, title: "A1", published: 1 })
-await Post.insert({ userId: alice.get("id") as number, title: "A2", published: 0 })
-await Post.insert({ userId: bob.get("id") as number, title: "B1", published: 1 })
+await Post.insert({ userId: alice.get("id") as number, title: "A1", published: 1, votes: 10 })
+await Post.insert({ userId: alice.get("id") as number, title: "A2", published: 0, votes: 5 })
+await Post.insert({ userId: bob.get("id") as number, title: "B1", published: 1, votes: 20 })
 
-// Where
+// Basic where
 const active = await Post.query().where("published", "=", 1)
 console.log("Active posts:", active.length)
+
+// orWhere — combines conditions with OR
+const popularOrActive = await Post.query()
+  .where("votes", ">", 15)
+  .orWhere("published", "=", 1)
+console.log("Popular or active:", popularOrActive.length)
+
+// whereRef — column-to-column comparison
+const selfVoted = await Post.query().whereRef("votes", "=", "published")
+console.log("Posts where votes = published:", selfVoted.length)
 
 // Order by
 const ordered = await Post.query().orderBy("title", "asc")
 console.log("First by title:", ordered[0]?.get("title"))
 
-// Has — filter by relation existence
+// has — filter by relation existence
 const withPosts = await User.query().has("posts")
 console.log("Users with posts:", withPosts.length)
 
-// WhereHas — filter with constraint on the relation
+// whereHas — filter with constraint on the relation
 const filtered = await User.query()
   .whereHas("posts", (qb) => qb.where("published", "=", 1))
 console.log("Users with published posts:", filtered.length)
 
-// WhereDoesntHave
+// whereDoesntHave
 const without = await User.query().whereDoesntHave("posts")
 console.log("Users without posts:", without.length)
+
+// withCount — load aggregate counts as subquery
+const usersWithCount = await User.query().withCount("posts").orderBy("id", "asc")
+for (const u of usersWithCount) {
+  console.log(`${u.get("name")} has ${u.get("posts_count")} posts`)
+}
+
+// withSum — load aggregate sums
+const usersWithSum = await User.query().withSum("posts", "votes").orderBy("id", "asc")
+for (const u of usersWithSum) {
+  console.log(`${u.get("name")}'s total votes across posts: ${u.get("posts_sum_votes")}`)
+}
 
 await peta.destroy()
