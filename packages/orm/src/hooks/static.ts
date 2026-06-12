@@ -1,5 +1,5 @@
-import type { QueryBuilder } from "../query/index.js"
 import type { ModelDefinition, ModelInstance } from "../model/types.js"
+import type { QueryBuilder } from "../query/index.js"
 
 // ─── TYPES ───────────────────────────────────────────────────
 
@@ -28,11 +28,7 @@ export type StaticHookEvent =
 
 const staticHooks = new WeakMap<ModelDefinition, Map<StaticHookEvent, StaticHookCallback[]>>()
 
-export function addStaticHook(
-  def: ModelDefinition,
-  event: StaticHookEvent,
-  callback: StaticHookCallback,
-): () => void {
+export function addStaticHook(def: ModelDefinition, event: StaticHookEvent, callback: StaticHookCallback): () => void {
   let hooks = staticHooks.get(def)
   if (!hooks) {
     hooks = new Map()
@@ -50,10 +46,7 @@ export function addStaticHook(
   }
 }
 
-export function getStaticHooks(
-  def: ModelDefinition,
-  event: StaticHookEvent,
-): StaticHookCallback[] {
+export function getStaticHooks(def: ModelDefinition, event: StaticHookEvent): StaticHookCallback[] {
   return staticHooks.get(def)?.get(event) ?? []
 }
 

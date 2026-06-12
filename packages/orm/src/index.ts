@@ -28,6 +28,10 @@ export { createORM, createORM as createPeta } from "./orm/index.js"
 // ─── Pagination ───────────────────────────────────────────
 export type { PaginatedResult, Paginator, PaginatorJson } from "./pagination/index.js"
 export { createPaginator } from "./pagination/index.js"
+// ─── Plugins ────────────────────────────────────────────────
+export type { Plugin } from "./plugins/index.js"
+export { softDeletes } from "./plugins/soft-deletes.js"
+export { timestamps } from "./plugins/timestamps.js"
 // ─── Query Builder ─────────────────────────────────────────
 export type { QueryBuilder } from "./query/index.js"
 export { createQueryBuilder } from "./query/index.js"
@@ -44,10 +48,6 @@ export {
   manyToMany,
 } from "./relations/index.js"
 export type { MorphManyOptions, MorphOneOptions, MorphToOptions } from "./relations/morph.js"
-// ─── Plugins ────────────────────────────────────────────────
-export type { Plugin } from "./plugins/index.js"
-export { timestamps } from "./plugins/timestamps.js"
-export { softDeletes } from "./plugins/soft-deletes.js"
 
 // ─── Types ─────────────────────────────────────────────────
 export type { ModelId, ORMLike } from "./types.js"
