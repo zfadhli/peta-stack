@@ -3,7 +3,7 @@
 
 import { Database } from "bun:sqlite"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
-import { t as columnTypes, createArkTypeSchemaConfig, createPeta, defineModel, manyToMany } from "../src/index.js"
+import { t as columnTypes, createArkTypeSchemaConfig, createORM, defineModel, manyToMany } from "../src/index.js"
 
 const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
@@ -26,8 +26,10 @@ database.run("CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, title TE
 database.run("CREATE TABLE tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
 database.run("CREATE TABLE post_tags (postId INTEGER NOT NULL, tagId INTEGER NOT NULL, PRIMARY KEY (postId, tagId))")
 
-const peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
-peta.registerAll(Post, Tag)
+const db = createORM({
+  dialect: new BunSqliteDialect({ database }),
+  models: { Post, Tag },
+})
 
 const post = await Post.insert({ title: "My Post" })
 const jsTag = await Tag.insert({ name: "js" })
@@ -37,16 +39,16 @@ const tsTag = await Tag.insert({ name: "ts" })
 await post.$related("tags").attach(jsTag.get("id") as number)
 await post.$related("tags").attach(tsTag.get("id") as number)
 
-// Query tags via $related() (no .execute() needed)
+// Query tags via $related()
 const tags = await post.$related("tags")
 console.log("Post tags:", tags.map((t: any) => t.get("name")))
 
 // Detach a tag
 await post.$related("tags").detach(jsTag.get("id") as number)
-console.log("After detach:", (await post.$related("tags")).length) // 1
+console.log("After detach:", (await post.$related("tags")).length)
 
 // Sync to exact set
 await post.$related("tags").sync([jsTag.get("id") as number, tsTag.get("id") as number])
-console.log("After sync:", (await post.$related("tags")).length) // 2
+console.log("After sync:", (await post.$related("tags")).length)
 
-await peta.destroy()
+await db.destroy()

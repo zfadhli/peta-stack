@@ -1,10 +1,9 @@
 // Peta ORM — 05-query-builder
 // where, orderBy, orWhere, whereRef, has, whereHas, whereDoesntHave, withCount
-// Thenable QB — no .execute() needed
 
 import { Database } from "bun:sqlite"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
-import { t as columnTypes, createArkTypeSchemaConfig, createPeta, defineModel, hasMany } from "../src/index.js"
+import { t as columnTypes, createArkTypeSchemaConfig, createORM, defineModel, hasMany } from "../src/index.js"
 
 const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
@@ -29,8 +28,10 @@ database.run(
   "CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, title TEXT NOT NULL, published INTEGER DEFAULT 1, votes INTEGER DEFAULT 0)",
 )
 
-const peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
-peta.registerAll(User, Post)
+const db = createORM({
+  dialect: new BunSqliteDialect({ database }),
+  models: { User, Post },
+})
 
 const alice = await User.insert({ name: "Alice" })
 const bob = await User.insert({ name: "Bob" })
@@ -81,4 +82,4 @@ for (const u of usersWithSum) {
   console.log(`${u.get("name")}'s total votes across posts: ${u.get("posts_sum_votes")}`)
 }
 
-await peta.destroy()
+await db.destroy()

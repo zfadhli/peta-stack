@@ -1,9 +1,10 @@
 // Peta ORM — 02-model-definition
 // Column types, modifiers, validation, timestamps
+// createORM() — recommended init, accepts models in config
 
 import { Database } from "bun:sqlite"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
-import { t as columnTypes, createArkTypeSchemaConfig, createPeta, defineModel, ValidationError } from "../src/index.js"
+import { t as columnTypes, createArkTypeSchemaConfig, createORM, defineModel, ValidationError } from "../src/index.js"
 
 const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
@@ -27,8 +28,10 @@ database.run(
   "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE, age INTEGER, role TEXT DEFAULT 'user', score REAL DEFAULT 0, metadata TEXT)",
 )
 
-const peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
-peta.registerAll(User)
+const db = createORM({
+  dialect: new BunSqliteDialect({ database }),
+  models: { User },
+})
 
 // Valid insert
 const alice = await User.insert({ name: "Alice", email: "a@b.com", age: 30, role: "admin" })
@@ -45,4 +48,4 @@ try {
 const bob = await User.insert({ name: "Bob", email: "b@c.com", metadata: { foo: 1, bar: [2, 3] } })
 console.log("JSON metadata:", bob.get("metadata"))
 
-await peta.destroy()
+await db.destroy()

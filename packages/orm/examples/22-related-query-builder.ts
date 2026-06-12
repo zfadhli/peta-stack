@@ -7,17 +7,16 @@ import {
   belongsTo,
   t as columnTypes,
   createArkTypeSchemaConfig,
-  createPeta,
+  createORM,
   defineModel,
   hasMany,
 } from "../src/index.js"
 
 const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
-// Handle circular refs: define User first (with empty relations), mutate later
 const User = defineModel("users", {
   columns: { id: t.integer().primaryKey(), name: t.string(255) },
-  relations: {}, // Will be set after Post is defined
+  relations: {},
 })
 
 const Post = defineModel("posts", {
@@ -25,7 +24,6 @@ const Post = defineModel("posts", {
   relations: { author: belongsTo(() => User) },
 })
 
-// Now that Post exists, set User's relation
 User.relations.posts = hasMany(() => Post, { foreignKey: "userId" })
 
 const database = new Database(":memory:")
@@ -34,8 +32,10 @@ database.run(
   "CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, title TEXT NOT NULL, published INTEGER DEFAULT 1)",
 )
 
-const peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
-peta.registerAll(User, Post)
+const db = createORM({
+  dialect: new BunSqliteDialect({ database }),
+  models: { User, Post },
+})
 
 const alice = await User.insert({ name: "Alice" })
 await Post.insert({ userId: alice.get("id") as number, title: "Public Post", published: 1 })
@@ -43,16 +43,13 @@ await Post.insert({ userId: alice.get("id") as number, title: "Draft Post", publ
 await Post.insert({ userId: alice.get("id") as number, title: "Another Public", published: 1 })
 
 // $related('posts') returns a QueryBuilder scoped to the user's posts
-// Thenable — no .execute() needed
 const allPosts = await alice.$related("posts")
 console.log("All posts:", allPosts.length)
 
-// Chain additional query methods
 const publicPosts = await alice.$related("posts").where("published", "=", 1)
 console.log("Public posts:", publicPosts.length)
 console.log("Titles:", publicPosts.map((p) => p.get("title")))
 
-// Order and limit
 const recent = await alice.$related("posts").orderBy("id", "desc").limit(1)
 console.log("Most recent:", recent[0]?.get("title"))
 
@@ -61,4 +58,4 @@ const post = await Post.find(1)
 const author = await post!.$related("author").executeTakeFirst()
 console.log("Post author:", author?.get("name"))
 
-await peta.destroy()
+await db.destroy()

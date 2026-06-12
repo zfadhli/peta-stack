@@ -3,7 +3,7 @@
 
 import { Database } from "bun:sqlite"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
-import { t as columnTypes, createArkTypeSchemaConfig, createCollection, createPeta, defineModel } from "../src/index.js"
+import { t as columnTypes, createArkTypeSchemaConfig, createCollection, createORM, defineModel } from "../src/index.js"
 
 const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
@@ -14,14 +14,16 @@ const User = defineModel("users", {
 const database = new Database(":memory:")
 database.run("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, role TEXT NOT NULL)")
 
-const peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
-peta.registerAll(User)
+const db = createORM({
+  dialect: new BunSqliteDialect({ database }),
+  models: { User },
+})
 
 for (const name of ["Alice", "Bob", "Charlie", "Diana"]) {
   await User.insert({ name, role: name === "Alice" || name === "Diana" ? "admin" : "user" })
 }
 
-// Collection from query (using .collect() terminal — also works without it)
+// Collection from query (using .collect() terminal)
 const users = await User.query().orderBy("id", "asc").collect()
 console.log("Total:", users.length)
 console.log("First:", users.first()?.get("name"))
@@ -38,4 +40,4 @@ console.log("Page data:", page.data.length, "items")
 console.log("Total:", page.total, "| Pages:", page.lastPage)
 console.log("Has more:", page.hasMorePages)
 
-await peta.destroy()
+await db.destroy()

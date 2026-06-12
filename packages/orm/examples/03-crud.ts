@@ -1,10 +1,10 @@
 // Peta ORM — 03-crud
 // insert, find, findOrFail, first, update, delete, reload, count
-// The QueryBuilder is thenable — no .execute() needed
+// Thenable QB — no .execute() needed
 
 import { Database } from "bun:sqlite"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
-import { t as columnTypes, createArkTypeSchemaConfig, createPeta, defineModel } from "../src/index.js"
+import { t as columnTypes, createArkTypeSchemaConfig, createORM, defineModel } from "../src/index.js"
 
 const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
@@ -21,8 +21,10 @@ database.run(
   "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE)",
 )
 
-const peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
-peta.registerAll(User)
+const db = createORM({
+  dialect: new BunSqliteDialect({ database }),
+  models: { User },
+})
 
 // Insert
 await User.insert({ name: "Alice", email: "a@b.com" })
@@ -35,9 +37,7 @@ console.log("Found:", alice?.get("name"))
 
 // findOrFail — throws ModelNotFoundError if not found
 try {
-  const found = await User.findOrFail(1)
-  console.log("findOrFail:", found.get("name"))
-  await User.findOrFail(999) // throws
+  await User.findOrFail(999)
 } catch (e) {
   console.log("findOrFail(999) threw:", (e as Error).name)
 }
@@ -69,4 +69,4 @@ console.log("Reloaded name:", charlie.get("name"), "(original preserved)")
 // Count
 console.log("Total:", await User.query().count())
 
-await peta.destroy()
+await db.destroy()

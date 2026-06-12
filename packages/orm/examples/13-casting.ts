@@ -3,7 +3,7 @@
 
 import { Database } from "bun:sqlite"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
-import { t as columnTypes, createArkTypeSchemaConfig, createPeta, defineModel } from "../src/index.js"
+import { t as columnTypes, createArkTypeSchemaConfig, createORM, defineModel } from "../src/index.js"
 
 const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
@@ -15,10 +15,10 @@ const User = defineModel("users", {
     flags: t.integer().default(0),
   },
   casts: {
-    metadata: "json",    // auto-parse JSON strings to objects
-    flags: "boolean",    // auto-convert integers to booleans
+    metadata: "json",
+    flags: "boolean",
   },
-  hidden: ["metadata"],  // exclude from $toJSON
+  hidden: ["metadata"],
 })
 
 const database = new Database(":memory:")
@@ -26,8 +26,10 @@ database.run(
   "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, metadata TEXT, flags INTEGER DEFAULT 0)",
 )
 
-const peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
-peta.registerAll(User)
+const db = createORM({
+  dialect: new BunSqliteDialect({ database }),
+  models: { User },
+})
 
 const user = await User.insert({ name: "Alice", metadata: JSON.stringify({ foo: 1, bar: 2 }), flags: 1 })
 
@@ -39,6 +41,6 @@ console.log("Flags (boolean):", user.get("flags"))
 
 // Hidden fields excluded from $toJSON
 console.log("JSON output:", user.$toJSON())
-console.log("Has metadata in JSON:", "metadata" in user.$toJSON()) // false
+console.log("Has metadata in JSON:", "metadata" in user.$toJSON())
 
-await peta.destroy()
+await db.destroy()

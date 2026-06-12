@@ -1,11 +1,9 @@
 // Peta ORM — 25-static-hooks
-// beforeDelete / beforeUpdate with asFindQuery() preview
-// cancelQuery() — abort mutations
-// Static hooks run once per query, not per instance
+// asFindQuery() preview + cancelQuery() abort
 
 import { Database } from "bun:sqlite"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
-import { t as columnTypes, createArkTypeSchemaConfig, createPeta, defineModel } from "../src/index.js"
+import { t as columnTypes, createArkTypeSchemaConfig, createORM, defineModel } from "../src/index.js"
 
 const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
@@ -16,14 +14,16 @@ const User = defineModel("users", {
 const database = new Database(":memory:")
 database.run("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, active INTEGER DEFAULT 1)")
 
-const peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
-peta.registerAll(User)
+const db = createORM({
+  dialect: new BunSqliteDialect({ database }),
+  models: { User },
+})
 
 await User.insert({ name: "Alice" })
 await User.insert({ name: "Bob" })
 await User.insert({ name: "Charlie" })
 
-// ── beforeDelete: preview what will be deleted ──────────────
+// beforeDelete: preview what will be deleted
 const deletedIds: number[] = []
 User.beforeDelete(async ({ asFindQuery }) => {
   const rows = await asFindQuery().select("id")
@@ -33,7 +33,7 @@ User.beforeDelete(async ({ asFindQuery }) => {
   console.log("About to delete IDs:", deletedIds)
 })
 
-// ── beforeUpdate: preview what will be changed ──────────────
+// beforeUpdate: preview what will be changed
 const updatedIds: number[] = []
 User.beforeUpdate(async ({ asFindQuery }) => {
   const rows = await asFindQuery().select("id")
@@ -43,23 +43,19 @@ User.beforeUpdate(async ({ asFindQuery }) => {
   console.log("About to update IDs:", updatedIds)
 })
 
-// ── cancelQuery: abort a mutation ──────────────────────────
+// cancelQuery: abort a mutation
 User.beforeDelete(({ cancelQuery }) => {
-  // If the query targets too many records, cancel
   if (deletedIds.length > 1) {
     console.log("Cancelling delete — too many records")
     cancelQuery(0)
   }
 })
 
-// Perform a delete (will be cancelled because it matches >1 record)
 const result = await User.query().where("active", "=", 1).all().deleteMany()
-console.log("Deleted count (cancelled):", result) // 0
-console.log("All users still exist:", (await User.query().count()) === 3)
+console.log("Deleted count (cancelled):", result)
 
-// Perform an update
 await User.query().where("name", "=", "Charlie").all().updateMany({ name: "Charles" })
 console.log("Updated IDs:", updatedIds)
 console.log("New name:", (await User.find(3))?.get("name"))
 
-await peta.destroy()
+await db.destroy()

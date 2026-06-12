@@ -1,6 +1,5 @@
 // Peta ORM — 04-relations
 // HasMany, BelongsTo, HasOne, eager loading, nested, lazy load
-// Thenable QB — no .execute() needed
 
 import { Database } from "bun:sqlite"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
@@ -8,7 +7,7 @@ import {
   belongsTo,
   t as columnTypes,
   createArkTypeSchemaConfig,
-  createPeta,
+  createORM,
   defineModel,
   hasMany,
   hasOne,
@@ -39,15 +38,17 @@ database.run("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEX
 database.run("CREATE TABLE profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, bio TEXT)")
 database.run("CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, title TEXT NOT NULL)")
 
-const peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
-peta.registerAll(User, Profile, Post)
+const db = createORM({
+  dialect: new BunSqliteDialect({ database }),
+  models: { User, Profile, Post },
+})
 
 const alice = await User.insert({ name: "Alice" })
 await Profile.insert({ userId: alice.get("id") as number, bio: "Hello!" })
 await Post.insert({ userId: alice.get("id") as number, title: "Post 1" })
 await Post.insert({ userId: alice.get("id") as number, title: "Post 2" })
 
-// Eager load relations (no .execute() needed — thenable QB)
+// Eager load relations (no .execute() needed)
 const users = await User.query().with("posts", "profile")
 for (const u of users) {
   console.log(`${u.get("name")}'s posts:`, (u.$getRelation("posts") as any[]).length)
@@ -60,4 +61,4 @@ const first = users2[0]!
 await first.$load("posts")
 console.log("Lazy-loaded posts:", first.$getRelation("posts"))
 
-await peta.destroy()
+await db.destroy()

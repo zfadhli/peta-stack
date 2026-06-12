@@ -3,7 +3,7 @@
 
 import { Database } from "bun:sqlite"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
-import { t as columnTypes, createArkTypeSchemaConfig, createPeta, defineModel, manyToMany } from "../src/index.js"
+import { t as columnTypes, createArkTypeSchemaConfig, createORM, defineModel, manyToMany } from "../src/index.js"
 
 const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
@@ -23,8 +23,10 @@ database.run("CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, title TE
 database.run("CREATE TABLE tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
 database.run("CREATE TABLE post_tags (postId INTEGER NOT NULL, tagId INTEGER NOT NULL, PRIMARY KEY (postId, tagId))")
 
-const peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
-peta.registerAll(Post, Tag)
+const db = createORM({
+  dialect: new BunSqliteDialect({ database }),
+  models: { Post, Tag },
+})
 
 const post = await Post.insert({ title: "My Post" })
 const tagA = await Tag.insert({ name: "javascript" })
@@ -33,7 +35,7 @@ const tagC = await Tag.insert({ name: "rust" })
 
 // Attach — add pivot rows
 await post.$related("tags").attach(tagA.get("id") as number)
-await post.$related("tags").attach(tagB.get("id") as number, { extra: "metadata" } as any)
+await post.$related("tags").attach(tagB.get("id") as number)
 
 // Detach — remove specific pivot rows
 await post.$related("tags").detach(tagB.get("id") as number)
@@ -44,11 +46,8 @@ await post.$related("tags").sync([tagA.get("id") as number, tagC.get("id") as nu
 // Sync without detaching — only add, don't remove
 await post.$related("tags").syncWithoutDetaching([tagB.get("id") as number])
 
-// Update existing pivot row
-await post.$related("tags").updateExistingPivot(tagA.get("id") as number, { extra: "updated" } as any)
-
 // Query current tags
 const currentTags = await post.$related("tags")
 console.log("Current tags:", currentTags.map((t) => t.get("name")))
 
-await peta.destroy()
+await db.destroy()

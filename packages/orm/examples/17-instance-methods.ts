@@ -3,7 +3,7 @@
 
 import { Database } from "bun:sqlite"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
-import { t as columnTypes, createArkTypeSchemaConfig, createPeta, defineModel, hasMany } from "../src/index.js"
+import { t as columnTypes, createArkTypeSchemaConfig, createORM, defineModel, hasMany } from "../src/index.js"
 
 const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
@@ -20,8 +20,10 @@ const database = new Database(":memory:")
 database.run("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT)")
 database.run("CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, title TEXT NOT NULL)")
 
-const peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
-peta.registerAll(User, Post)
+const db = createORM({
+  dialect: new BunSqliteDialect({ database }),
+  models: { User, Post },
+})
 
 const user = await User.insert({ name: "Alice", email: "alice@example.com" })
 
@@ -53,4 +55,4 @@ user.set("name", "Gone")
 await user.$reload()
 console.log("After reload:", user.get("name")) // back to "Alice Smith"
 
-await peta.destroy()
+await db.destroy()

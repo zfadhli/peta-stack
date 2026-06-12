@@ -3,19 +3,17 @@
 
 import { Database } from "bun:sqlite"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
-import { t as columnTypes, createArkTypeSchemaConfig, createPeta, defineModel, hasManyThrough } from "../src/index.js"
+import { t as columnTypes, createArkTypeSchemaConfig, createORM, defineModel, hasManyThrough } from "../src/index.js"
 
 const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
-// HasManyThrough: User → Profile → Post
 const User = defineModel("users", {
   columns: { id: t.integer().primaryKey(), name: t.string(255) },
   relations: {
-    posts: hasManyThrough(
-      () => Post,
-      () => Profile,
-      { foreignKey: "userId", throughForeignKey: "postId" },
-    ),
+    posts: hasManyThrough(() => Post, () => Profile, {
+      foreignKey: "userId",
+      throughForeignKey: "postId",
+    }),
   },
 })
 
@@ -34,8 +32,10 @@ database.run(
 )
 database.run("CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL)")
 
-const peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
-peta.registerAll(User, Profile, Post)
+const db = createORM({
+  dialect: new BunSqliteDialect({ database }),
+  models: { User, Profile, Post },
+})
 
 const user = await User.insert({ name: "Alice" })
 const post1 = await Post.insert({ title: "Post 1" })
@@ -46,11 +46,11 @@ await Profile.insert({ userId: user.get("id") as number, postId: post2.get("id")
 // Eager load (no .execute() needed)
 const users = await User.query().with("posts")
 for (const u of users) {
-  const userPosts = u.$getRelation("posts") as any[]
-  console.log(`${u.get("name")} has ${userPosts.length} posts via hasManyThrough`)
-  for (const p of userPosts) {
+  const posts = u.$getRelation("posts") as any[]
+  console.log(`${u.get("name")} has ${posts.length} posts via hasManyThrough`)
+  for (const p of posts) {
     console.log(`  - ${p.get("title")}`)
   }
 }
 
-await peta.destroy()
+await db.destroy()

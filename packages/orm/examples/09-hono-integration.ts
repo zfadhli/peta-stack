@@ -5,7 +5,7 @@
 import { Database } from "bun:sqlite"
 import { Hono } from "hono"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
-import { t as columnTypes, createArkTypeSchemaConfig, createPeta, DatabaseError, defineModel } from "../src/index.js"
+import { t as columnTypes, createArkTypeSchemaConfig, createORM, DatabaseError, defineModel } from "../src/index.js"
 import { petaMiddleware } from "../src/integrations/hono.js"
 
 const t = columnTypes({ schema: createArkTypeSchemaConfig() })
@@ -17,8 +17,10 @@ const User = defineModel("users", {
 const database = new Database(":memory:")
 database.run("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
 
-const peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
-peta.registerAll(User)
+const db = createORM({
+  dialect: new BunSqliteDialect({ database }),
+  models: { User },
+})
 
 // Seed
 await User.insert({ name: "Alice" })
@@ -26,15 +28,13 @@ await User.insert({ name: "Bob" })
 
 const app = new Hono()
 
-app.use("*", petaMiddleware({ peta }))
+app.use("*", petaMiddleware({ peta: db }))
 
-// GET /users — list all (no .execute() needed)
 app.get("/users", async (c) => {
   const users = await User.query()
   return c.json(users.map((u) => u.$toJSON()))
 })
 
-// POST /users — create
 app.post("/users", async (c) => {
   try {
     const body = await c.req.json()
@@ -48,7 +48,6 @@ app.post("/users", async (c) => {
   }
 })
 
-// GET /users/:id — find by PK
 app.get("/users/:id", async (c) => {
   const id = Number(c.req.param("id"))
   const user = await User.find(id)
@@ -89,4 +88,4 @@ res = await app.fetch(new Request("http://localhost/users"))
 const all = (await res.json()) as any[]
 console.log("Total users:", all.length)
 
-await peta.destroy()
+await db.destroy()

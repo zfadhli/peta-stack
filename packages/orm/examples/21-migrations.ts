@@ -9,21 +9,12 @@ import { createMigrationGenerator, createMigrationRunner } from "../src/migratio
 
 const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
-// Define models for migration generation
 const User = defineModel("users", {
-  columns: {
-    id: t.integer().primaryKey(),
-    name: t.string(255),
-    email: t.text().unique(),
-  },
+  columns: { id: t.integer().primaryKey(), name: t.string(255), email: t.text().unique() },
 })
 
 const Post = defineModel("posts", {
-  columns: {
-    id: t.integer().primaryKey(),
-    userId: t.integer(),
-    title: t.string(255),
-  },
+  columns: { id: t.integer().primaryKey(), userId: t.integer(), title: t.string(255) },
 })
 
 // Migration Runner
@@ -58,7 +49,7 @@ console.log("Pending:", status.pending.length)
 await runner.down([migration])
 console.log("After rollback, completed:", (await runner.getCompleted()).length)
 
-// Migration Generator — generates TypeScript migration code from model definitions
+// Migration Generator
 const models = new Map<string, any>()
 models.set("users", { table: "users", columns: User.columns, relations: User.relations, name: "User" })
 models.set("posts", { table: "posts", columns: Post.columns, relations: Post.relations, name: "Post" })
