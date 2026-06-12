@@ -1,125 +1,136 @@
-# Session Handoff — 2026-06-11 13:48
+# Session Handoff — 2026-06-12 08:20
 
 ## Goal
 
-Iteratively improve the Books Catalog API (apps/catalog) and fix bugs in peta-orm. Major themes: eliminate `clone()` bugs, suppress ArkType OpenAPI warnings, add HTTP error helper, improve error handling, add transactions, eliminate TOCTOU races, complete CRUD for all entities.
+Build a RealWorld Conduit API (`apps/conduit/`) from scratch, implementing the full [Conduit spec](https://docs.realworld.show/specifications/backend/introduction/) — 19 endpoints covering articles, comments, profiles, follows, favorites, auth, and tags. Also fix a `return await next()` bug in `peta-docs/authGuard` that broke RouteBuilder's internal middleware chain for unknown auth schemes.
 
 ## Files Modified/Created
 
-### apps/catalog/ — 10 source files + 2 new
+### apps/conduit/ — 16 new source files + 14 test files
 
-**New files:**
-- `src/middleware/http-error.ts` — `http.conflict()`, `.notFound()`, `.unauthorized()`, `.forbidden()`, `.badRequest()` wrappers around Hono's `HTTPException`
+**New source files:**
+- `src/index.ts` — Server entry, CORS, `resolveUser()` JWT extraction, 6 route mounts, OpenAPI spec at `/openapi.json`, Scalar docs at `/docs`, global `onError`
+- `src/db/schema.ts` — 6 models (User, Article, Tag, ArticleTag, Comment, Favorite, Follow), 7 SQL tables, `getPeta()` singleton
+- `src/db/seed.ts` — 3 users, 4 articles, 4 tags, article-tag pivots, comments, favorites, follows
+- `src/lib/jwt.ts` — `signToken()` / `verifyToken()` wrappers around `peta-auth` JWT
+- `src/lib/slug.ts` — `slugify()` + `uniqueSlug()` with collision avoidance (numeric suffix → random hex → timestamp)
+- `src/middleware/auth.ts` — `resolveUser()` (extracts JWT from `Authorization: Token <jwt>`), `requireAuth()` (401 if no user), `getCurrentUserId()`
+- `src/middleware/error.ts` — RealWorld `{ errors: { field: ["msg"] } }` format, `onValidationError` for RouteBuilder
+- `src/types/hono.d.ts` — `ContextVariableMap` augmentation for `currentUserId` / `currentUsername`
+- `src/routes/auth.ts` — POST `/users` (register), POST `/users/login` (login), GET `/user` (current user), PUT `/user` (update), all with ArkType schemas
+- `src/routes/profiles.ts` — GET `/profiles/:username`, POST/DELETE `/profiles/:username/follow` (with `following` flag)
+- `src/routes/articles.ts` — GET `/articles` (filter by tag/author/favorited, offset/limit, no body in list), GET `/articles/feed` (from followed users), GET `/articles/:slug` (with body), POST/PUT/DELETE `/articles/:slug` (author-only mutations)
+- `src/routes/comments.ts` — GET/POST `/articles/:slug/comments`, DELETE `/articles/:slug/comments/:id` (author-only delete)
+- `src/routes/favorites.ts` — POST/DELETE `/articles/:slug/favorite`
+- `src/routes/tags.ts` — GET `/tags`
+- `package.json`, `tsconfig.json`
 
-**Modified:**
-- `src/index.ts` — Added global `onError` handler (catches `HTTPException` + `DatabaseError` + raw SQLite errors via `normalizeError`), column-aware friendly error messages
-- `src/middleware/auth.ts` — Renamed from `routes/middleware.ts`, now throws `http.*()` instead of `return c.json()`
-- `src/routes/auth.ts` — Removed pre-flight SELECT (TOCTOU race), catches `DatabaseError("UNIQUE_CONSTRAINT")` for friendly message, email validation via `"string.email"`
-- `src/routes/authors.ts` — Added `PATCH /:id` and `DELETE /:id` (soft-delete, guarded against books), `UpdateAuthorBody` schema
-- `src/routes/books.ts` — `POST /books` wrapped in `Book.transaction()` (atomic book + categories), `PATCH /:id` category ops wrapped in transaction, raw `trx.deleteFrom` for category cleanup
-- `src/routes/books_reviews.ts` — Added `GET /:reviewId`, `PATCH /:reviewId`, `DELETE /:reviewId` (ownership check), `UpdateReviewBody` schema
-- `src/routes/categories.ts` — Added `GET /:id`, `PATCH /:id`, `DELETE /:id` (guarded against pivot books), removed pre-flight SELECT
-- `src/db/schema.ts` — Added `deletedAt` column + `hidden: ["deletedAt"]` + `registerSoftDeletes()` to Author model
-- `src/db/seed.ts` — Added 2 reviews for "1984" (Alice + Bob)
+**Test files (Hurl):**
+- `tests/hurl/*.hurl` — 13 official RealWorld Hurl test files + `run-api-tests-hurl.sh`
 
-### packages/orm/ — 2 files modified
+### packages/docs/ — 2 files modified
+- `src/hono/route.ts` — Fixed `authGuard()` to `return await next()` instead of `await next()`, so the RouteBuilder's internal middleware chain properly propagates the Response for unknown auth schemes (like `"Token"`)
+- `src/spec.ts` — Added nested try/catch in `toOpenAPISchema()` so union types with `| undefined` that can't convert to JSON Schema gracefully fall back to `{}` instead of crashing spec generation
 
-- `src/builder/query.ts` — Eliminated `clone()` from `first()`, `find()`, `findOrFail()`, `chunk()`. These methods now work directly with `qb` instead of cloning, preserving WHERE/ORDER BY/LIMIT/OFFSET state. Updated the `clone()` comment to a strong WARNING.
-- `src/model/serialize.ts` — `modelToJSON` now calls `r.$toJSON(visited)` on related models instead of `modelToJSON(def, r, visited)`, using each related model's own `hidden`/`visible`/`casts`/`appends`. Added `typeof .$toJSON === "function"` guard instead of `typeof === "object"`.
-
-### packages/docs/ — 1 file modified
-
-- `src/spec.ts` — `toOpenAPISchema()` now falls back to `schema.in.toJsonSchema()` for pipe/morph schemas, stripping the morph layer to expose the input type. Eliminates 4 console.warn messages at startup and gives filter params proper JSON Schema types.
+### apps/catalog/ — 1 file modified
+- `src/db/schema.ts` — Added `database.run("PRAGMA foreign_keys = ON")` to enable foreign key enforcement (SQLite defaults to OFF)
 
 ## Key Decisions
 
-1. **`clone()` eliminated from 4 internal methods** — `first()`, `find()`, `findOrFail()`, `chunk()` all called `self.clone()` which creates a fresh QueryBuilder without any prior WHERE/ORDER BY state. This caused `User.query().where("email", body.email).first()` to return the first user regardless of email, making signup always fail with 409.
+1. **New app at `apps/conduit/`** — Not a rewrite of catalog. Domain model (articles/comments/follows/favorites) and auth (JWT Bearer token) are fundamentally different from catalog's books/authors/sessions.
 
-2. **Use per-instance `$toJSON()` for related models** — Instead of passing the parent's model definition (def) when serializing related models, call each instance's own `$toJSON()`. This ensures each related model uses its own `hidden`/`visible`/`casts`/`appends` config, and guards against plain objects stored as relations (like `_pivot`).
+2. **JWT via `peta-auth`** — Uses existing `signJWT`/`verifyJWT` utilities with a `JWT_SECRET` env var (defaults to hardcoded string). Tokens valid for 14 days.
 
-3. **HTTP error helper + global onError** — All route handlers now `throw http.conflict()` / `http.notFound()` etc. instead of `return c.json({ error }, status)`. The global `onError` handler catches `HTTPException`, `DatabaseError`, and raw SQLite errors (via `normalizeError`) and returns consistent `{ error: string }` JSON.
+3. **`Authorization: Token <jwt>` header** — RealWorld uses `Token` prefix (not `Bearer`). The `authGuard` in `route.ts` only checks for `Bearer`/`Cookie`, so `.auth("Token")` is used for OpenAPI metadata only, while `requireAuth()` (custom middleware) handles actual enforcement.
 
-4. **Column-aware error messages** — The `onError` handler extracts the column name from the raw driver error message (`"UNIQUE constraint failed: users.email"` → `"email"`) and maps to friendly messages like `"A user with this email already exists"`.
+4. **Response schemas use `"string | null"` only** — No `| undefined` in response schemas because JSON serialization drops `undefined` keys. The `buildUserResponse()` helper explicitly coerces `undefined` → `null` via `?? null`.
 
-5. **Eliminated TOCTOU races** — Removed pre-flight SELECT checks in auth signup and category creation. Let the DB UNIQUE constraint enforce uniqueness, catching `DatabaseError("UNIQUE_CONSTRAINT")` for friendlier messages.
+5. **Auth middleware BEFORE RouteBuilder** — `requireAuth()` is passed as Hono middleware before `route().handle(...)` so auth errors (401) occur before body validation (422). This applies to all 10 mutation routes.
 
-6. **Transactions for multi-step writes** — `POST /books` (book insert + category pivots) and `PATCH /books` (category replace) are wrapped in `Book.transaction()`. Raw `trx.insertInto`/`trx.deleteFrom` used for operations that bypass the ORM's instance methods (which don't accept a kysely override).
+6. **ArkType `"key?"` syntax for optional request body keys** — Used for partial update schemas (`UpdateUserBody`, `UpdateArticleBody`). This produces `| undefined` unions internally which cause `toJsonSchema` failures, but the peta-docs fallback handles it gracefully now.
 
-7. **Complete CRUD** — Added 8 missing endpoints to reach full CRUD parity across all 5 entity types. Author + Category deletions guard against orphaned books.
-
-8. **ArkType `| undefined` in type strings breaks toJsonSchema()** — Use `"string?"` suffix instead of `"string | undefined"`.
-
-9. **ArkType `pipe()` schemas produce OpenAPI conversion warnings** — Fixed by falling back to `schema.in.toJsonSchema()`. This is no longer cosmetic — filter params now have proper types in the spec.
+7. **Slug generation** — `slugify(title)` + collision check. Tries numeric suffixes (`title-2`, `title-3`…), then random hex (`title-a1b2c3`), then timestamp as last resort.
 
 ## Current State
 
-### apps/catalog/ ✅
-- **19 API endpoints** across 5 route files (was 16)
-- Full CRUD for Books, Authors, Categories, Reviews
-- Session-based auth with ownership checks on review mutations
-- Global error handler with friendly, column-aware messages
-- Transactions for atomic book + category writes
-- No pre-flight SELECT races
-- Email format validation via `"string.email"`
-- OpenAPI spec at `/openapi.json`, Scalar UI at `/docs`
-- TypeScript strict, 0 errors
-
-### packages/orm/ ✅
-- 156 tests pass (0 regression)
-- TypeScript strict, 0 errors
-- `first()`, `find()`, `findOrFail()`, `chunk()` no longer drop query state
-- `modelToJSON` uses per-instance `$toJSON()` for correct config inheritance
-- Biome clean
+### apps/conduit/ ✅
+- **19 API endpoints** across 6 route files (12 need auth, 7 public)
+- Full RealWorld spec coverage: auth, profiles, articles, comments, favorites, tags
+- JWT Bearer token auth via `peta-auth` (sign/verify)
+- ArkType request/response validation with RealWorld `{ errors: {...} }` format
+- Envelope responses (`{ user, article, articles, comments, profile, tags }`)
+- Offset/limit pagination, tag/author/favorited filtering
+- Slug auto-generation with collision avoidance
+- OpenAPI spec at `/openapi.json`, Scalar docs UI at `/docs`
+- `requireAuth()` middleware runs before body validation on all protected routes
+- `.auth("Token")` on 12 routes for OpenAPI security metadata
+- TypeScript strict, 0 errors, Biome clean
+- Hurl test suite from official RealWorld repo included
 
 ### packages/docs/ ✅
-- OpenAPI conversion no longer warns on pipe/morph schemas
-- Filter params have proper JSON Schema types (not empty `{}`)
+- `authGuard()` now uses `return await next()`, fixing custom auth schemes in RouteBuilder
+- `toOpenAPISchema()` has nested try/catch for graceful `| undefined` handling
+
+### apps/catalog/ ✅
+- `PRAGMA foreign_keys = ON` enabled, enforcing referential integrity
 
 ### How to run
 ```bash
-cd apps/catalog
+cd apps/conduit
 bun run src/db/seed.ts   # populate sample data
-bun run src/index.ts      # start server at :3000
-# Open http://localhost:3000/docs
+bun run src/index.ts      # start server at :3001
+# Open http://localhost:3001/docs
+# Run Hurl tests: HOST=http://localhost:3001 ./tests/hurl/run-api-tests-hurl.sh
+```
+
+### How to test auth
+```bash
+# Register
+curl -X POST http://localhost:3001/api/users \
+  -H "Content-Type: application/json" \
+  -d '{"user":{"username":"jake","email":"jake@jake.jake","password":"jakejake"}}'
+
+# Login (capture token)
+curl -s -X POST http://localhost:3001/api/users/login \
+  -H "Content-Type: application/json" \
+  -d '{"user":{"email":"jake@jake.jake","password":"jakejake"}}'
+
+# Use token for protected routes
+curl http://localhost:3001/api/user \
+  -H "Authorization: Token <jwt>"
 ```
 
 ## Next Steps / Pending
 
-- [ ] Add test infrastructure for the catalog app (vitest/supertest or bun:test)
-- [ ] Add env var validation (`.env.example`, SESSION_PASSWORD minimum length check)
-- [ ] Add rate limiting and CSRF protection (peta-auth has `src/csrf.ts` but it's unused)
-- [ ] Add `PRAGMA foreign_keys = ON` in schema setup
-- [ ] Add security headers (`hono/secure-headers`)
-- [ ] Add response compression (`hono/compress`)
-- [ ] Update root README.md to describe monorepo structure + catalog app
-- [ ] Publish packages to npm (update versions, changelogs)
+- [ ] Install `hurl` CLI and run the official Hurl test suite for full spec compliance verification
+- [ ] Add env var validation (`.env.example`, `JWT_SECRET` minimum length check)
+- [ ] Consider adding rate limiting and response compression (as noted in the original catalog handoff)
+- [ ] OpenAPI spec doesn't show `offset`/`limit` query params on list endpoints — would need `.query()` schema or manual `parameters` config on the RouteBuilder
+- [ ] The `findOrCreateTags()` function in `articles.ts` does sequential individual tag lookups/inserts — could optimize with bulk operations
+- [ ] API response for `POST /api/users` returns a new JWT token but the spec says it should return the same session token — current behavior is functional but the token changes on each login call, which is expected (new JWT each time)
 
 ## Important Context
 
 ### Architecture
 ```
 peta-stack/
-├── apps/catalog/              # Books Catalog API (demo application)
-│   └── src/
-│       ├── middleware/         # auth.ts (requireSession, requireRole) + http-error.ts
-│       ├── routes/            # 5 flat route files (auth, authors, books, books_reviews, categories)
-│       ├── db/schema.ts       # 6 models + peta instance + table creation
-│       ├── db/seed.ts         # Sample data (10 books, 6 authors, 5 categories, 3 users, 2 reviews)
-│       ├── helpers.ts         # pick() utility
-│       ├── types/hono.d.ts    # ContextVariableMap augmentation
-│       └── index.ts           # App entry + global error handler
-├── packages/orm/              # peta-orm library
-├── packages/auth/             # peta-auth library
-└── packages/docs/             # peta-docs library
+├── apps/
+│   ├── catalog/              # Books Catalog API (demo, session-based auth)
+│   └── conduit/              # RealWorld Conduit API (JWT token auth)
+├── packages/
+│   ├── orm/                  # peta-orm — function-based ORM on Kysely
+│   ├── auth/                 # peta-auth — JWT + session auth utilities
+│   └── docs/                 # peta-docs — RouteBuilder + OpenAPI/Scalar
 ```
 
 ### Gotchas
-- **`$save()`, `$delete()`, `$find()` don't accept a kysely override** — Can't participate in transactions. Use raw `trx.insertInto()`, `trx.deleteFrom()` inside `Book.transaction()` callbacks.
-- **`insertMany()` DOES accept a kysely override** — Pass the `trx` handle as the second argument: `Model.insertMany(data, trx)`.
-- **`createQueryBuilder(def, peta, trx)`** — Needed when you need a QueryBuilder scoped to a transaction (e.g., for `deleteMany()` inside a transaction).
-- **ArkType `"string?"` means `string | undefined`**, not `string | null` — Response validation schemas using `"string?"` will reject `null` values from the ORM.
-- **ArkType `pipe()` schemas** — Now handled gracefully by `schema.in.toJsonSchema()` fallback in peta-docs.
-- **`DatabaseError`** has `.code`, `.table`, `.cause` properties. The cause contains the raw driver error with `.message` like `"UNIQUE constraint failed: users.email"`.
-- **`normalizeError(err)`** is exported from `peta-orm` and can convert raw SQLite errors to `DatabaseError`.
-- **Database file** is `catalog.db` in `apps/catalog/` — gitignored via `*.db`. Delete to reset.
-- **Session password** defaults to a hardcoded string in `src/index.ts` when `SESSION_PASSWORD` env var is not set.
+- **peta-docs uses compiled `dist/`** — source changes in `packages/docs/src/` require `bun run build` inside `packages/docs/` to take effect at runtime
+- **`Authorization: Token <jwt>`** (not `Bearer`) — the built-in `authGuard` in RouteBuilder only handles `Bearer`/`Cookie`. Use `requireAuth()` middleware for enforcement, `.auth("Token")` only for OpenAPI metadata
+- **ArkType `"key?"` syntax** makes keys optional but adds `| undefined` internally, which fails `toJsonSchema()`. Fix: nested try/catch in `toOpenAPISchema()` returns `{}` rather than crashing
+- **JSON drops `undefined`** — always use `?? null` when serializing nullable fields to avoid missing keys in response bodies
+- **`$save()`, `$delete()`, `$find()` don't accept kysely override** — use raw `trx.insertInto()` inside transactions instead
+- **`insertMany()` DOES accept a kysely override** — `Model.insertMany(data, trx)` for transactional bulk inserts
+- **Hurl tests** are at `apps/conduit/tests/hurl/`. Requires `hurl` CLI (install via `brew install hurl` or from [hurl.dev](https://hurl.dev))
+- **Database file** is `conduit.db` in `apps/conduit/` — gitignored via `*.db`. Delete to reset
+- **JWT secret** defaults to hardcoded string in `src/lib/jwt.ts` when `JWT_SECRET` env var is not set
+- **Server port** defaults to 3001 (configurable via `PORT` env var)

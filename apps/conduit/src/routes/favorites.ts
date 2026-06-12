@@ -4,7 +4,7 @@ import { HTTPException } from "hono/http-exception"
 import { route } from "peta-docs/hono"
 import type { ModelInstance } from "peta-orm"
 import { Article, Favorite, Follow, User } from "../db/schema.js"
-import { getCurrentUserId, requireAuth } from "../middleware/auth.js"
+import { requireAuth } from "../middleware/auth.js"
 import { onValidationError } from "../middleware/error.js"
 
 const app = new Hono()
@@ -115,7 +115,7 @@ app.post(
       const { slug } = c.req.valid("param")
 
       const article = await Article.query().where("slug", "=", slug).first()
-      if (!article) throw new HTTPException(404, { message: "Article not found" })
+      if (!article) throw new HTTPException(404, { message: "article: not found" })
 
       const articleId = article.get<number>("id")
 
@@ -154,7 +154,7 @@ app.delete(
       const { slug } = c.req.valid("param")
 
       const article = await Article.query().where("slug", "=", slug).first()
-      if (!article) throw new HTTPException(404, { message: "Article not found" })
+      if (!article) throw new HTTPException(404, { message: "article: not found" })
 
       const articleId = article.get<number>("id")
 

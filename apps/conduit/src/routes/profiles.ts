@@ -27,7 +27,7 @@ const ProfileResponse = type({
 
 async function buildProfile(username: string, currentUserId?: number) {
   const user = await User.query().where("username", "=", username).first()
-  if (!user) throw new HTTPException(404, { message: "Profile not found" })
+  if (!user) throw new HTTPException(404, { message: "profile: not found" })
 
   let following = false
   if (currentUserId) {
@@ -89,7 +89,7 @@ app.post(
       const currentUserId = c.var.currentUserId!
 
       const target = await User.query().where("username", "=", username).first()
-      if (!target) throw new HTTPException(404, { message: "Profile not found" })
+      if (!target) throw new HTTPException(404, { message: "profile: not found" })
 
       const targetId = target.get<number>("id")
 
@@ -133,7 +133,7 @@ app.delete(
       const currentUserId = c.var.currentUserId!
 
       const target = await User.query().where("username", "=", username).first()
-      if (!target) throw new HTTPException(404, { message: "Profile not found" })
+      if (!target) throw new HTTPException(404, { message: "profile: not found" })
 
       const targetId = target.get<number>("id")
 

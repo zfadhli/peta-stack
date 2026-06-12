@@ -157,9 +157,9 @@ async function buildArticleResponse(article: ModelInstance, currentUserId?: numb
   return result
 }
 
-async function buildMultipleArticlesResponse(articles: ModelInstance[], currentUserId?: number) {
+async function buildMultipleArticlesResponse(articles: ModelInstance[], totalCount: number, currentUserId?: number) {
   const items = await Promise.all(articles.map((a) => buildArticleResponse(a, currentUserId, false)))
-  return { articles: items, articlesCount: items.length }
+  return { articles: items, articlesCount: totalCount }
 }
 
 // ---------------------------------------------------------------------------
@@ -174,43 +174,77 @@ app.get(
     .response(200, MultipleArticlesSchema)
     .onValidationError(onValidationError)
     .handle(async (c) => {
-      const query = Article.query()
       const qTag = c.req.query("tag")
       const qAuthor = c.req.query("author")
       const qFavorited = c.req.query("favorited")
       const limit = Math.min(100, Math.max(1, Number(c.req.query("limit") ?? "20")))
       const offset = Math.max(0, Number(c.req.query("offset") ?? "0"))
 
-      // Filter by tag
+      // Build a list of matching article IDs using separate (non-join) queries
+      // to avoid the peta-orm selectAll() override bug with joins.
+      let articleIds: number[] | null = null
+
+      // Filter by tag: find article IDs via article_tags + tags join
       if (qTag) {
-        query.innerJoin("article_tags", "article_tags.articleId", "articles.id")
-        query.innerJoin("tags", "tags.id", "article_tags.tagId")
-        query.where("tags.name", "=", qTag)
+        const tagged = await ArticleTag.query()
+          .innerJoin("tags", "tags.id", "article_tags.tagId")
+          .where("tags.name", "=", qTag)
+          .execute()
+        articleIds = tagged.map((t) => t.get<number>("articleId"))
       }
 
       // Filter by author username
       if (qAuthor) {
-        query.innerJoin("users", "users.id", "articles.authorId")
-        query.where("users.username", "=", qAuthor)
+        const author = await User.query().where("username", "=", qAuthor).first()
+        if (!author) {
+          return c.json({ articles: [], articlesCount: 0 })
+        }
+        const authorId = author.get<number>("id")
+        const ids = (await Article.query().where("authorId", "=", authorId).execute()).map((a) => a.get<number>("id"))
+        if (articleIds !== null) {
+          articleIds = articleIds.filter((id) => ids.includes(id))
+        } else {
+          articleIds = ids
+        }
       }
 
       // Filter by favorited by user
       if (qFavorited) {
-        query.innerJoin("favorites", "favorites.articleId", "articles.id")
-        query.innerJoin("users as favUsers", "favUsers.id", "favorites.userId")
-        query.where("favUsers.username", "=", qFavorited)
+        const favUser = await User.query().where("username", "=", qFavorited).first()
+        if (!favUser) {
+          return c.json({ articles: [], articlesCount: 0 })
+        }
+        const favArticleIds = (await Favorite.query().where("userId", "=", favUser.get<number>("id")).execute()).map(
+          (f) => f.get<number>("articleId"),
+        )
+        if (articleIds !== null) {
+          articleIds = articleIds.filter((id) => favArticleIds.includes(id))
+        } else {
+          articleIds = favArticleIds
+        }
       }
 
-      // Avoid column ambiguity — select only article columns
-      query.selectAll("articles")
-      query.orderBy("articles.createdAt", "desc")
-      query.limit(limit)
-      query.offset(offset)
+      // Apply ID filter to the article query
+      const dataQuery = Article.query()
+      const countQuery = Article.query()
 
-      const articles = await query.execute()
+      if (articleIds !== null) {
+        if (articleIds.length === 0) {
+          return c.json({ articles: [], articlesCount: 0 })
+        }
+        dataQuery.whereIn("articles.id", articleIds)
+        countQuery.whereIn("articles.id", articleIds)
+      }
+
+      // Count total matching articles (before limit/offset)
+      const totalCount = (await countQuery.count()) as number
+
+      // Fetch data with ordering and pagination
+      const articles = await dataQuery.orderBy("articles.createdAt", "desc").limit(limit).offset(offset).execute()
+
       const currentUserId = getCurrentUserId(c)
 
-      return c.json(await buildMultipleArticlesResponse(articles, currentUserId))
+      return c.json(await buildMultipleArticlesResponse(articles, totalCount, currentUserId))
     }),
 )
 
@@ -241,14 +275,11 @@ app.get(
         return c.json({ articles: [], articlesCount: 0 })
       }
 
-      const articles = await Article.query()
-        .whereIn("authorId", followeeIds)
-        .orderBy("createdAt", "desc")
-        .limit(limit)
-        .offset(offset)
-        .execute()
+      const dataQuery = Article.query().whereIn("authorId", followeeIds)
+      const totalCount = await dataQuery.count()
+      const articles = await dataQuery.orderBy("createdAt", "desc").limit(limit).offset(offset).execute()
 
-      return c.json(await buildMultipleArticlesResponse(articles, currentUserId))
+      return c.json(await buildMultipleArticlesResponse(articles, totalCount, currentUserId))
     }),
 )
 
@@ -268,7 +299,7 @@ app.get(
     .handle(async (c) => {
       const { slug } = c.req.valid("param")
       const article = await Article.query().where("slug", "=", slug).first()
-      if (!article) throw new HTTPException(404, { message: "Article not found" })
+      if (!article) throw new HTTPException(404, { message: "article: not found" })
 
       const currentUserId = getCurrentUserId(c)
       return c.json({
@@ -347,11 +378,11 @@ app.put(
       const { article: body } = c.req.valid("json")
 
       const article = await Article.query().where("slug", "=", slug).first()
-      if (!article) throw new HTTPException(404, { message: "Article not found" })
+      if (!article) throw new HTTPException(404, { message: "article: not found" })
 
       // Only author can update
       if (article.get<number>("authorId") !== currentUserId) {
-        throw new HTTPException(403, { message: "Forbidden" })
+        throw new HTTPException(403, { message: "article: forbidden" })
       }
 
       const updates: Record<string, unknown> = {}
@@ -368,6 +399,7 @@ app.put(
       if (body.body !== undefined) updates.body = body.body
 
       if (Object.keys(updates).length > 0) {
+        updates.updatedAt = new Date().toISOString()
         await Article.update(articleId, updates)
       }
 
@@ -384,7 +416,7 @@ app.put(
       }
 
       const updated = await Article.find(articleId)
-      if (!updated) throw new HTTPException(404, { message: "Article not found" })
+      if (!updated) throw new HTTPException(404, { message: "article: not found" })
       return c.json({ article: await buildArticleResponse(updated, currentUserId, true) })
     }),
 )
@@ -411,11 +443,11 @@ app.delete(
       const { slug } = c.req.valid("param")
 
       const article = await Article.query().where("slug", "=", slug).first()
-      if (!article) throw new HTTPException(404, { message: "Article not found" })
+      if (!article) throw new HTTPException(404, { message: "article: not found" })
 
       // Only author can delete
       if (article.get<number>("authorId") !== currentUserId) {
-        throw new HTTPException(403, { message: "Forbidden" })
+        throw new HTTPException(403, { message: "article: forbidden" })
       }
 
       const articleId = article.get<number>("id")

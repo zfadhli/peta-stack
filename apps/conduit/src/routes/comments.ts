@@ -46,7 +46,7 @@ const CreateCommentBody = type({
   comment: { body: "string>0" },
 })
 
-const SlugAndIdParams = type({ slug: "string", id: "number" })
+const SlugAndIdParams = type({ slug: "string", id: "string | number" })
 const SlugParams = type({ slug: "string" })
 
 // ---------------------------------------------------------------------------
@@ -92,7 +92,7 @@ app.get(
     .handle(async (c) => {
       const { slug } = c.req.valid("param")
       const article = await Article.query().where("slug", "=", slug).first()
-      if (!article) throw new HTTPException(404, { message: "Article not found" })
+      if (!article) throw new HTTPException(404, { message: "article: not found" })
 
       const comments = await Comment.query()
         .where("articleId", "=", article.get<number>("id"))
@@ -129,7 +129,7 @@ app.post(
       const { comment: body } = c.req.valid("json")
 
       const article = await Article.query().where("slug", "=", slug).first()
-      if (!article) throw new HTTPException(404, { message: "Article not found" })
+      if (!article) throw new HTTPException(404, { message: "article: not found" })
 
       const comment = await Comment.insert({
         articleId: article.get<number>("id"),
@@ -160,17 +160,18 @@ app.delete(
     .onValidationError(onValidationError)
     .handle(async (c) => {
       const currentUserId = c.var.currentUserId!
-      const { slug, id } = c.req.valid("param")
+      const { slug, id: rawId } = c.req.valid("param")
+      const id = typeof rawId === "string" ? Number(rawId) : rawId
 
       const article = await Article.query().where("slug", "=", slug).first()
-      if (!article) throw new HTTPException(404, { message: "Article not found" })
+      if (!article) throw new HTTPException(404, { message: "article: not found" })
 
       const comment = await Comment.find(id)
-      if (!comment) throw new HTTPException(404, { message: "Comment not found" })
+      if (!comment) throw new HTTPException(404, { message: "comment: not found" })
 
       // Only comment author can delete
       if (comment.get<number>("authorId") !== currentUserId) {
-        throw new HTTPException(403, { message: "Forbidden" })
+        throw new HTTPException(403, { message: "comment: forbidden" })
       }
 
       await Comment.delete(id)

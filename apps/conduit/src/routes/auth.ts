@@ -89,12 +89,12 @@ app.post(
           const raw = (err.cause as Error)?.message ?? err.message
           const col = raw.includes(":") ? (raw.split(":").pop()?.trim().split(".").pop() ?? "") : ""
           if (col === "email") {
-            throw new HTTPException(409, { message: "Email already taken" })
+            throw new HTTPException(409, { message: "email: has already been taken" })
           }
           if (col === "username") {
-            throw new HTTPException(409, { message: "Username already taken" })
+            throw new HTTPException(409, { message: "username: has already been taken" })
           }
-          throw new HTTPException(409, { message: "Already taken" })
+          throw new HTTPException(409, { message: "user: has already been taken" })
         }
         throw err
       }
@@ -126,10 +126,10 @@ app.post(
     .handle(async (c) => {
       const { user: body } = c.req.valid("json")
       const user = await User.query().where("email", "=", body.email).first()
-      if (!user) throw new HTTPException(401, { message: "Invalid email or password" })
+      if (!user) throw new HTTPException(401, { message: "credentials: invalid" })
 
       const valid = await Bun.password.verify(body.password, user.get<string>("password"))
-      if (!valid) throw new HTTPException(401, { message: "Invalid email or password" })
+      if (!valid) throw new HTTPException(401, { message: "credentials: invalid" })
 
       const id = user.get<number>("id")
       const name = user.get<string>("username")
@@ -158,7 +158,7 @@ app.get(
     .handle(async (c) => {
       const userId = c.var.currentUserId!
       const user = await User.find(userId)
-      if (!user) throw new HTTPException(404, { message: "User not found" })
+      if (!user) throw new HTTPException(404, { message: "user: not found" })
 
       return c.json(
         await buildUserResponse(
@@ -204,7 +204,7 @@ app.put(
       if (Object.keys(updates).length === 0) {
         // Return current user unchanged
         const user = await User.find(userId)
-        if (!user) throw new HTTPException(404, { message: "User not found" })
+        if (!user) throw new HTTPException(404, { message: "user: not found" })
         return c.json(
           await buildUserResponse(
             user.get<number>("id"),
@@ -226,7 +226,7 @@ app.put(
       }
 
       const user = await User.find(userId)
-      if (!user) throw new HTTPException(404, { message: "User not found" })
+      if (!user) throw new HTTPException(404, { message: "user: not found" })
       return c.json(
         await buildUserResponse(
           user.get<number>("id"),
