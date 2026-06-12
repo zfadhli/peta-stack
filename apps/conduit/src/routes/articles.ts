@@ -81,17 +81,35 @@ const ArticleParams = type({ slug: "string" })
 // ---------------------------------------------------------------------------
 
 async function findOrCreateTags(names: string[]): Promise<number[]> {
-  const ids: number[] = []
-  for (const name of names) {
-    const trimmed = name.trim()
-    if (!trimmed) continue
-    let tag = await Tag.query().where("name", "=", trimmed).first()
-    if (!tag) {
-      tag = await Tag.insert({ name: trimmed })
-    }
-    ids.push(tag.get<number>("id"))
+  // Deduplicate and clean input
+  const cleaned = [...new Set(names.map((n) => n.trim()).filter(Boolean))]
+  if (cleaned.length === 0) return []
+
+  // 1. Bulk lookup — find all existing tags in one query
+  const existing = await Tag.query().whereIn("name", cleaned).execute()
+  const nameToId = new Map<string, number>()
+  for (const tag of existing) {
+    nameToId.set(tag.get<string>("name"), tag.get<number>("id"))
   }
-  return ids
+
+  // 2. Bulk insert — only the tags that don't exist yet
+  const missing = cleaned.filter((n) => !nameToId.has(n))
+  if (missing.length > 0) {
+    await Tag.insertMany(missing.map((name) => ({ name })))
+  }
+
+  // 3. Re-fetch all to capture auto-generated IDs for new rows
+  //    (insertMany returns models hydrated from input, not from DB,
+  //     so auto-generated id columns are absent)
+  if (missing.length > 0) {
+    const all = await Tag.query().whereIn("name", cleaned).execute()
+    for (const tag of all) {
+      nameToId.set(tag.get<string>("name"), tag.get<number>("id"))
+    }
+  }
+
+  // 4. Return IDs in input order (after dedup)
+  return cleaned.map((n) => nameToId.get(n)!)
 }
 
 async function getTagListForArticle(articleId: number): Promise<string[]> {
