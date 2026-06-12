@@ -17,24 +17,63 @@ function prepareForDb(def: ModelDefinition, data: Record<string, unknown>): Reco
   return out
 }
 
+/** Find the primary key column definition from model columns. */
+function getPrimaryKeyColumn(def: ModelDefinition): { name: string; isAutoIncrement: boolean } {
+  for (const [name, col] of Object.entries(def.columns)) {
+    if (col.isPrimaryKey) {
+      return {
+        name,
+        isAutoIncrement: ["integer", "smallint", "bigint"].includes(col.dataType),
+      }
+    }
+  }
+  return { name: "id", isAutoIncrement: true }
+}
+
 export async function saveModel(def: ModelDefinition, model: ModelInstance): Promise<void> {
   const hooks = getHooksFor(def)
   const state = getState(model)
   const isNew = !getExists(model)
   const peta = def._peta
   if (!peta) throw new Error(`${def.table} has not been registered with Peta`)
+  const pk = getPrimaryKeyColumn(def)
   if (isNew) {
     await hooks.trigger("beforeCreate", model as never)
     await hooks.trigger("beforeSave", model as never)
     state.attributes = { ...state.attributes }
+
     const data = prepareForDb(def, { ...state.attributes })
-    delete data.id
+    // For auto-increment PKs, let the DB generate the value
+    if (pk.isAutoIncrement) delete data[pk.name]
+
     try {
-      const result = await peta.kysely.insertInto(def.table).values(data).executeTakeFirst()
-      state.attributes.id = Number(result.insertId ?? result.numInsertedOrUpdatedRows ?? 0)
+      // Primary path: RETURNING * returns all DB-generated values
+      // (auto-increment IDs, column defaults, trigger values).
+      const row = (await peta.kysely.insertInto(def.table).values(data).returningAll().executeTakeFirst()) as
+        | Record<string, unknown>
+        | undefined
+
+      if (row && Object.keys(row).length > 0) {
+        // Merge DB-returned values into attributes (overwrites with real DB values)
+        state.attributes = { ...state.attributes, ...row }
+      }
       setExists(model, true)
     } catch (e: unknown) {
-      throw normalizeError(e, def.table) ?? e
+      const errMsg = e instanceof Error ? e.message : String(e)
+      if (errMsg.includes("syntax error") || errMsg.includes("near") || errMsg.includes("does not support RETURNING")) {
+        // Fallback for dialects without RETURNING (MySQL, older SQLite)
+        try {
+          const result = await peta.kysely.insertInto(def.table).values(data).executeTakeFirst()
+          if (result?.insertId != null) {
+            state.attributes[pk.name] = Number(result.insertId)
+          }
+          setExists(model, true)
+        } catch (e2: unknown) {
+          throw normalizeError(e2, def.table) ?? e2
+        }
+      } else {
+        throw normalizeError(e, def.table) ?? e
+      }
     }
     syncOriginal(model)
     await hooks.trigger("afterCreate", model as never)
@@ -46,13 +85,13 @@ export async function saveModel(def: ModelDefinition, model: ModelInstance): Pro
     for (const key of Object.keys(dirty)) {
       if (dirty[key] === state.original[key]) delete dirty[key]
     }
-    const id = state.attributes.id
+    const id = state.attributes[pk.name]
     if (id == null) throw new DatabaseError("MISSING_ID", "Cannot update a model without an id")
     try {
       await peta.kysely
         .updateTable(def.table)
         .set(dirty)
-        .where("id", "=", id as never)
+        .where(pk.name, "=", id as never)
         .execute()
     } catch (e: unknown) {
       throw normalizeError(e, def.table) ?? e
@@ -110,12 +149,13 @@ export async function reloadModel(def: ModelDefinition, model: ModelInstance): P
   const peta = def._peta
   if (!peta) throw new Error(`${def.table} has not been registered with Peta`)
   const state = getState(model)
-  const id = state.attributes.id
+  const pk = getPrimaryKeyColumn(def)
+  const id = state.attributes[pk.name]
   if (id == null) throw new DatabaseError("MISSING_ID", "Cannot reload a model without an id")
   const row = await peta.kysely
     .selectFrom(def.table)
     .selectAll()
-    .where("id", "=", id as never)
+    .where(pk.name, "=", id as never)
     .executeTakeFirst()
   if (row) {
     state.attributes = { ...(row as Record<string, unknown>) }
