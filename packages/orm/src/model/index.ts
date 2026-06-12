@@ -131,6 +131,14 @@ export function defineModel<TColumns extends ColumnShape>(
       return this
     },
 
+    makeHelper(fn: any) {
+      // Return a function that binds the query builder as first arg
+      return (...args: any[]) => {
+        const qb = this.query()
+        return fn(qb, ...args)
+      }
+    },
+
     getHooks() {
       return getHooksFor(this as any)
     },

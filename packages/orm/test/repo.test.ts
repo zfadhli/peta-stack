@@ -101,3 +101,25 @@ describe("Repository pattern", () => {
     expect(users).toHaveLength(1)
   })
 })
+
+describe("makeHelper", () => {
+  it("creates reusable query helpers", async () => {
+    const searchByName = RepoUser.makeHelper((qb: any, query: string) => {
+      return qb.where("name", "like", `%${query}%`)
+    })
+
+    const users = await searchByName("Alice").orderBy("id", "asc")
+    expect(users).toHaveLength(1)
+    expect(users[0]!.get("name")).toBe("Alice")
+  })
+
+  it("helpers compose with standard QB methods", async () => {
+    const searchByName = RepoUser.makeHelper((qb: any, query: string) => {
+      return qb.where("name", "like", `%${query}%`)
+    })
+
+    const users = await searchByName("Bob").orderBy("id", "asc").limit(1)
+    expect(users).toHaveLength(1)
+    expect(users[0]!.get("name")).toBe("Bob")
+  })
+})

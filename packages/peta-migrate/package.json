@@ -1,0 +1,37 @@
+{
+  "name": "peta-migrate",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Migration tools for peta-orm",
+  "license": "MIT",
+  "module": "src/index.ts",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "types": "./dist/index.d.mts"
+    }
+  },
+  "bin": {
+    "peta": "./bin/peta"
+  },
+  "files": [
+    "bin/",
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "cac": "^7.0.0",
+    "ora": "^9.4.0"
+  },
+  "peerDependencies": {
+    "kysely": "^0.27.0",
+    "typescript": "^6.0.0"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "bun x tsc --noEmit"
+  }
+}

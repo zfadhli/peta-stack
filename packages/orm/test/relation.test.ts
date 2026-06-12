@@ -259,6 +259,34 @@ describe("has / whereHas", () => {
   })
 })
 
+describe("allowGraph security", () => {
+  it("allows whitelisted relations", async () => {
+    const users = await User.query()
+      .allowGraph("posts")
+      .with("posts")
+      .orderBy("id", "asc")
+    expect(users.length).toBeGreaterThanOrEqual(2)
+    const first = users[0]!
+    expect(first.$hasRelation("posts")).toBe(true)
+  })
+
+  it("throws on non-whitelisted relations", async () => {
+    expect(() =>
+      User.query()
+        .allowGraph("profile")
+        .with("posts")
+    ).toThrow()
+  })
+
+  it("allows nested routes in whitelist", async () => {
+    const users = await User.query()
+      .allowGraph("posts")
+      .with("posts.author")
+      .orderBy("id", "asc")
+    expect(users.length).toBeGreaterThanOrEqual(2)
+  })
+})
+
 describe("ManyToMany", () => {
   it("loads tags for a post query", async () => {
     const post = await Post.find(1)

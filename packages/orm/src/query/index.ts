@@ -52,6 +52,8 @@ export interface QueryBuilder extends PromiseLike<ModelInstance[]> {
 
   // Eager loading
   with(...relations: (string | Record<string, (qb: QueryBuilder) => void>)[]): QueryBuilder
+  /** Whitelist allowed relations for eager loading. Throws if a relation is not in the allow list. */
+  allowGraph(expression: string): QueryBuilder
 
   // CRUD (bulk)
   updateMany(data: Record<string, unknown>): Promise<number>
@@ -127,6 +129,9 @@ export function createQueryBuilder(def: ModelDefinition, peta?: any): QueryBuild
 
   // Store WHERE operations for replay on update/delete builders
   const whereOps: Array<(qb: any) => void> = []
+
+  // Allow graph security — if non-null, only these relation names are allowed
+  let allowedGraphSet: Set<string> | null = null
 
   function validateColumn(ref: string): string {
     if (!SAFE_COLUMN.test(ref)) throw new Error(`Invalid column reference: ${ref}`)
@@ -399,12 +404,31 @@ export function createQueryBuilder(def: ModelDefinition, peta?: any): QueryBuild
     },
 
     // ─── Eager loading ────────────────────────────────────
+    allowGraph(expression: string): QueryBuilder {
+      const parts = expression
+        .replace(/[[\]']/g, "")
+        .split(/[.\s,]+/)
+        .filter(Boolean)
+      allowedGraphSet = new Set(parts)
+      return self
+    },
+
     with(...relations: (string | Record<string, (qb: QueryBuilder) => void>)[]): QueryBuilder {
       for (const rel of relations) {
         if (typeof rel === "string") {
+          // Validate against allowGraph if set
+          if (allowedGraphSet) {
+            const baseName = rel.includes(".") ? rel.split(".")[0]! : rel
+            if (!allowedGraphSet.has(baseName)) {
+              throw new RelationNotFoundError(def.name, rel)
+            }
+          }
           eagerLoads.push({ name: rel })
         } else {
           for (const [name, constraints] of Object.entries(rel)) {
+            if (allowedGraphSet && !allowedGraphSet.has(name)) {
+              throw new RelationNotFoundError(def.name, name)
+            }
             eagerLoads.push({ name, constraints })
           }
         }
