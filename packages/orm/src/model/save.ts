@@ -93,11 +93,78 @@ export async function saveModel(def: ModelDefinition, model: ModelInstance): Pro
   return model
 }
 
-// ─── INSERT MODEL ────────────────────────────────────────────
+// ─── INSERT MODEL (with nested relation support) ─────────────
 export async function insertModel(def: ModelDefinition, data: Record<string, unknown>): Promise<ModelInstance> {
   const config = getConfig(def) ?? { columns: def.columns }
-  const model = createInstance(def, config, data, false)
+
+  // Check if data has relation operations
+  const hasRelationOps = Object.keys(data).some((key) => key in def.relations)
+
+  if (!hasRelationOps) {
+    // Simple case — no relations
+    const model = createInstance(def, config, data, false)
+    await saveModel(def, model)
+    return model
+  }
+
+  // Complex case — extract and process relations
+  const { extractRelationData, processCreateRelations } = await import("../relations/crud.js")
+  const { columnData, relationOps } = extractRelationData(def, data)
+
+  // Step 1: Process belongsTo relations (create/connect related FIRST, then set FK)
+  for (const [relName, op] of Object.entries(relationOps)) {
+    const relation = def.relations[relName]
+    if (relation?.type === "belongsTo") {
+      const bop = op as any
+      const relatedDef = relation.relatedModelClass
+
+      if (bop.create) {
+        const related = await relatedDef.insert(bop.create)
+        columnData[relation.foreignKey] = related.get(relation.localKey)
+      } else if (bop.connect) {
+        const cond = bop.connect as Record<string, unknown>
+        const found = await relatedDef
+          .query()
+          .where(Object.keys(cond)[0], "=", Object.values(cond)[0])
+          .executeTakeFirst()
+        if (found) {
+          columnData[relation.foreignKey] = found.get(relation.localKey)
+        }
+      } else if (bop.connectOrCreate) {
+        const { where, create } = bop.connectOrCreate as {
+          where: Record<string, unknown>
+          create: Record<string, unknown>
+        }
+        const found = await relatedDef
+          .query()
+          .where(Object.keys(where)[0], "=", Object.values(where)[0])
+          .executeTakeFirst()
+        if (found) {
+          columnData[relation.foreignKey] = found.get(relation.localKey)
+        } else {
+          const created = await relatedDef.insert(create)
+          columnData[relation.foreignKey] = created.get(relation.localKey)
+        }
+      }
+    }
+  }
+
+  // Step 2: Create the model with column data
+  const model = createInstance(def, config, columnData, false)
   await saveModel(def, model)
+
+  // Step 3: Process post-insert relations (hasMany, manyToMany)
+  const postOps: Record<string, any> = {}
+  for (const [relName, op] of Object.entries(relationOps)) {
+    const relation = def.relations[relName]
+    if (relation && relation.type !== "belongsTo") {
+      postOps[relName] = op
+    }
+  }
+  if (Object.keys(postOps).length > 0) {
+    await processCreateRelations(def, model, postOps)
+  }
+
   return model
 }
 
@@ -136,15 +203,228 @@ export async function insertManyModel(
   })
 }
 
-// ─── UPDATE MODEL ────────────────────────────────────────────
+// ─── UPDATE MODEL (with nested relation support) ──────────────
 export async function updateModel(
   def: ModelDefinition,
   id: number | string,
   data: Record<string, unknown>,
 ): Promise<ModelInstance> {
   const model = await def.findOrFail(id)
-  model.fill(data)
+
+  // Check if data has relation operations
+  const hasRelationOps = Object.keys(data).some((key) => key in def.relations)
+
+  if (!hasRelationOps) {
+    model.fill(data)
+    await saveModel(def, model)
+    return model
+  }
+
+  // Extract relation operations
+  const { extractRelationData } = await import("../relations/crud.js")
+  const { columnData, relationOps } = extractRelationData(def, data)
+
+  // Apply column data to the model
+  model.fill(columnData)
   await saveModel(def, model)
+
+  // Process relation operations on the existing model
+  const pkValue = model.get("id")
+  if (pkValue == null) return model
+
+  for (const [relName, op] of Object.entries(relationOps)) {
+    const relation = def.relations[relName]
+    if (!relation) continue
+
+    const relatedDef = relation.relatedModelClass
+    const db = (relatedDef._orm as any)?.kysely
+    if (!db) continue
+
+    if (relation.type === "belongsTo") {
+      const bop = op as any
+
+      if (bop.update) {
+        // Update the related model
+        const fkValue = model.get(relation.foreignKey)
+        if (fkValue != null) {
+          const related = await relatedDef.find(fkValue as any)
+          if (related) {
+            related.fill(bop.update)
+            const { saveModel: saveRel } = await import("./save.js")
+            await saveRel(relatedDef, related)
+          }
+        }
+      } else if (bop.upsert) {
+        const { update, create } = bop.upsert
+        const fkValue = model.get(relation.foreignKey)
+        if (fkValue != null) {
+          const related = await relatedDef.find(fkValue as any)
+          if (related) {
+            related.fill(update)
+            const { saveModel: saveRel } = await import("./save.js")
+            await saveRel(relatedDef, related)
+          }
+        } else {
+          const created = await relatedDef.insert(create)
+          await db
+            .updateTable(def.table)
+            .set({ [relation.foreignKey]: created.get(relation.localKey) })
+            .where("id", "=", pkValue)
+            .execute()
+          model.set(relation.foreignKey, created.get(relation.localKey))
+        }
+      } else if (bop.disconnect) {
+        await db
+          .updateTable(def.table)
+          .set({ [relation.foreignKey]: null })
+          .where("id", "=", pkValue)
+          .execute()
+        model.set(relation.foreignKey, null)
+      } else if (bop.delete) {
+        const fkValue = model.get(relation.foreignKey)
+        if (fkValue != null) {
+          const related = await relatedDef.find(fkValue as any)
+          if (related) {
+            const { deleteModel: delRel } = await import("./delete.js")
+            await delRel(relatedDef, related)
+          }
+        }
+      }
+    } else if (relation.type === "hasMany" || relation.type === "hasOne") {
+      const hop = op as any
+
+      if (hop.create) {
+        for (const childData of hop.create) {
+          await relatedDef.insert({ ...childData, [relation.foreignKey]: pkValue })
+        }
+      }
+
+      if (hop.update) {
+        const queries = Array.isArray(hop.update?.where) ? hop.update.where : [hop.update?.where]
+        for (const where of queries) {
+          await relatedDef
+            .query()
+            .where(Object.keys(where)[0], "=", Object.values(where)[0])
+            .all()
+            .updateMany(hop.update.data)
+        }
+      }
+
+      if (hop.delete) {
+        const queries = Array.isArray(hop.delete) ? hop.delete : [hop.delete]
+        for (const where of queries) {
+          await relatedDef.query().where(Object.keys(where)[0], "=", Object.values(where)[0]).all().deleteMany()
+        }
+      }
+    } else if (relation.type === "manyToMany") {
+      const mop = op as any
+
+      if (mop.create) {
+        const throughTable = relation.throughTable!
+        const fpk = relation.foreignPivotKey!
+        const rpk = relation.relatedPivotKey!
+
+        for (const childData of mop.create) {
+          const child = await relatedDef.insert(childData)
+          try {
+            await db
+              .insertInto(throughTable)
+              .values({ [fpk]: pkValue, [rpk]: child.get(relation.localKey ?? "id") })
+              .execute()
+          } catch {
+            /* skip duplicate */
+          }
+        }
+      }
+
+      if (mop.connect) {
+        const throughTable = relation.throughTable!
+        const fpk = relation.foreignPivotKey!
+        const rpk = relation.relatedPivotKey!
+
+        for (const target of mop.connect) {
+          const targetId =
+            typeof target === "number" || typeof target === "string"
+              ? target
+              : (
+                  await relatedDef
+                    .query()
+                    .where(Object.keys(target)[0], "=", Object.values(target)[0])
+                    .executeTakeFirst()
+                )?.get("id")
+          if (targetId != null) {
+            try {
+              await db
+                .insertInto(throughTable)
+                .values({ [fpk]: pkValue, [rpk]: targetId })
+                .execute()
+            } catch {
+              /* skip duplicate */
+            }
+          }
+        }
+      }
+
+      if (mop.disconnect) {
+        const throughTable = relation.throughTable!
+        const fpk = relation.foreignPivotKey!
+        const rpk = relation.relatedPivotKey!
+
+        const queries = Array.isArray(mop.disconnect) ? mop.disconnect : [mop.disconnect]
+        for (const where of queries) {
+          if (typeof where === "object" && Object.keys(where).length > 0) {
+            const key = Object.keys(where)[0]
+            const val = Object.values(where)[0]
+            if (key === "id") {
+              await db.deleteFrom(throughTable).where(fpk, "=", pkValue).where(rpk, "=", val).execute()
+            }
+          }
+        }
+      }
+
+      if (mop.set) {
+        const throughTable = relation.throughTable!
+        const fpk = relation.foreignPivotKey!
+        const rpk = relation.relatedPivotKey!
+
+        // Get current IDs
+        const current = await db.selectFrom(throughTable).select(rpk).where(fpk, "=", pkValue).execute()
+        const currentIds = new Set(current.map((r: any) => r[rpk]))
+        const desiredIds = new Set<unknown>()
+
+        for (const target of mop.set) {
+          const targetId =
+            typeof target === "number" || typeof target === "string"
+              ? target
+              : (
+                  await relatedDef
+                    .query()
+                    .where(Object.keys(target)[0], "=", Object.values(target)[0])
+                    .executeTakeFirst()
+                )?.get("id")
+          if (targetId != null) {
+            desiredIds.add(targetId)
+            if (!currentIds.has(targetId)) {
+              try {
+                await db
+                  .insertInto(throughTable)
+                  .values({ [fpk]: pkValue, [rpk]: targetId })
+                  .execute()
+              } catch {}
+            }
+          }
+        }
+
+        // Remove IDs that are in current but not desired
+        for (const id of currentIds) {
+          if (!desiredIds.has(id)) {
+            await db.deleteFrom(throughTable).where(fpk, "=", pkValue).where(rpk, "=", id).execute()
+          }
+        }
+      }
+    }
+  }
+
   return model
 }
 

@@ -321,6 +321,125 @@ describe("$related() relation query builder", () => {
   })
 })
 
+describe("Nested create through relations", () => {
+  it("creates with belongsTo via connect", async () => {
+    const author = await User.query().orderBy("id", "asc").first()
+    expect(author).toBeDefined()
+    const authorId = author!.get("id")
+
+    const post = await Post.create({
+      title: "Nested Connect Post",
+      author: {
+        connect: { id: authorId },
+      },
+    })
+
+    expect(post.get("title")).toBe("Nested Connect Post")
+    expect(post.get("userId")).toBe(authorId)
+  })
+
+  it("creates with belongsTo via connectOrCreate", async () => {
+    const post = await Post.create({
+      title: "Connect Or Create Post",
+      author: {
+        connectOrCreate: {
+          where: { name: "New Author" },
+          create: { name: "New Author" },
+        },
+      },
+    })
+
+    expect(post.get("title")).toBe("Connect Or Create Post")
+    expect(post.get("userId")).toBeGreaterThan(0)
+  })
+
+  it("creates with hasMany children", async () => {
+    const alice = await User.find(1)
+    expect(alice).toBeDefined()
+    const authorId = alice!.get("id") as number
+
+    // Post.create with embedded tags (manyToMany)
+    const tag1 = await Tag.insert({ name: "nested-tag-1" })
+    const tag2 = await Tag.insert({ name: "nested-tag-2" })
+
+    const post = await Post.create({
+      title: "Post With Tags",
+      userId: authorId,
+      tags: {
+        connect: [tag1.get("id") as number, tag2.get("id") as number],
+      },
+    })
+
+    expect(post.get("title")).toBe("Post With Tags")
+
+    // Verify tags were connected
+    const tags = await post.$related("tags")
+    expect(tags.length).toBeGreaterThanOrEqual(2)
+  })
+})
+
+describe("Nested update through relations", () => {
+  it("updates belongsTo via update", async () => {
+    const alice = await User.find(1)
+    expect(alice).toBeDefined()
+    const posts = await alice!.$related("posts")
+    expect(posts.length).toBeGreaterThan(0)
+
+    const post = posts[0]!
+    const _oldAuthorName = alice!.get("name")
+
+    await Post.update(post.get("id") as number, {
+      title: "Updated Title",
+      author: {
+        update: { name: "Updated Author" },
+      },
+    })
+
+    const updated = await Post.find(post.get("id") as number)
+    expect(updated!.get("title")).toBe("Updated Title")
+
+    // Verify the author was updated
+    const author = await User.find(alice!.get("id") as number)
+    expect(author!.get("name")).toBe("Updated Author")
+  })
+
+  it("creates new related via hasMany create in update", async () => {
+    const alice = await User.find(1)
+    expect(alice).toBeDefined()
+    const aliceId = alice!.get("id") as number
+
+    await User.update(aliceId, {
+      posts: {
+        create: [{ title: "Updated Create Post 1" }, { title: "Updated Create Post 2" }],
+      },
+    })
+
+    const posts = await alice!.$related("posts").orderBy("id", "desc").limit(2)
+    const titles = posts.map((p) => p.get("title"))
+    expect(titles).toContain("Updated Create Post 1")
+    expect(titles).toContain("Updated Create Post 2")
+  })
+
+  it("connects many-to-many via update", async () => {
+    const alice = await User.find(1)
+    expect(alice).toBeDefined()
+    const posts = await alice!.$related("posts")
+    expect(posts.length).toBeGreaterThan(0)
+
+    const post = posts[0]!
+    const newTag = await Tag.insert({ name: "update-connect-tag" })
+
+    await Post.update(post.get("id") as number, {
+      tags: {
+        connect: [newTag.get("id") as number],
+      },
+    })
+
+    const tags = await post!.$related("tags").orderBy("id", "desc")
+    expect(tags.some((t) => t.get("name") === "update-connect-tag")).toBe(true)
+  })
+})
+
 describe("attach/detach/sync for many-to-many", () => {
   let post: Awaited<ReturnType<typeof Post.find>>
   let tagA: Awaited<ReturnType<typeof Tag.find>>
