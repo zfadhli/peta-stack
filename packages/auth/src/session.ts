@@ -9,7 +9,6 @@ const DEFAULTS = {
   timeToLive: 14 * 24 * 3600,
   cookieOptions: {
     httpOnly: true as const,
-    secure: true as const,
     sameSite: "lax" as const,
     path: "/" as const,
   },
@@ -55,7 +54,11 @@ export type ResolvedConfig = {
 /** @internal */
 export function resolveConfig(options: SessionOptions): ResolvedConfig {
   const timeToLive = options.timeToLive ?? DEFAULTS.timeToLive
-  const cookieOptions = { ...DEFAULTS.cookieOptions, ...options.cookieOptions }
+  const cookieOptions = {
+    ...DEFAULTS.cookieOptions,
+    secure: process.env.NODE_ENV !== "development",
+    ...options.cookieOptions,
+  }
 
   if (!("maxAge" in (options.cookieOptions ?? {}))) {
     cookieOptions.maxAge = computeMaxAge(timeToLive)
