@@ -342,7 +342,7 @@ export function buildOpenAPISpec(
     if (config.tags) operation.tags = config.tags
     else operation.tags = autoTags(path, basePath)
     if (config.security) {
-      operation.security = config.security.map((s) => ({ [s]: [] }))
+      operation.security = [{ ...Object.fromEntries(config.security.map((s) => [s, []])) }]
     }
     if (parameters.length > 0) operation.parameters = parameters
 

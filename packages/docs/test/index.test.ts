@@ -1349,7 +1349,7 @@ describe("auth", () => {
       ],
       { title: "T", version: "1.0.0" },
     )
-    expect(spec.paths!["/admin"]!.get!.security).toEqual([{ bearerAuth: [] }, { apiKey: [] }])
+    expect(spec.paths!["/admin"]!.get!.security).toEqual([{ bearerAuth: [], apiKey: [] }])
   })
 
   it("omits security when not set", () => {
