@@ -36,9 +36,8 @@ export async function signJWT(payload: Record<string, unknown>, options: JWTOpti
   }
 
   const jwt = new jose.SignJWT(payload).setProtectedHeader({ alg: "HS256" }).setIssuedAt()
-  if (options.expiresIn !== undefined) {
-    jwt.setExpirationTime(Math.floor(Date.now() / 1000) + options.expiresIn)
-  }
+  const ttl = options.expiresIn ?? 86400 // 24 hours default
+  jwt.setExpirationTime(Math.floor(Date.now() / 1000) + ttl)
 
   return jwt.sign(toKey(secret))
 }
