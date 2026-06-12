@@ -102,13 +102,15 @@ describe("Collection", () => {
     expect(col.isEmpty()).toBe(false)
   })
 
-  it("load() is a no-op on Collection (stub)", async () => {
-    // Collection.load() does not hydrate relations; it exists as a stub
+  it("load() hydrates relations on all items", async () => {
     const users = await CollUser.query().orderBy("id", "asc").execute()
     const c = createCollection(users)
     await c.load("items")
     const alice = c.first()!
-    expect(alice.$hasRelation("items")).toBe(false)
+    expect(alice.$hasRelation("items")).toBe(true)
+    expect(alice.$getRelation("items")).toBeArray()
+    // Alice (id=1) has 2 items from setup
+    expect(alice.$getRelation("items")).toHaveLength(2)
   })
 
   it("sum/avg/min/max", () => {

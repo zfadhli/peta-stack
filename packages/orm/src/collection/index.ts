@@ -197,7 +197,20 @@ export function createCollection(items: ModelInstance[] = []): Collection {
       const otherItems = Array.isArray(other) ? other : other.all()
       return toNewCollection([..._items, ...otherItems])
     },
-    async load(..._relations: string[]): Promise<Collection> {
+    async load(...relations: string[]): Promise<Collection> {
+      if (relations.length === 0 || _items.length === 0) return instance
+
+      const { getModelDef } = await import("../model/relation.js")
+      const { EagerLoader } = await import("../builder/eager.js")
+
+      const def = getModelDef(_items[0]!)
+      if (!def) return instance
+
+      const loader = new EagerLoader()
+      for (const name of relations) {
+        await loader.loadRelated(_items, { name, constraints: null }, def)
+      }
+
       return instance
     },
   }
