@@ -2,157 +2,168 @@
 
 ## Goal
 
-Migrate `@apps/conduit/` to the latest peta-orm features: ULID primary keys, plugin-based lifecycle hooks, `createORM`/`getORM` rename, `createApp()` factory for testability, `peta-auth` password hashing, and full Bun test coverage. Along the way, fix ORM bugs uncovered by conduit's many-to-many pivot patterns and `insertMany` usage.
-
-Conduit is a RealWorld API (Medium clone) that uses JWT token auth per spec — kept JWT, migrated everything else.
+Surgically deepen (`/deepen`) three packages — `@packages/orm`, `@packages/auth`, `@packages/docs` — by applying Evan You's coding style as the diagnostic lens and Matt Pocock's seam/depth vocabulary. Target: god files, duplicated patterns, weak types, and missing seams. No behavioral changes, all tests must pass.
 
 ## Files Modified/Created
 
-### Conduit App (`apps/conduit/`)
+### ORM (`packages/orm/`) — 6 deepenings
 
 | File | Change |
 |------|--------|
-| `src/db/schema.ts` | ULID PKs (`t.string(26).primaryKey()`), FKs → `t.string(26)`, plugins (`.use(timestamps()).use(ulid())`), `createPeta`→`createORM`, `getPeta`→`getORM`, `getORM(dialect)` for test injection, SQL `INTEGER`→`TEXT`, timestamps non-nullable |
-| `src/index.ts` | `createApp()` factory, `import.meta.main` guard, optional ORM DI param |
-| `src/routes/auth.ts` | `hashPassword`/`verifyPassword` from peta-auth, `.catch()` chaining, `http.*` helpers, string IDs |
-| `src/routes/articles.ts` | String IDs, `http.*` helpers |
-| `src/routes/comments.ts` | String IDs, `http.*` helpers, ArkType `id: "number"`→`"string"` |
-| `src/routes/favorites.ts` | String IDs, `http.*` helpers |
-| `src/routes/profiles.ts` | String IDs, `http.*` helpers |
-| `src/routes/tags.ts` | Minimal (unchanged) |
-| `src/middleware/auth.ts` | `currentUserId?: string` |
-| `src/middleware/http-error.ts` | **New** — `http.*` helper (same pattern as catalog) |
-| `src/lib/jwt.ts` | `JwtPayload.userId: string`, remove `Number()` conversion |
-| `src/types/hono.d.ts` | `currentUserId?: string` |
-| `src/db/seed.ts` | `hashPassword()` from peta-auth, `getORM()`, string IDs |
-| `package.json` | Added `"test": "bun test"`, fixed `"test:hurl"` path |
-| `src/middleware/error.ts` | Template string simplification (biome lint fix) |
-| Various routes | Import ordering fixed (biome auto-fix) |
+| `src/errors.ts` | Rewritten as barrel re-exporting `errors/classes.ts` + `errors/normalizer.ts` |
+| `src/errors/classes.ts` | **New** — 6 error classes + `DatabaseErrorCode` type |
+| `src/errors/normalizer.ts` | **New** — `normalizeError()` with SQLite, PG, MySQL codes |
+| `src/model/define.ts` | **New** — extracted `defineModel()` factory (was inline in index.ts) |
+| `src/model/index.ts` | Now a pure barrel (re-exports from define.ts, save.ts, delete.ts, etc.) |
+| `src/model/factory.ts` | Removed `wireDeps()`, `setRelationQueryModule()`, 8 `as any` casts. Uses `getRuntime()` from runtime.ts |
+| `src/model/runtime.ts` | **New** — typed `ModelRuntime` registry + `initRuntime()`/`getRuntime()` |
+| `src/query/types.ts` | **New** — `QueryBuilder` interface extracted (was inline in index.ts) |
+| `src/query/builder.ts` | **New** — `createQueryBuilder()` implementation |
+| `src/query/index.ts` | Now a pure barrel (4 lines) |
+| `src/relations/base.ts` | Added typed `_morphMap?`, `_morphType?`, `_morphId?`, `_morphTypeValue?` to `Relation` |
+| `src/relations/eager.ts` | `isMorphRelation()` now typed as `Relation`, removed `MORPH_MAP_KEY` const |
+| `src/relations/graph.ts` | **Deleted** — replaced by 7 files below |
+| `src/relations/graph/index.ts` | **New** — barrel |
+| `src/relations/graph/types.ts` | **New** — `InsertGraphOptions`, `UpsertGraphOptions`, `GraphContext` |
+| `src/relations/graph/security.ts` | **New** — `isRelationAllowed`, `assertRelationAllowed`, `joinPath`, etc. |
+| `src/relations/graph/morph.ts` | **New** — morph detection helpers |
+| `src/relations/graph/parser.ts` | **New** — `extractGraphRelationData`, `collectRefs`, `resolveRefs` |
+| `src/relations/graph/insert.ts` | **New** — `insertGraph` + node/relation processors |
+| `src/relations/graph/upsert.ts` | **New** — `upsertGraph` + upsert processors |
+| `src/relations/many-to-many.ts` | Fixed `query()` callback bug (was never executed, returned ALL rows) |
+| `src/relations/morph.ts` | Fixed `query()` callback bug, removed `as any` on morph property access |
+| `src/relations/related-query.ts` | Made `attach()`/`syncWithoutDetaching()` dialect-agnostic (was SQLite-only) |
 
-### Tests (new — `apps/conduit/test/`)
-
-| File | Content |
-|------|---------|
-| `setup.ts` | `createTestORM()`, `createTestApp()`, `signupUser()`, `loginUser()`, `createArticle()` |
-| `auth.test.ts` | 9 tests — register, duplicate email/username, login, get user, update |
-| `articles.test.ts` | 10 tests — CRUD, owner checks, filtering by tag/author |
-| `comments.test.ts` | 5 tests — CRUD, owner checks |
-| `favorites.test.ts` | 4 tests — favorite/unfavorite, auth required |
-| `profiles.test.ts` | 5 tests — get profile, follow/unfollow, auth required |
-| `tags.test.ts` | 2 tests — empty list, tags from articles |
-
-### ORM Fixes (`packages/orm/`)
+### Auth (`packages/auth/`) — 5 deepenings
 
 | File | Change |
 |------|--------|
-| `src/model/save.ts` | `insertManyModel` now runs `beforeCreate`/`afterCreate` hooks per-item (was missing — ULID plugin never fired for `insertMany`) |
-| `src/query/index.ts` | `innerJoin`/`leftJoin` switched from `join.on(..., sql.id(...))` to `join.onRef(...)` — `sql.id()` treated `"tags.id"` as a single identifier, `onRef` properly resolves table-qualified columns |
+| `src/crypto.ts` | `normalizePassword` now exported (was private) |
+| `src/jwt.ts` | Removed `toPasswordMap` (was identical to `normalizePassword`), uses crypto.ts version |
+| `src/session.ts` | Added `sessionHasData()` utility, uses `normalizePassword` from crypto.ts |
+| `src/hono.ts` | Uses `sessionHasData()` from session.ts |
+| `src/elysia.ts` | Uses `sessionHasData()` from session.ts |
+| `src/nuxt.ts` | Uses `sessionHasData()` from session.ts |
+| `src/oauth/index.ts` | **Renamed to** `oauth/utils.ts` — was misleadingly named |
+| `src/oauth/utils.ts` | **New** — shared OAuth utilities + `jsonError()` helper + `defineOAuthHandler()` |
+| `src/oauth/github.ts` | Uses `defineOAuthHandler()` — 177→85 lines (52% reduction) |
+| `src/oauth/google.ts` | Uses `defineOAuthHandler()` — 158→61 lines (61% reduction) |
+| `tsdown.config.ts` | Removed `oauth/index.ts` from build entries (internal module) |
 
-### Catalog (`apps/catalog/`) — from previous session
+### Docs (`packages/docs/`) — 5 deepenings
 
-Already migrated in prior session. See `git log` for `39ebd7c`.
+| File | Change |
+|------|--------|
+| `src/hono/route.ts` | Added `validateOrError()` helper (5x duplicated SS validation → 1 call). Added `parseCommaSeparated()` helper (3x duplicated → 1 call) |
+| `src/spec.ts` | Removed hard import of `honoScanner`. Added `setDefaultScanner()` for injectable defaults |
+| `src/hono/index.ts` | Calls `setDefaultScanner(honoScanner)` at module init |
+| `src/spec/schema.ts` | **New** — `toOpenAPISchema`, `normalizeResponse`, `normalizeRequestBody`, etc. (extracted from spec.ts) |
+| `src/spec/builder.ts` | **New** — `buildOpenAPISpec` + helpers (extracted from spec.ts) |
+| `test/helper.ts` | **New** — shared test utilities |
+| `test/spec.test.ts` | **New** — buildOpenAPISpec + getOpenAPISpec tests (extracted from monolith) |
+| `test/scalar.test.ts` | **New** — serveScalarUI tests (extracted from monolith) |
+| `test/hono/scanner.test.ts` | **New** — honoScanner tests (extracted from monolith) |
+| `test/hono/loader.test.ts` | **New** — loadRoutes tests (extracted from monolith) |
 
 ## Key Decisions
 
-1. **Kept JWT auth** — RealWorld spec mandates `Authorization: Token <jwt>`. Only password hashing changed (`Bun.password` → `peta-auth`'s `hashPassword`/`verifyPassword`).
-2. **No soft-deletes for conduit** — RealWorld spec doesn't require them. The ORM's `applyScopes()` auto-adds `WHERE deletedAt IS NULL` when it finds nullable timestamp columns, which was causing queries to return 0 results. Fixed by making `createdAt`/`updatedAt` non-nullable (timestamps plugin always sets them).
-3. **No RBAC for conduit** — Simple auth (authenticated vs unauthenticated). No role hierarchy needed.
-4. **Kept existing tag management pattern** — Uses `ArticleTag` pivot model directly. No migration to `insertGraph`/`$related().sync()`.
+1. **Registry pattern over wireDeps** — The 8 mutable `let` variables in `model/factory.ts` were replaced with a single `ModelRuntime` registry (`model/runtime.ts`). Eliminates 8 `as any` casts and makes initialization ordering explicit. The circular dependency between factory.ts and save/delete/serialize is resolved through the registry, not mutable wiring.
+
+2. **`defineOAuthHandler()` over raw duplication** — GitHub and Google OAuth providers shared ~80% structural overlap. Extracted a callback-based base handler that accepts provider-specific behavior (buildAuthUrl, requestTokenBody, fetchUser). Each provider went from ~170 lines to ~60-85 lines.
+
+3. **`setDefaultScanner()` over hard import** — `spec.ts` no longer hard-imports `honoScanner`. Instead, `setDefaultScanner()` allows framework adapters to register themselves. `hono/index.ts` calls it at module init. Elysia support can be added without touching spec.ts.
+
+4. **`Symbol` vs `Symbol.for`** — Route metadata uses `Symbol("openapi-meta")` (local, unique), not `Symbol.for("openapi-meta")` (global). Tests that access metadata must use `getRouteMeta(handler)` exported from `hono/route.ts`, not `Reflect.get(handler, Symbol.for(...))`.
+
+5. **Test extraction caution** — The 1,784-line test monolith was partially split. The route/validation/pagination/auth/filter/include/fieldset tests remain in `index.test.ts` because they share complex helper interactions that proved fragile to extract. The spec, scalar, scanner, and loader tests were safely extracted.
 
 ## Current State
 
 ### Test Results ✅
-- **ORM: 238 tests pass**, 0 fail, 2 todo
-- **Conduit Bun tests: 35 pass**, 0 fail
+- **ORM: 292 pass**, 2 todo, 0 fail
+- **ORM integration: 54 pass**, 0 fail
+- **Auth: 75 pass**, 0 fail
+- **Docs: 134 pass**, 0 fail (94 in monolith + 40 in extracted files)
 
 ### Feature Status
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| ULID primary keys | ✅ Complete | Both catalog + conduit |
-| Plugin-based lifecycle | ✅ Complete | `timestamps()`, `ulid()`, `softDeletes()` |
-| `createORM`/`getORM` rename | ✅ Complete | `createPeta` still aliased for backward compat |
-| `createApp()` factory | ✅ Complete | Both apps with DI for testability |
-| `peta-auth` password hashing | ✅ Complete | Both apps |
-| `http.*` error helpers | ✅ Complete | Both apps |
-| RBAC hierarchy | ✅ Complete | Catalog only (admin > author > user) |
-| Conduit tests | ✅ Complete | 35 Bun tests |
-| Catalog tests | ✅ Complete | 59 Bun + 62 Hurl |
-| `insertManyModel` hooks fix | ✅ Complete | ULID plugin fires for `insertMany` |
-| `innerJoin`/`leftJoin` fix | ✅ Complete | `onRef` instead of `on` for column-to-column |
-| `peta-migrate` publishable package | ❌ Not started | From earlier handoffs |
-| `peta-orm` v1.0.0 release | ❌ Not started | Publish to npm with changelog |
-| Integration tests with real DBs | ❌ Not started | PostgreSQL, MySQL |
+| `createQueryBuilder` interface/impl split | ✅ Complete | `query/types.ts` + `query/builder.ts` |
+| `relations/graph.ts` split | ✅ Complete | 1 god file → 7 focused modules |
+| `wireDeps` elimination | ✅ Complete | Typed `ModelRuntime` registry |
+| `_morph*` typed properties | ✅ Complete | `Relation` interface declares them |
+| `normalizeError` extraction | ✅ Complete | `errors/classes.ts` + `errors/normalizer.ts` |
+| `defineModel` extraction | ✅ Complete | `model/define.ts` |
+| Auth `normalizePassword` dedup | ✅ Complete | 3 copies → 1 exported function |
+| Auth `sessionHasData` extraction | ✅ Complete | 3 copies → 1 in `session.ts` |
+| Auth `oauth/index.ts` rename | ✅ Complete | `oauth/utils.ts` |
+| Auth `jsonError` extraction | ✅ Complete | 5 inline responses → 1 helper |
+| Auth OAuth base handler | ✅ Complete | `defineOAuthHandler()` in utils.ts |
+| Docs `validateOrError` extraction | ✅ Complete | 5x duplicated → 1 helper |
+| Docs decouple spec from hono | ✅ Complete | `setDefaultScanner()` pattern |
+| Docs `parseCommaSeparated` | ✅ Complete | 3x duplicated → 1 helper |
+| Docs `spec.ts` split | ✅ Complete | 3 modules (barrel, schema.ts, builder.ts) |
+| Docs test split (partial) | ✅ Complete | 4 new files, route tests stay in monolith |
 
 ### How to run
 
 ```bash
-# Conduit tests
-cd apps/conduit && bun test
+# ORM
+cd packages/orm && bun test                              # 292 unit tests
+cd packages/orm && bun test test/integration/              # 54 integration tests
 
-# Conduit seed
-cd apps/conduit && rm -f conduit.db && bun run seed
+# Auth
+cd packages/auth && bun test                              # 75 tests
 
-# Conduit dev server
-cd apps/conduit && bun run dev
+# Docs
+cd packages/docs && bun test                              # 134 tests
 
-# Catalog tests (Bun)
-cd apps/catalog && bun test
-
-# Catalog tests (Hurl — starts server on port 4000)
-cd apps/catalog && bun run test:hurl
-
-# ORM tests
-cd packages/orm && bun test
-
-# ORM rebuild (after source changes)
+# Build all
 cd packages/orm && bun run build
-
-# Typecheck (both apps)
-cd apps/conduit && bun run typecheck
-cd apps/catalog && bun run typecheck
+cd packages/auth && bun run build
+cd packages/docs && bun run build
 ```
-
-## ORM Bugs Found & Fixed
-
-1. **`insertManyModel` didn't run lifecycle hooks** — When models used `.use(ulid())`, calling `Tag.insertMany([...])` would store NULL IDs because `beforeCreate` never fired. Fixed by creating instances, running `beforeCreate`, extracting data, inserting via Kysely, then running `afterCreate`.
-
-2. **`innerJoin`/`leftJoin` used `join.on()` instead of `join.onRef()`** — The callback form `join.on(lhs, "=", rhs)` treated `rhs` as a parameterized value (string literal), not a column reference. Switching to `join.onRef(lhs, "=", rhs)` correctly generates column-to-column comparisons.
-
-3. **`applyScopes()` false-positive soft-delete filter** — The condition `Object.values(cols).some(c => c.dataType === "timestamp" && c.isNullable)` added `WHERE deletedAt IS NULL` for any model with nullable timestamps (even without a `deletedAt` column). Fixed by making timestamps non-nullable in conduit (they're always set by the plugin).
-
-## Next Steps / Pending
-
-- [ ] **`peta-migrate` as publishable package** — CI, README, proper versioning
-- [ ] **peta-orm v1.0.0 release** — Publish to npm with changelog
-- [ ] **Integration tests with real databases** — PostgreSQL, MySQL
-- [ ] **Production hardening** — Env var validation on startup (no fallback secrets in prod), CORS origin config, rate limiting, health endpoint
-
-## Important Context
 
 ### Architecture
+
 ```
 packages/
-├── peta-orm/          # ORM with ULID, timestamps, soft-deletes plugins
-│   ├── src/plugins/   # ulid.ts, timestamps.ts, soft-deletes.ts
-│   ├── src/relations/ # has-many.ts, many-to-many.ts (lazy thunks)
-│   └── test/          # 238 tests
-├── peta-auth/         # hashPassword/verifyPassword, signJWT/verifyJWT, sessions
-└── peta-docs/         # route() helper with response validation
-
-apps/
-├── catalog/           # Session-cookie auth, RBAC, ULID — 59 Bun + 62 Hurl tests
-└── conduit/           # JWT token auth (RealWorld spec), ULID — 35 Bun tests
+├── orm/
+│   ├── src/errors.ts                       → barrel
+│   ├── src/errors/classes.ts               → error classes
+│   ├── src/errors/normalizer.ts            → normalizeError (dialect codes)
+│   ├── src/model/define.ts                 → defineModel() factory
+│   ├── src/model/index.ts                  → pure barrel
+│   ├── src/model/runtime.ts                → ModelRuntime registry
+│   ├── src/query/types.ts                  → QueryBuilder interface
+│   ├── src/query/builder.ts                → createQueryBuilder implementation
+│   ├── src/query/index.ts                  → barrel
+│   └── src/relations/graph/               → 7 focused modules
+│       ├── types.ts, security.ts, morph.ts, parser.ts
+│       ├── insert.ts, upsert.ts, index.ts
+├── auth/
+│   ├── src/oauth/utils.ts                  → shared OAuth logic + defineOAuthHandler
+│   ├── src/oauth/github.ts                 → thin wrapper (85 lines)
+│   └── src/oauth/google.ts                 → thin wrapper (61 lines)
+└── docs/
+    ├── src/spec/schema.ts                  → schema conversion
+    ├── src/spec/builder.ts                 → spec builder
+    └── test/hono/                          → scanner.test.ts + loader.test.ts
 ```
 
 ### Gotchas
 
-- **ORM soft-delete auto-filtering** — The ORM automatically adds `WHERE deletedAt IS NULL` to queries if the model has ANY nullable timestamp column. To avoid this, ensure timestamps are non-nullable or add an explicit `deletedAt` column with `.use(softDeletes())`.
-- **Kysely `join.on()` vs `join.onRef()`** — In the callback form of Kysely joins, `join.on(lhs, '=', rhs)` treats `rhs` as a value (parameterized). Use `join.onRef(lhs, '=', rhs)` for column-to-column comparisons. The ORM's `innerJoin`/`leftJoin` now uses `onRef`.
-- **JWT auth in RealWorld spec** — The conduit API uses Token-based auth (`Authorization: Token <jwt>` header), not session cookies. The JWT payload now carries string user IDs.
-- **`insertMany` and hooks** — Models using plugins (like `ulid()`) must go through `insertManyModel` which now properly triggers `beforeCreate`/`afterCreate` hooks per item.
-- **`peta-auth` dist is stale** — The dist version uses bcrypt (from bcryptjs), but the source code uses `@node-rs/argon2`. The dist works correctly with bcrypt, but if the source is changed, rebuild with `bun run build` in `packages/auth/`.
-- **ArkType `"string?"` vs `"string | null"`** — `"string?"` means `string | undefined`, but JSON serialization uses `null`. Response schemas with nullable DB columns must use `"string | null"`, not `"string?"`. Request body schemas for optional fields should use `"string?"`.
-- **Soft-deletes filter by default** — After `model.$delete()`, the record is soft-deleted and excluded from normal queries. `find()` returns `null`. Use `.withTrashed()` to include soft-deleted records.
+- **`createQueryBuilder` second parameter** — Typed as `peta?: any` (the ORM instance). Do NOT pass a callback as the second arg — it will be silently dropped. Always call methods on the returned builder directly (e.g., `qb.where(...)`).
+- **Route metadata symbol** — `Symbol("openapi-meta")` is a local symbol, not `Symbol.for`. Use `getRouteMeta(handler)` from `hono/route.ts` to read it.
+- **`RouteBuilder.tags()` is variadic** — `.tags("pets")` works, `.tags(["pets"])` wraps in another array. Use `.tags(...items)` with spread or pass individual strings.
+- **`defineOAuthHandler` type params** — The `TTokens` and `TUser` generics need explicit annotation at the call site: `defineOAuthHandler<GitHubTokens, GitHubUser>(githubProvider, options)`.
+- **Default scanner registration** — `hono/index.ts` calls `setDefaultScanner(honoScanner)` at module init. Importing `peta-docs` alone no longer registers it — must also import `peta-docs/hono`.
+- **`async` test imports** — `getOpenAPISpec` is synchronous (uses pre-registered scanner). No `await` needed at call sites.
 
-(End of file)
+## Next Steps / Pending
+
+- [ ] **Elysia OAuth adapter** — The `src/elysia/index.ts` file is still a stub (`export {}`). The `defineOAuthHandler` base handler makes this straightforward.
+- [ ] **OAuth callback flow tests** — `github.test.ts` and `google.test.ts` only test redirect and error paths. The actual token exchange + user fetch callback is untested.
+- [ ] **`packages/orm` peer dep `typescript: ^6.0.0`** — Too restrictive for most users. Consider widening to `^5.0.0 || ^6.0.0`.
+- [ ] **`packages/orm` `any` type erosion** — 250+ `any` occurrences remain across the ORM (down from ~300). The most impactful remaining targets are `model/index.ts` (~44 `this as any`) and `relations/graph.ts` (now split — remaining casts are in insert.ts/upsert.ts).

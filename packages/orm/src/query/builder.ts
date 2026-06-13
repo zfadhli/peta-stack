@@ -1,20 +1,40 @@
 import { sql as kyselySql } from "kysely"
 import { ModelNotFoundError, RelationNotAllowedError, RelationNotFoundError } from "../errors.js"
 import type { ModelDefinition, ModelInstance } from "../model/types.js"
+import type { Column } from "../columns/column.js"
 import { type EagerLoad, EagerLoader } from "../relations/eager.js"
 import type { InsertGraphOptions, UpsertGraphOptions } from "../relations/graph/index.js"
 import { isRelationAllowed } from "../relations/graph/index.js"
 import type { QueryBuilder } from "./types.js"
 
 // Helper to create raw SQL expressions compatible with Kysely 0.27
-function rawSql(str: string): any {
-  return kyselySql(str)
+function rawSql(str: string): ReturnType<typeof kyselySql> {
+  return kyselySql([str] as unknown as TemplateStringsArray)
 }
+
+/** Minimal Kysely ExpressionBuilder interface for aggregate selections. */
+interface AggregateEB {
+  fn: {
+    countAll(): { as(alias: string): Record<string, unknown> }
+    sum(column: string): { as(alias: string): Record<string, unknown> }
+    avg(column: string): { as(alias: string): Record<string, unknown> }
+    min(column: string): { as(alias: string): Record<string, unknown> }
+    max(column: string): { as(alias: string): Record<string, unknown> }
+  }
+}
+
+/** Minimal Kysely JoinBuilder interface. */
+interface JoinBuilder {
+  onRef(lhs: string, op: string, rhs: string): void
+}
+
+/** Shape of rows returned before bulk delete — we only need `any[]` semantics. */
+type DeletedRows = ModelInstance[]
 
 const SAFE_COLUMN = /^[a-zA-Z_*][a-zA-Z0-9_.*]*$/
 
 // ─── CREATE QUERY BUILDER ────────────────────────────────
-export function createQueryBuilder(def: ModelDefinition, peta?: any): QueryBuilder {
+export function createQueryBuilder(def: ModelDefinition, peta?: { kysely: import("../lib/kysely.js").Database }): QueryBuilder {
   const db: any = peta?.kysely ?? def._orm?.kysely
   if (!db) throw new Error("Model not registered with an ORM instance")
 
@@ -54,9 +74,9 @@ export function createQueryBuilder(def: ModelDefinition, peta?: any): QueryBuild
         if (!omitScopes.has(name)) fn(self)
       }
     }
-    const cols = def.columns as Record<string, unknown>
+    const cols = def.columns as Record<string, Column>
     const hasDeletedColumn =
-      "deletedAt" in cols || Object.values(cols).some((c: any) => c?.dataType === "timestamp" && c?.isNullable)
+      "deletedAt" in cols || Object.values(cols).some((c) => c.dataType === "timestamp" && c.isNullable)
     if (hasDeletedColumn) {
       if (onlyTrashedMode) {
         qb = qb.where("deletedAt", "is not", null)
@@ -82,7 +102,8 @@ export function createQueryBuilder(def: ModelDefinition, peta?: any): QueryBuild
     let currentQb = queryBuilder
     for (let i = 0; i < aggregateColumns.length; i++) {
       // Kysely 0.27: `select` is additive when called multiple times
-      currentQb = currentQb.select(kyselySql(aggregateColumns[i]))
+      const col = aggregateColumns[i]
+      if (col) currentQb = currentQb.select(kyselySql([col] as unknown as TemplateStringsArray))
     }
 
     const rows = (await currentQb.execute()) as Record<string, unknown>[]
@@ -91,7 +112,7 @@ export function createQueryBuilder(def: ModelDefinition, peta?: any): QueryBuild
     // Apply computed columns
     if (models.length > 0) {
       const { getComputedConfig, applyComputedColumnsAsync } = await import("../model/computed.js")
-      const computedConfig = getComputedConfig(def as any)
+      const computedConfig = getComputedConfig(def)
       if (computedConfig) {
         await applyComputedColumnsAsync(models, computedConfig, selectedColumns)
       }
@@ -159,32 +180,32 @@ export function createQueryBuilder(def: ModelDefinition, peta?: any): QueryBuild
     // ─── Aggregates ───────────────────────────────────────
     async count() {
       applyScopes()
-      const result = await qb.select((eb: any) => eb.fn.countAll().as("count")).executeTakeFirst()
-      return Number((result as any)?.count ?? 0)
+      const result = await qb.select((eb: AggregateEB) => eb.fn.countAll().as("count")).executeTakeFirst()
+      return Number((result as { count: number })?.count ?? 0)
     },
 
     async sum(column: string) {
       applyScopes()
-      const result = await qb.select((eb: any) => eb.fn.sum(validateColumn(column)).as("sum")).executeTakeFirst()
-      return Number((result as any)?.sum ?? 0)
+      const result = await qb.select((eb: AggregateEB) => eb.fn.sum(validateColumn(column)).as("sum")).executeTakeFirst()
+      return Number((result as { sum: number })?.sum ?? 0)
     },
 
     async avg(column: string) {
       applyScopes()
-      const result = await qb.select((eb: any) => eb.fn.avg(validateColumn(column)).as("avg")).executeTakeFirst()
-      return Number((result as any)?.avg ?? 0)
+      const result = await qb.select((eb: AggregateEB) => eb.fn.avg(validateColumn(column)).as("avg")).executeTakeFirst()
+      return Number((result as { avg: number })?.avg ?? 0)
     },
 
     async min(column: string) {
       applyScopes()
-      const result = await qb.select((eb: any) => eb.fn.min(validateColumn(column)).as("min")).executeTakeFirst()
-      return Number((result as any)?.min ?? 0)
+      const result = await qb.select((eb: AggregateEB) => eb.fn.min(validateColumn(column)).as("min")).executeTakeFirst()
+      return Number((result as { min: number })?.min ?? 0)
     },
 
     async max(column: string) {
       applyScopes()
-      const result = await qb.select((eb: any) => eb.fn.max(validateColumn(column)).as("max")).executeTakeFirst()
-      return Number((result as any)?.max ?? 0)
+      const result = await qb.select((eb: AggregateEB) => eb.fn.max(validateColumn(column)).as("max")).executeTakeFirst()
+      return Number((result as { max: number })?.max ?? 0)
     },
 
     // ─── Aggregate subqueries (withCount, etc.) ─────────────
@@ -279,7 +300,7 @@ export function createQueryBuilder(def: ModelDefinition, peta?: any): QueryBuild
       let hasMore = true
 
       while (hasMore) {
-        const items = await (self as any).limit(size).offset(offset).execute()
+        const items = await self.limit(size).offset(offset).execute()
         if (items.length === 0) {
           hasMore = false
         } else {
@@ -297,11 +318,11 @@ export function createQueryBuilder(def: ModelDefinition, peta?: any): QueryBuild
       applyScopes()
 
       // Count total
-      const countResult = await qb.select((eb: any) => eb.fn.countAll().as("total")).executeTakeFirst()
-      const total = Number((countResult as any)?.total ?? 0)
+      const countResult = await qb.select((eb: AggregateEB) => eb.fn.countAll().as("total")).executeTakeFirst()
+      const total = Number((countResult as { total: number })?.total ?? 0)
 
       // Fetch page
-      const items = await (self as any)
+      const items = await self
         .limit(safePerPage)
         .offset((safePage - 1) * safePerPage)
         .execute()
@@ -349,7 +370,7 @@ export function createQueryBuilder(def: ModelDefinition, peta?: any): QueryBuild
     },
 
     // ─── Graph operations ──────────────────────────────────
-    async insertGraph(data: any, options?: any): Promise<any> {
+    async insertGraph(data: Record<string, unknown> | Record<string, unknown>[], options?: InsertGraphOptions): Promise<any> {
       const { insertGraph: doInsertGraph } = await import("../relations/graph/index.js")
       return doInsertGraph(def, data, {
         ...options,
@@ -357,7 +378,7 @@ export function createQueryBuilder(def: ModelDefinition, peta?: any): QueryBuild
       })
     },
 
-    async upsertGraph(data: any, options?: any): Promise<any> {
+    async upsertGraph(data: Record<string, unknown> | Record<string, unknown>[], options?: UpsertGraphOptions): Promise<any> {
       const { upsertGraph: doUpsertGraph } = await import("../relations/graph/index.js")
       return doUpsertGraph(def, data, {
         ...options,
@@ -372,8 +393,8 @@ export function createQueryBuilder(def: ModelDefinition, peta?: any): QueryBuild
 
       // Check for static beforeUpdate hooks
       const { hasStaticHooks, getStaticHooks } = await import("../hooks/static.js")
-      if (hasStaticHooks(def as any, "beforeUpdate")) {
-        const hooks = getStaticHooks(def as any, "beforeUpdate")
+      if (hasStaticHooks(def, "beforeUpdate")) {
+        const hooks = getStaticHooks(def, "beforeUpdate")
         let cancelled = false
         let cancelResult: unknown
 
@@ -419,11 +440,11 @@ export function createQueryBuilder(def: ModelDefinition, peta?: any): QueryBuild
       const { hasStaticHooks, getStaticHooks } = await import("../hooks/static.js")
 
       // Handle beforeDelete and afterDelete hooks
-      const hasBefore = hasStaticHooks(def as any, "beforeDelete")
-      const hasAfter = hasStaticHooks(def as any, "afterDelete")
+      const hasBefore = hasStaticHooks(def, "beforeDelete")
+      const hasAfter = hasStaticHooks(def, "afterDelete")
 
       if (hasBefore) {
-        const hooks = getStaticHooks(def as any, "beforeDelete")
+        const hooks = getStaticHooks(def, "beforeDelete")
         let cancelled = false
         let cancelResult: unknown
 
@@ -444,7 +465,7 @@ export function createQueryBuilder(def: ModelDefinition, peta?: any): QueryBuild
       }
 
       // For afterDelete hooks, capture the rows BEFORE deleting
-      let deletedRows: any[] = []
+      let deletedRows: DeletedRows = []
       if (hasAfter) {
         const previewQb = createQueryBuilder(def)
         for (const op of whereOps) op(previewQb)
@@ -468,7 +489,7 @@ export function createQueryBuilder(def: ModelDefinition, peta?: any): QueryBuild
 
       // Run afterDelete hooks with captured rows
       if (hasAfter && deletedRows.length > 0) {
-        const hooks = getStaticHooks(def as any, "afterDelete")
+        const hooks = getStaticHooks(def, "afterDelete")
         const afterAsFindQuery = () => {
           const selectQb = createQueryBuilder(def)
           for (const op of whereOps) op(selectQb)
@@ -612,12 +633,12 @@ export function createQueryBuilder(def: ModelDefinition, peta?: any): QueryBuild
 
     // ─── Joins ──────────────────────────────────────────────
     innerJoin(table: string, lhs: string, rhs: string): QueryBuilder {
-      qb = qb.innerJoin(table, (join: any) => join.onRef(lhs, "=", rhs))
+      qb = qb.innerJoin(table, (join: JoinBuilder) => join.onRef(lhs, "=", rhs))
       return self
     },
 
     leftJoin(table: string, lhs: string, rhs: string): QueryBuilder {
-      qb = qb.leftJoin(table, (join: any) => join.onRef(lhs, "=", rhs))
+      qb = qb.leftJoin(table, (join: JoinBuilder) => join.onRef(lhs, "=", rhs))
       return self
     },
 

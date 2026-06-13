@@ -1,5 +1,6 @@
 import type { ModelDefinition, ModelInstance } from "../model/types.js"
 import { createQueryBuilder } from "../query/index.js"
+import type { QueryBuilder } from "../query/index.js"
 import type { Relation } from "./base.js"
 
 // ─── OPTIONS TYPES ─────────────────────────────────────────────
@@ -120,9 +121,9 @@ export function defineMorphTo(options: MorphToOptions): Relation {
   const firstEntry = Object.entries(morphMap)[0]
   const defaultRelated = firstEntry ? resolveThunk(firstEntry[1]) : null
 
-  return {
-    type: "belongsTo" as any,
-    relatedModelClass: defaultRelated as any,
+  const morphToRelation: Relation = {
+    type: "belongsTo",
+    relatedModelClass: defaultRelated ?? (null as unknown as ModelDefinition),
     foreignKey: morphId,
     localKey: "id",
     get throughTable() {
@@ -173,7 +174,7 @@ export function defineMorphTo(options: MorphToOptions): Relation {
       return relatedDef.query().where("id", "=", id)
     },
 
-    addEagerConstraints(_query: any, _models: ModelInstance[]): void {
+    addEagerConstraints(_query: QueryBuilder, _models: ModelInstance[]): void {
       // No-op: eager loading for morphTo is handled entirely in loadEager,
       // which groups by type and issues per-type queries
     },
@@ -184,13 +185,13 @@ export function defineMorphTo(options: MorphToOptions): Relation {
 
     async getResults(parent: ModelInstance): Promise<ModelInstance | null> {
       const qb = this.query(parent)
-      return qb.executeTakeFirst()
+      return (await qb.executeTakeFirst()) ?? null
     },
 
     async loadEager(
       models: ModelInstance[],
       relationName: string,
-      constraints?: ((qb: any) => void) | null,
+      constraints?: ((qb: QueryBuilder) => void) | null,
     ): Promise<void> {
       if (models.length === 0) return
 
@@ -251,6 +252,7 @@ export function defineMorphTo(options: MorphToOptions): Relation {
       }
     },
   }
+  return morphToRelation
 }
 
 // ─── DEFINE MORPH MANY (polymorphic hasMany) ──────────────────
@@ -265,8 +267,8 @@ export function defineMorphMany(options: MorphManyOptions): Relation {
   const morphId = options.id ?? `${options.name}Id`
   const typeValue = options.typeValue ?? related.table
 
-  return {
-    type: "hasMany" as any,
+  const morphManyRelation: Relation = {
+    type: "hasMany",
     relatedModelClass: related,
     foreignKey: morphId,
     localKey: "id",
@@ -298,7 +300,7 @@ export function defineMorphMany(options: MorphManyOptions): Relation {
       return qb
     },
 
-    addEagerConstraints(query: any, models: ModelInstance[]): void {
+    addEagerConstraints(query: QueryBuilder, models: ModelInstance[]): void {
       const ids = models.map((m) => m.get("id")).filter((id) => id != null)
       if (ids.length > 0) {
         query.whereIn(morphId, ids)
@@ -321,7 +323,7 @@ export function defineMorphMany(options: MorphManyOptions): Relation {
     async loadEager(
       models: ModelInstance[],
       relationName: string,
-      constraints?: ((qb: any) => void) | null,
+      constraints?: ((qb: QueryBuilder) => void) | null,
     ): Promise<void> {
       if (models.length === 0) return
       const qb = createQueryBuilder(related)
@@ -331,6 +333,7 @@ export function defineMorphMany(options: MorphManyOptions): Relation {
       this.match(models, results, relationName)
     },
   }
+  return morphManyRelation
 }
 
 // ─── DEFINE MORPH ONE (polymorphic hasOne) ────────────────────
@@ -340,9 +343,9 @@ export function defineMorphMany(options: MorphManyOptions): Relation {
  */
 export function defineMorphOne(options: MorphOneOptions): Relation {
   const base = defineMorphMany(options as MorphManyOptions)
-  return {
+  const morphOneRelation: Relation = {
     ...base,
-    type: "hasOne" as any,
+    type: "hasOne",
 
     async getResults(parent: ModelInstance): Promise<ModelInstance | null> {
       const results = await base.getResults(parent)
@@ -358,11 +361,12 @@ export function defineMorphOne(options: MorphOneOptions): Relation {
       }
     },
   }
+  return morphOneRelation
 }
 
 // ─── INTERNAL HELPERS ──────────────────────────────────────────
 
 function defName(instance: ModelInstance): string {
   // ModelInstance is a plain object, not a class — use a best-effort identifier
-  return (instance as any).constructor?.name ?? "model"
+  return (instance as { constructor?: { name?: string } }).constructor?.name ?? "model"
 }

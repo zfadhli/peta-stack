@@ -42,3 +42,16 @@ export interface GraphContext {
   allowRefs: boolean
   allowedGraphSet: Set<string> | undefined
 }
+
+/**
+ * The different shapes a relation operation can take in graph-style inserts/upserts:
+ * - An array of records (hasMany style)
+ * - A single record (hasOne style)
+ * - An operation object with `create` / `connect` / `update` / `delete` keys
+ */
+export interface RelationOperationShape {
+  create?: Record<string, unknown> | Record<string, unknown>[]
+  connect?: (number | string | Record<string, unknown>)[]
+  update?: Record<string, unknown> | { where: Record<string, unknown>; data: Record<string, unknown> }
+  delete?: Record<string, unknown>[]
+}

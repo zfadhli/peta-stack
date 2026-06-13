@@ -39,9 +39,9 @@ export function createRepo<TMethods extends RepoMethods>(model: ModelDefinition,
    * Custom methods operate on the CURRENT QB (not a fresh one), so
    * chaining carries forward previous conditions.
    */
-  function wrapQB(qb: QueryBuilder): any {
+  function wrapQB(qb: QueryBuilder): QueryBuilder {
     return new Proxy(qb, {
-      get(target: any, prop: string | symbol) {
+      get(target: QueryBuilder, prop: string | symbol) {
         if (typeof prop === "string") {
           if (customMethods.has(prop)) {
             const fn = customMethods.get(prop)!
@@ -51,12 +51,12 @@ export function createRepo<TMethods extends RepoMethods>(model: ModelDefinition,
             }
           }
           if (methods.methods?.[prop]) {
-            return (...args: any[]) => (methods.methods![prop] as Function)(...args)
+            return (...args: any[]) => (methods.methods![prop] as (...args: unknown[]) => unknown)(...args)
           }
         }
-        const val = target[prop]
+        const val = (target as unknown as Record<string, unknown>)[prop as string]
         if (typeof val === "function") {
-          return function (this: any, ...args: any[]) {
+          return function (this: QueryBuilder, ...args: any[]) {
             const result = val.apply(target, args)
             return result === target ? wrapQB(result) : result
           }
@@ -67,8 +67,8 @@ export function createRepo<TMethods extends RepoMethods>(model: ModelDefinition,
   }
 
   // The repo itself — each property access creates a fresh chain
-  const repoProxy = new Proxy({} as any, {
-    get(_target: any, prop: string | symbol) {
+  const repoProxy = new Proxy({} as Record<string, never>, {
+    get(_target: Record<string, never>, prop: string | symbol) {
       if (typeof prop === "string") {
         if (customMethods.has(prop)) {
           const fn = customMethods.get(prop)!
@@ -79,12 +79,12 @@ export function createRepo<TMethods extends RepoMethods>(model: ModelDefinition,
           }
         }
         if (methods.methods?.[prop]) {
-          return (...args: any[]) => (methods.methods![prop] as Function)(...args)
+          return (...args: any[]) => (methods.methods![prop] as (...args: unknown[]) => unknown)(...args)
         }
       }
       // Fall through: return a wrapped fresh QB so standard QB methods work
       const qb = model.query()
-      const val = (qb as any)[prop]
+      const val = (qb as unknown as Record<string, unknown>)[prop as string]
       if (typeof val === "function") {
         return (...args: any[]) => {
           const result = val.apply(qb, args)

@@ -61,6 +61,11 @@ export function getComputedConfig(def: ModelDefinition): ComputedConfig | undefi
  * Apply computed columns to a set of loaded records.
  * Handles SQL, runtime, and batch computed columns.
  */
+/** Resolve a ComputedConfig entry (lazy function or plain object). */
+function resolveComputedColumn(entry: ComputedColumn | (() => ComputedColumn)): ComputedColumn {
+  return typeof entry === "function" ? entry() : entry
+}
+
 export function applyComputedColumns(
   records: ModelInstance[],
   computedConfig: ComputedConfig,
@@ -74,7 +79,7 @@ export function applyComputedColumns(
   const relevant = Object.entries(computedConfig).filter(([name]) => names.includes(name) || !selectedColumns)
 
   // Run batch computes first
-  const batchDefs = relevant.filter(([, c]) => c.type === "batch") as [string, ComputedColumn][]
+  const batchDefs = relevant.filter(([, c]) => resolveComputedColumn(c).type === "batch") as [string, ComputedColumn][]
   for (const [_name, col] of batchDefs) {
     if (col.batchCompute) {
       // Run synchronously — caller must await if we return promise
@@ -84,7 +89,8 @@ export function applyComputedColumns(
 
   // Run per-record computes
   for (const record of records) {
-    for (const [name, col] of relevant) {
+    for (const [name, c] of relevant) {
+      const col = resolveComputedColumn(c)
       if (col.type === "runtime" && col.compute) {
         ;(record as any).attributes[name] = col.compute(record)
       }
@@ -106,19 +112,20 @@ export async function applyComputedColumnsAsync(
   const relevant = Object.entries(computedConfig).filter(([name]) => !selectedColumns || selectedColumns.includes(name))
 
   // Process batch computed columns
-  const batchDefs = relevant.filter(([, c]) => c.type === "batch") as [string, ComputedColumn][]
+  const batchDefs = relevant.filter(([, c]) => resolveComputedColumn(c).type === "batch") as [string, ComputedColumn][]
   for (const [name, col] of batchDefs) {
     if (col.batchCompute) {
       const values = await col.batchCompute(records)
       for (let i = 0; i < records.length && i < values.length; i++) {
-        records[i].set(name, values[i])
+        records[i]!.set(name, values[i])
       }
     }
   }
 
   // Process runtime computed columns (per-record)
   for (const record of records) {
-    for (const [name, col] of relevant) {
+    for (const [name, c] of relevant) {
+      const col = resolveComputedColumn(c)
       if (col.type === "runtime" && col.compute) {
         record.set(name, col.compute(record))
       }

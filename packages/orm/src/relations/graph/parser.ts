@@ -33,7 +33,8 @@ export async function findRelated(
   def: ModelDefinition,
   conditions: Record<string, unknown>,
 ): Promise<ModelInstance | undefined> {
-  return def.query().where(Object.keys(conditions)[0], "=", Object.values(conditions)[0]).executeTakeFirst()
+  const key = Object.keys(conditions)[0]!
+  return def.query().where(key, "=", conditions[key]).executeTakeFirst()
 }
 
 export async function resolveTargetId(

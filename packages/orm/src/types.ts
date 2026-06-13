@@ -1,7 +1,6 @@
 export type ModelId = number & { readonly __brand: "ModelId" }
 
 export interface ModelLike {
-  instanceId: number
   get<T = unknown>(key: string): T
   set(key: string, value: unknown): void
 }
@@ -11,7 +10,7 @@ import type { ColumnShape } from "./columns/column.js"
 export interface ORMLike {
   readonly kysely: import("./lib/kysely.js").Database
   register(model: ModelDefinition<any>): void
-  registerAll(...models: ModelDefinition<any>[]): void
+  registerAll(...models: (ModelDefinition<any> | ModelDefinition<any>[])[]): void
   destroy(): Promise<void>
   transaction<T>(fn: (trx: import("kysely").Kysely<Record<string, never>>) => Promise<T>): Promise<T>
   readonly models: ReadonlyMap<string, ModelDefinition<any>>

@@ -240,7 +240,8 @@ export function createCollection(items?: ModelInstance[]): Collection {
       const { EagerLoader } = await import("../relations/eager.js")
       const { getModelDefFromInstance } = await import("../model/factory.js")
       const { getModelDef } = await import("../model/relation.js")
-      const def = getModelDefFromInstance(data[0]) ?? getModelDef(data[0])
+      const first = data[0]!
+      const def = getModelDefFromInstance(first) ?? getModelDef(first)
       if (def) {
         const loader = new EagerLoader()
         for (const rel of relations) {

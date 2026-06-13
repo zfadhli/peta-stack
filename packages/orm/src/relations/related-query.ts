@@ -1,8 +1,10 @@
 import { sql } from "kysely"
 import { RelationNotFoundError } from "../errors.js"
 import type { ModelDefinition, ModelInstance } from "../model/types.js"
+import type { Column } from "../columns/column.js"
 import type { QueryBuilder } from "../query/index.js"
 import { createQueryBuilder } from "../query/index.js"
+import type { Database } from "../lib/kysely.js"
 
 export interface RelationQuery extends QueryBuilder {
   /** Attach related model(s) for many-to-many relations. */
@@ -50,7 +52,7 @@ export function createRelationQuery(
     const pkValue = instance.get(relation.localKey)
     if (pkValue != null && relation.throughTable && relation.foreignPivotKey && relation.relatedPivotKey) {
       const relatedPk =
-        Object.keys(relatedDef.columns).find((k) => (relatedDef.columns as any)[k]?.isPrimaryKey) ?? "id"
+        Object.keys(relatedDef.columns).find((k) => (relatedDef.columns as Record<string, Column>)[k]?.isPrimaryKey) ?? "id"
       const t = relation.throughTable
       const rpk = relation.relatedPivotKey
       const fpk = relation.foreignPivotKey
@@ -78,8 +80,9 @@ export function createRelationQuery(
   // Delegate all QueryBuilder methods to the underlying qb
   for (const key of Object.keys(qb) as (keyof QueryBuilder)[]) {
     if (typeof qb[key] === "function") {
-      ;(rqb as any)[key] = (...args: any[]) => {
-        const result = (qb as any)[key](...args)
+      const fn = qb[key] as Function
+      ;(rqb as unknown as Record<string, unknown>)[key] = (...args: unknown[]) => {
+        const result = fn.apply(qb, args)
         // If it returns a QueryBuilder, return the RelationQuery wrapper
         return result === qb ? rqb : result
       }
@@ -87,14 +90,15 @@ export function createRelationQuery(
   }
 
   // ─── Many-to-many pivot methods ──────────────────────────
+  const pivotRelation = relation
   function getPivotInfo(): { throughTable: string; foreignPivotKey: string; relatedPivotKey: string } {
-    if (relation.type !== "manyToMany" || !relation.throughTable) {
-      throw new Error(`attach/detach/sync are only available on manyToMany relations, got "${relation.type}"`)
+    if (pivotRelation.type !== "manyToMany" || !pivotRelation.throughTable) {
+      throw new Error(`attach/detach/sync are only available on manyToMany relations, got "${pivotRelation.type}"`)
     }
     return {
-      throughTable: relation.throughTable,
-      foreignPivotKey: relation.foreignPivotKey ?? "",
-      relatedPivotKey: relation.relatedPivotKey ?? "",
+      throughTable: pivotRelation.throughTable,
+      foreignPivotKey: pivotRelation.foreignPivotKey ?? "",
+      relatedPivotKey: pivotRelation.relatedPivotKey ?? "",
     }
   }
 
@@ -104,8 +108,9 @@ export function createRelationQuery(
     if (pkValue == null) return
 
     const idsArr = Array.isArray(ids) ? ids : [ids]
-    const db: any = relatedDef._orm?.kysely
-    if (!db) throw new Error("Model not registered")
+    const _db = relatedDef._orm?.kysely
+    if (!_db) throw new Error("Model not registered")
+    const qdb = _db as any
 
     for (const id of idsArr) {
       const row: Record<string, unknown> = {
@@ -114,15 +119,16 @@ export function createRelationQuery(
         ...pivotData,
       }
       try {
-        await db.insertInto(throughTable).values(row).execute()
-      } catch (e: any) {
+        await qdb.insertInto(throughTable).values(row).execute()
+      } catch (e: unknown) {
         // Skip if already attached (unique constraint) — dialect-agnostic
+        const err = e as { code?: string; errno?: number }
         const isDuplicate =
-          e?.code === "SQLITE_CONSTRAINT_UNIQUE" ||
-          e?.code === "SQLITE_CONSTRAINT" ||
-          e?.code === "23505" ||        // PostgreSQL
-          e?.code === "ER_DUP_ENTRY" || // MySQL
-          e?.errno === 1062             // MySQL (numeric)
+          err.code === "SQLITE_CONSTRAINT_UNIQUE" ||
+          err.code === "SQLITE_CONSTRAINT" ||
+          err.code === "23505" ||        // PostgreSQL
+          err.code === "ER_DUP_ENTRY" || // MySQL
+          err.errno === 1062             // MySQL (numeric)
         if (!isDuplicate) throw e
       }
     }
@@ -133,10 +139,11 @@ export function createRelationQuery(
     const pkValue = instance.get(relation.localKey)
     if (pkValue == null) return
 
-    const db: any = relatedDef._orm?.kysely
-    if (!db) throw new Error("Model not registered")
+    const _db = relatedDef._orm?.kysely
+    if (!_db) throw new Error("Model not registered")
+    const qdb = _db as any
 
-    let query: any = db.deleteFrom(throughTable).where(foreignPivotKey, "=", pkValue)
+    let query: any = qdb.deleteFrom(throughTable).where(foreignPivotKey, "=", pkValue)
     if (ids !== undefined) {
       const idsArr = Array.isArray(ids) ? ids : [ids]
       query = query.where(relatedPivotKey, "in", idsArr)
@@ -149,31 +156,32 @@ export function createRelationQuery(
     const pkValue = instance.get(relation.localKey)
     if (pkValue == null) return
 
-    const db: any = relatedDef._orm?.kysely
-    if (!db) throw new Error("Model not registered")
+    const _db = relatedDef._orm?.kysely
+    if (!_db) throw new Error("Model not registered")
+    const qdb = _db as any
 
     const desiredIds = Array.isArray(ids) ? ids : Object.keys(ids).map(Number)
 
     // Get current IDs
-    const currentRows = await db
+    const currentRows = await qdb
       .selectFrom(throughTable)
       .select(relatedPivotKey)
       .where(foreignPivotKey, "=", pkValue)
       .execute()
 
-    const currentIds = new Set(currentRows.map((r: any) => r[relatedPivotKey]))
+    const currentIds = new Set<unknown>(currentRows.map((r: Record<string, unknown>) => r[relatedPivotKey]))
 
     // IDs to attach (in desired but not current)
     const toAttach = desiredIds.filter((id) => !currentIds.has(id))
     // IDs to detach (in current but not desired)
-    const toDetach = [...currentIds].filter((id) => !desiredIds.includes(id as any))
+    const toDetach = [...currentIds].filter((id): id is string | number => (typeof id === "string" || typeof id === "number") && !desiredIds.includes(id))
 
     // Run operations
     const ops: Promise<any>[] = []
 
     if (toDetach.length > 0) {
       ops.push(
-        db
+        qdb
           .deleteFrom(throughTable)
           .where(foreignPivotKey, "=", pkValue)
           .where(relatedPivotKey, "in", toDetach)
@@ -191,7 +199,7 @@ export function createRelationQuery(
         const entry = (ids as Record<string, Record<string, unknown>>)[String(id)]
         if (entry) Object.assign(pivotRow, entry)
       }
-      ops.push(db.insertInto(throughTable).values(pivotRow).execute())
+      ops.push(qdb.insertInto(throughTable).values(pivotRow).execute())
     }
 
     await Promise.all(ops)
@@ -202,8 +210,9 @@ export function createRelationQuery(
     const pkValue = instance.get(relation.localKey)
     if (pkValue == null) return
 
-    const db: any = relatedDef._orm?.kysely
-    if (!db) throw new Error("Model not registered")
+    const _db = relatedDef._orm?.kysely
+    if (!_db) throw new Error("Model not registered")
+    const qdb = _db as any
 
     const idsArr = Array.isArray(ids) ? ids : [ids]
 
@@ -213,15 +222,16 @@ export function createRelationQuery(
         [relatedPivotKey]: id,
       }
       try {
-        await db.insertInto(throughTable).values(row).execute()
-      } catch (e: any) {
+        await qdb.insertInto(throughTable).values(row).execute()
+      } catch (e: unknown) {
         // Skip if already attached (unique constraint) — dialect-agnostic
+        const err = e as { code?: string; errno?: number }
         const isDuplicate =
-          e?.code === "SQLITE_CONSTRAINT_UNIQUE" ||
-          e?.code === "SQLITE_CONSTRAINT" ||
-          e?.code === "23505" ||        // PostgreSQL
-          e?.code === "ER_DUP_ENTRY" || // MySQL
-          e?.errno === 1062             // MySQL (numeric)
+          err.code === "SQLITE_CONSTRAINT_UNIQUE" ||
+          err.code === "SQLITE_CONSTRAINT" ||
+          err.code === "23505" ||        // PostgreSQL
+          err.code === "ER_DUP_ENTRY" || // MySQL
+          err.errno === 1062             // MySQL (numeric)
         if (!isDuplicate) throw e
       }
     }
@@ -232,10 +242,11 @@ export function createRelationQuery(
     const pkValue = instance.get(relation.localKey)
     if (pkValue == null) return
 
-    const db: any = relatedDef._orm?.kysely
-    if (!db) throw new Error("Model not registered")
+    const _db = relatedDef._orm?.kysely
+    if (!_db) throw new Error("Model not registered")
+    const qdb = _db as any
 
-    await db
+    await qdb
       .updateTable(throughTable)
       .set(data)
       .where(foreignPivotKey, "=", pkValue)

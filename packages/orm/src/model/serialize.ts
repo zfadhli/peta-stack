@@ -5,6 +5,17 @@ import type { ModelConfig, ModelDefinition, ModelInstance } from "./types.js"
 
 const VISITED = new WeakSet<object>()
 
+/** Minimal interface for model-like objects with serialization support. */
+interface SerializableModel {
+  get(key: string): unknown
+  $toJSON(): Record<string, unknown>
+}
+
+/** Type guard: checks if a value looks like a SerializableModel. */
+function isSerializableModel(value: unknown): value is SerializableModel {
+  return value !== null && typeof value === "object" && typeof (value as Record<string, unknown>).$toJSON === "function"
+}
+
 export function modelToJSON(def: ModelDefinition, model: ModelInstance): Record<string, unknown> {
   const config = getSaveConfig(def) ?? getConfig(def)
   const state = getState(model)
@@ -27,7 +38,7 @@ export function modelToJSON(def: ModelDefinition, model: ModelInstance): Record<
       }
       const attrDef = config?.attributes?.[key]
       if (attrDef?.get) {
-        value = attrDef.get(value, model as any)
+        value = attrDef.get(value, model)
       }
       result[key] = value
     }
@@ -40,23 +51,23 @@ export function modelToJSON(def: ModelDefinition, model: ModelInstance): Record<
     if (visible && visible.length > 0 && !visible.includes(relName)) continue
 
     if (Array.isArray(relValue)) {
-      result[relName] = relValue.map((item: any) => {
-        if (item && typeof item.$toJSON === "function") {
-          if (VISITED.has(item)) return { id: (item as any).get("id") }
+      result[relName] = relValue.map((item): unknown => {
+        if (isSerializableModel(item)) {
+          if (VISITED.has(item)) return { id: item.get("id") }
           VISITED.add(item)
-          const json = (item as any).$toJSON()
+          const json = item.$toJSON()
           VISITED.delete(item)
           return json
         }
         return item
       })
-    } else if (relValue && typeof (relValue as any).$toJSON === "function") {
-      if (VISITED.has(relValue as any)) {
-        result[relName] = { id: (relValue as any).get("id") }
+    } else if (isSerializableModel(relValue)) {
+      if (VISITED.has(relValue)) {
+        result[relName] = { id: relValue.get("id") }
       } else {
-        VISITED.add(relValue as any)
-        result[relName] = (relValue as any).$toJSON()
-        VISITED.delete(relValue as any)
+        VISITED.add(relValue)
+        result[relName] = relValue.$toJSON()
+        VISITED.delete(relValue)
       }
     } else if (relValue != null) {
       result[relName] = relValue
@@ -66,8 +77,9 @@ export function modelToJSON(def: ModelDefinition, model: ModelInstance): Record<
   for (const append of appends) {
     if (!(append in result)) {
       const accessor = `get${append.charAt(0).toUpperCase()}${append.slice(1)}Attribute`
-      if (typeof (model as any)[accessor] === "function") {
-        result[append] = (model as any)[accessor]()
+      const fn = (model as unknown as Record<string, unknown>)[accessor]
+      if (typeof fn === "function") {
+        result[append] = (fn as Function).call(model)
       }
     }
   }

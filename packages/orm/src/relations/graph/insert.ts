@@ -1,7 +1,7 @@
 import { DatabaseError } from "../../errors.js"
 import type { ModelDefinition, ModelInstance } from "../../model/types.js"
 import type { Relation } from "../base.js"
-import type { InsertGraphOptions, GraphContext } from "./types.js"
+import type { InsertGraphOptions, GraphContext, RelationOperationShape } from "./types.js"
 import { assertRelationAllowed, joinPath, resolveAllowGraph } from "./security.js"
 import {
   isMorphToRelation,
@@ -61,13 +61,14 @@ export async function insertGraph(
       if (!context.allowRefs) {
         throw new Error(`#ref is used but allowRefs option is not enabled. Set { allowRefs: true } to use #ref.`)
       }
-      const refId = node["#ref"]
+      const refId = node["#ref"] as string | undefined
+      if (!refId) throw new Error(`#ref must be a string`)
       const entry = context.refMap.get(refId)
       if (!entry) {
         throw new Error(`#ref "${refId}" not found in graph`)
       }
       nodes[i] = entry.node
-    } else {
+    } else if (node) {
       resolveRefs(node, context)
     }
   }
@@ -331,9 +332,9 @@ async function processHasMany(
     items = []
   } else if (Array.isArray(op)) {
     items = op
-  } else if ((op as any)?.create && Array.isArray((op as any).create)) {
-    items = (op as any).create
-  } else if (typeof op === "object" && !("connect" in (op as any))) {
+  } else if ((op as RelationOperationShape)?.create && Array.isArray((op as RelationOperationShape).create)) {
+    items = (op as RelationOperationShape).create as Record<string, unknown>[]
+  } else if (typeof op === "object" && !("connect" in (op as RelationOperationShape))) {
     // Single object for hasOne — wrap in array
     items = [op as Record<string, unknown>]
   } else {
@@ -360,7 +361,7 @@ async function processHasMany(
   }
 
   // Handle connect items
-  const connectItems = !Array.isArray(op) ? ((op as any)?.connect ?? []) : []
+  const connectItems = !Array.isArray(op) ? ((op as RelationOperationShape)?.connect ?? []) : []
   for (const target of connectItems) {
     const targetId = await resolveTargetId(relatedDef, target)
     if (targetId != null) {
@@ -386,7 +387,7 @@ async function processManyToMany(
   const { throughTable, foreignPivotKey, relatedPivotKey } = getPivotInfo(relation)
   const db = getDb(relatedDef)
 
-  const items: Record<string, unknown>[] = Array.isArray(op) ? op : (op as any)?.create ? (op as any).create : []
+  const items: Record<string, unknown>[] = Array.isArray(op) ? op : Array.isArray((op as RelationOperationShape)?.create) ? (op as RelationOperationShape).create as Record<string, unknown>[] : []
 
   for (const item of items) {
     if (item["#dbRef"] != null) {
@@ -417,7 +418,7 @@ async function processManyToMany(
   }
 
   // Handle connect items
-  const connectItems = !Array.isArray(op) ? ((op as any)?.connect ?? []) : []
+  const connectItems = !Array.isArray(op) ? ((op as RelationOperationShape)?.connect ?? []) : []
   for (const target of connectItems) {
     const targetId = await resolveTargetId(relatedDef, target)
     if (targetId != null) {

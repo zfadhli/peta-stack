@@ -45,8 +45,8 @@ export async function saveModel(def: ModelDefinition, model: ModelInstance): Pro
 
     if (Object.keys(changed).length === 0) return model
 
-    await hm.trigger("beforeUpdate", model as any)
-    await hm.trigger("beforeSave", model as any)
+    await hm.trigger("beforeUpdate", model)
+    await hm.trigger("beforeSave", model)
 
     const pkValue = model.get(pk)
     try {
@@ -56,12 +56,12 @@ export async function saveModel(def: ModelDefinition, model: ModelInstance): Pro
     }
 
     syncOriginal(model)
-    await hm.trigger("afterUpdate", model as any)
-    await hm.trigger("afterSave", model as any)
+    await hm.trigger("afterUpdate", model)
+    await hm.trigger("afterSave", model)
   } else {
     // INSERT
-    await hm.trigger("beforeCreate", model as any)
-    await hm.trigger("beforeSave", model as any)
+    await hm.trigger("beforeCreate", model)
+    await hm.trigger("beforeSave", model)
 
     const data: Record<string, unknown> = {}
     const attrs = getState(model).attributes
@@ -86,8 +86,8 @@ export async function saveModel(def: ModelDefinition, model: ModelInstance): Pro
 
     setExists(model, true)
     syncOriginal(model)
-    await hm.trigger("afterCreate", model as any)
-    await hm.trigger("afterSave", model as any)
+    await hm.trigger("afterCreate", model)
+    await hm.trigger("afterSave", model)
   }
 
   return model
@@ -123,9 +123,10 @@ export async function insertModel(def: ModelDefinition, data: Record<string, unk
         columnData[relation.foreignKey] = related.get(relation.localKey)
       } else if (bop.connect) {
         const cond = bop.connect as Record<string, unknown>
+        const condKey = Object.keys(cond)[0]!
         const found = await relatedDef
           .query()
-          .where(Object.keys(cond)[0], "=", Object.values(cond)[0])
+          .where(condKey, "=", cond[condKey])
           .executeTakeFirst()
         if (found) {
           columnData[relation.foreignKey] = found.get(relation.localKey)
@@ -135,9 +136,10 @@ export async function insertModel(def: ModelDefinition, data: Record<string, unk
           where: Record<string, unknown>
           create: Record<string, unknown>
         }
+        const whereKey = Object.keys(where)[0]!
         const found = await relatedDef
           .query()
-          .where(Object.keys(where)[0], "=", Object.values(where)[0])
+          .where(whereKey, "=", where[whereKey])
           .executeTakeFirst()
         if (found) {
           columnData[relation.foreignKey] = found.get(relation.localKey)
@@ -324,9 +326,10 @@ export async function updateModel(
       if (hop.update) {
         const queries = Array.isArray(hop.update?.where) ? hop.update.where : [hop.update?.where]
         for (const where of queries) {
+          const whereKey = Object.keys(where)[0]!
           await relatedDef
             .query()
-            .where(Object.keys(where)[0], "=", Object.values(where)[0])
+            .where(whereKey, "=", where[whereKey])
             .all()
             .updateMany(hop.update.data)
         }
@@ -335,7 +338,8 @@ export async function updateModel(
       if (hop.delete) {
         const queries = Array.isArray(hop.delete) ? hop.delete : [hop.delete]
         for (const where of queries) {
-          await relatedDef.query().where(Object.keys(where)[0], "=", Object.values(where)[0]).all().deleteMany()
+          const whereKey = Object.keys(where)[0]!
+          await relatedDef.query().where(whereKey, "=", where[whereKey]).all().deleteMany()
         }
       }
     } else if (relation.type === "manyToMany") {
@@ -365,15 +369,13 @@ export async function updateModel(
         const rpk = relation.relatedPivotKey!
 
         for (const target of mop.connect) {
-          const targetId =
-            typeof target === "number" || typeof target === "string"
-              ? target
-              : (
-                  await relatedDef
-                    .query()
-                    .where(Object.keys(target)[0], "=", Object.values(target)[0])
-                    .executeTakeFirst()
-                )?.get("id")
+          let targetId: unknown = target
+          if (typeof target !== "number" && typeof target !== "string") {
+            const t = target as Record<string, unknown>
+            const key = Object.keys(t)[0]!
+            const found = await relatedDef.query().where(key, "=", t[key]).executeTakeFirst()
+            targetId = found?.get("id")
+          }
           if (targetId != null) {
             try {
               await db
@@ -415,15 +417,13 @@ export async function updateModel(
         const desiredIds = new Set<unknown>()
 
         for (const target of mop.set) {
-          const targetId =
-            typeof target === "number" || typeof target === "string"
-              ? target
-              : (
-                  await relatedDef
-                    .query()
-                    .where(Object.keys(target)[0], "=", Object.values(target)[0])
-                    .executeTakeFirst()
-                )?.get("id")
+          let targetId: unknown = target
+          if (typeof target !== "number" && typeof target !== "string") {
+            const t = target as Record<string, unknown>
+            const key = Object.keys(t)[0]!
+            const found = await relatedDef.query().where(key, "=", t[key]).executeTakeFirst()
+            targetId = found?.get("id")
+          }
           if (targetId != null) {
             desiredIds.add(targetId)
             if (!currentIds.has(targetId)) {

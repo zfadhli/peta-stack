@@ -59,7 +59,7 @@ export interface ModelDefinition<TColumns extends ColumnShape = ColumnShape> {
   hydrate(row: Record<string, unknown>): ModelInstance
 
   use(plugin: import("../plugins/index.js").Plugin): ModelDefinition
-  makeHelper<T extends (qb: import("../query/index.js").QueryBuilder, ...args: any[]) => any>(fn: T): T
+  makeHelper<A extends any[], R>(fn: (qb: import("../query/index.js").QueryBuilder, ...args: A) => R): (...args: A) => R
   on(event: string, callback: (model: ModelInstance) => void | Promise<void>): () => void
   getHooks(): import("../hooks/index.js").HookManager
 
@@ -76,6 +76,11 @@ export interface ModelDefinition<TColumns extends ColumnShape = ColumnShape> {
   addGlobalScope(name: string, callback: (qb: QueryBuilder) => void): void
   removeGlobalScope(name: string): void
   getGlobalScopes(): Map<string, (qb: QueryBuilder) => void> | undefined
+
+  // Backward-compat convenience methods
+  registerTimestamps?(createdAtCol?: string, updatedAtCol?: string): void
+  registerSoftDeletes?(deletedAtCol?: string): void
+  discover?(): Promise<never>
 
   _init(orm: ORMLike): void
 }

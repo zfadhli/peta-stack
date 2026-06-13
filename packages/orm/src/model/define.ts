@@ -1,6 +1,7 @@
 import type { ColumnShape } from "../columns/column.js"
 import { ModelNotRegisteredError } from "../errors.js"
 import { addStaticHook } from "../hooks/static.js"
+import type { LifecycleEvent } from "../hooks/index.js"
 import type { QueryBuilder } from "../query/index.js"
 import { createQueryBuilder } from "../query/index.js"
 import type { ORMLike } from "../types.js"
@@ -43,127 +44,127 @@ export function defineModel<TColumns extends ColumnShape>(
 
     async create(data) {
       const mod = await import("./save.js")
-      return mod.insertModel(this as any, data)
+      return mod.insertModel(def, data)
     },
 
     async insert(data) {
       const mod = await import("./save.js")
-      return mod.insertModel(this as any, data)
+      return mod.insertModel(def, data)
     },
 
     async insertMany(dataArray) {
       const mod = await import("./save.js")
-      return mod.insertManyModel(this as any, dataArray)
+      return mod.insertManyModel(def, dataArray)
     },
 
     async update(id, data) {
       const mod = await import("./save.js")
-      return mod.updateModel(this as any, id, data)
+      return mod.updateModel(def, id, data)
     },
 
     async insertGraph(data, options) {
       const mod = await import("../relations/graph/index.js")
-      return mod.insertGraph(this as any, data, options)
+      return mod.insertGraph(def, data, options)
     },
 
     async upsertGraph(data, options) {
       const mod = await import("../relations/graph/index.js")
-      return mod.upsertGraph(this as any, data, options)
+      return mod.upsertGraph(def, data, options)
     },
 
     async delete(id) {
       const model = await this.findOrFail(id)
       const mod = await import("./delete.js")
-      await mod.deleteModel(this as any, model as any)
+      await mod.deleteModel(def, model)
     },
 
     hydrate(row: Record<string, unknown>) {
-      return createInstance(this as any, config as any, row, true)
+      return createInstance(def, config, row, true)
     },
 
     on(event: string, callback: any): () => void {
-      const hm = getHooksFor(this as any)
-      return hm.on(event as any, callback)
+      const hm = getHooksFor(def)
+      return hm.on(event as LifecycleEvent, callback)
     },
 
     use(plugin: any) {
-      plugin(this)
-      return this
+      plugin(def)
+      return def
     },
 
-    makeHelper(fn: any) {
+    makeHelper<A extends any[], R>(fn: (qb: QueryBuilder, ...args: A) => R): (...args: A) => R {
       // Return a function that binds the query builder as first arg
-      return (...args: any[]) => {
-        const qb = this.query()
+      return (...args: A): R => {
+        const qb = def.query()
         return fn(qb, ...args)
       }
     },
 
     getHooks() {
-      return getHooksFor(this as any)
+      return getHooksFor(def)
     },
 
     addGlobalScope(name: string, callback: (qb: QueryBuilder) => void): void {
-      addScope(this as any, name, callback)
+      addScope(def, name, callback)
     },
 
     removeGlobalScope(name: string): void {
-      removeScope(this as any, name)
+      removeScope(def, name)
     },
 
     getGlobalScopes(): Map<string, (qb: QueryBuilder) => void> | undefined {
-      return getScopes(this as any)
+      return getScopes(def)
     },
 
     // Static hooks
     beforeDelete(callback: any) {
-      return addStaticHook(def as any, "beforeDelete", callback)
+      return addStaticHook(def, "beforeDelete", callback)
     },
     afterDelete(callback: any) {
-      return addStaticHook(def as any, "afterDelete", callback)
+      return addStaticHook(def, "afterDelete", callback)
     },
     beforeUpdate(callback: any) {
-      return addStaticHook(def as any, "beforeUpdate", callback)
+      return addStaticHook(def, "beforeUpdate", callback)
     },
     afterUpdate(callback: any) {
-      return addStaticHook(def as any, "afterUpdate", callback)
+      return addStaticHook(def, "afterUpdate", callback)
     },
     beforeCreate(callback: any) {
-      return addStaticHook(def as any, "beforeCreate", callback)
+      return addStaticHook(def, "beforeCreate", callback)
     },
     afterCreate(callback: any) {
-      return addStaticHook(def as any, "afterCreate", callback)
+      return addStaticHook(def, "afterCreate", callback)
     },
     beforeFind(callback: any) {
-      return addStaticHook(def as any, "beforeFind", callback)
+      return addStaticHook(def, "beforeFind", callback)
     },
     afterFind(callback: any) {
-      return addStaticHook(def as any, "afterFind", callback)
+      return addStaticHook(def, "afterFind", callback)
     },
 
     _init(orm: ORMLike) {
-      this._orm = orm
+      def._orm = orm
       // Store config in save module
-      setConfig(this as any, config as any)
+      setConfig(def, config)
       // Also store config in serialize module
-      import("./serialize.js").then((mod) => mod.setConfig?.(this as any, config as any))
+      import("./serialize.js").then((mod) => mod.setConfig?.(def, config))
     },
   }
 
   // Store config immediately on both save and serialize modules
-  setConfig(def as any, config as any)
-  import("./serialize.js").then((mod) => mod.setConfig?.(def as any, config as any))
+  setConfig(def, config)
+  import("./serialize.js").then((mod) => mod.setConfig?.(def, config))
   if (config.computed) {
-    import("./computed.js").then((mod) => mod.setComputedConfig?.(def as any, config.computed!))
+    import("./computed.js").then((mod) => mod.setComputedConfig?.(def, config.computed!))
   }
   // Add backward-compat convenience methods
-  ;(def as any).registerTimestamps = (createdAtCol?: string, updatedAtCol?: string) => {
-    registerTimestampsFor(def as any, createdAtCol, updatedAtCol)
+  def.registerTimestamps = (createdAtCol?: string, updatedAtCol?: string) => {
+    registerTimestampsFor(def, createdAtCol, updatedAtCol)
   }
-  ;(def as any).registerSoftDeletes = (deletedAtCol?: string) => {
-    registerSoftDeletesFor(def as any, deletedAtCol)
+  def.registerSoftDeletes = (deletedAtCol?: string) => {
+    registerSoftDeletesFor(def, deletedAtCol)
   }
-  ;(def as any).discover = async () => {
+  def.discover = async () => {
     throw new Error("discover() not yet implemented in v2")
   }
 

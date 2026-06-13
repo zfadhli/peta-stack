@@ -4,6 +4,9 @@ import type { Relation, RelationOptions, RelationType } from "./base.js"
 
 const THUNK_CACHE = new WeakMap<object, ModelDefinition>()
 
+/** Stores pivot data for many-to-many relation results (instead of attaching to the model). */
+const pivotData = new WeakMap<ModelInstance, Record<string, unknown>>()
+
 function resolveThunk(thunk: () => ModelDefinition): ModelDefinition {
   let cls = THUNK_CACHE.get(thunk)
   if (!cls) {
@@ -90,7 +93,7 @@ export function manyToMany(
       return qb
     },
 
-    addEagerConstraints(_query: any, _models: ModelInstance[]): void {
+    addEagerConstraints(_query: import("../query/index.js").QueryBuilder, _models: ModelInstance[]): void {
       // The query builder's join approach handles this differently
       // We use WHERE IN on the pivot table
     },
@@ -107,11 +110,10 @@ export function manyToMany(
 
       // Group results by looking at the pivot info attached during query
       for (const result of results) {
-        const pivot = (result as any)._pivot
+        const pivot = pivotData.get(result)
         if (pivot) {
           const key = String(pivot[foreignPivotKey])
           if (grouped[key]) grouped[key].push(result)
-          delete (result as any)._pivot
         }
       }
 
@@ -163,8 +165,8 @@ export function manyToMany(
         for (const extra of pivotExtras) {
           pivot[extra] = result.get(extra)
         }
-        // Store pivot data on the result model instance
-        ;(result as any)._pivot = pivot
+        // Store pivot data in WeakMap (not directly on model)
+        pivotData.set(result, pivot)
       }
 
       this.match(models, results, relationName)
@@ -211,12 +213,11 @@ export function hasManyThrough(
       return qb
     },
 
-    addEagerConstraints(query: any, models: ModelInstance[]): void {
+    addEagerConstraints(query: import("../query/index.js").QueryBuilder, models: ModelInstance[]): void {
       const ids = models.map((m) => m.get(localKey)).filter((id) => id != null)
       if (ids.length > 0) {
-        const qb = query as any
-        qb.innerJoin(through.table, `${through.table}.${throughLocalKey}`, `${related.table}.${throughForeignKey}`)
-        qb.where(`${through.table}.${foreignKey}`, "in", ids)
+        query.innerJoin(through.table, `${through.table}.${throughLocalKey}`, `${related.table}.${throughForeignKey}`)
+        query.where(`${through.table}.${foreignKey}`, "in", ids)
       }
     },
 

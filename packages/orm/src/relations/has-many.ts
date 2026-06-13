@@ -80,7 +80,7 @@ export function hasMany(relatedThunk: () => ModelDefinition, options: RelationOp
       return qb
     },
 
-    addEagerConstraints(qb: any, models: ModelInstance[]): void {
+    addEagerConstraints(qb: import("../query/index.js").QueryBuilder, models: ModelInstance[]): void {
       const ids = models.map((m) => m.get(localKey)).filter((id) => id != null)
       if (ids.length > 0) {
         qb.whereIn(foreignKey, ids)
@@ -186,7 +186,7 @@ export function belongsTo(relatedThunk: () => ModelDefinition, options: Relation
       return qb
     },
 
-    addEagerConstraints(qb: any, models: ModelInstance[]): void {
+    addEagerConstraints(qb: import("../query/index.js").QueryBuilder, models: ModelInstance[]): void {
       const ids = models.map((m) => m.get(foreignKey)).filter((id) => id != null)
       if (ids.length > 0) {
         qb.whereIn(localKey, ids)

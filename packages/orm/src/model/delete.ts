@@ -13,7 +13,7 @@ function getDb(def: ModelDefinition): any {
 }
 
 function getPrimaryKeyColumn(def: ModelDefinition): string {
-  const cols = def.columns as Record<string, any>
+  const cols = def.columns as Record<string, { isPrimaryKey?: boolean }>
   for (const [name, col] of Object.entries(cols)) {
     if (col.isPrimaryKey) return name
   }
@@ -33,7 +33,7 @@ export async function deleteModel(def: ModelDefinition, model: ModelInstance): P
 
   if (hasSoftDelete(def)) {
     // Soft delete
-    await hm.trigger("beforeDelete", model as any)
+    await hm.trigger("beforeDelete", model)
     const config = getSoftDeleteConfig(def)!
     const db = getDb(def)
 
@@ -48,10 +48,10 @@ export async function deleteModel(def: ModelDefinition, model: ModelInstance): P
     }
 
     model.set(config.column, new Date().toISOString())
-    await hm.trigger("afterDelete", model as any)
+    await hm.trigger("afterDelete", model)
   } else {
     // Hard delete
-    await hm.trigger("beforeDelete", model as any)
+    await hm.trigger("beforeDelete", model)
     const db = getDb(def)
 
     try {
@@ -61,7 +61,7 @@ export async function deleteModel(def: ModelDefinition, model: ModelInstance): P
     }
 
     setExists(model, false)
-    await hm.trigger("afterDelete", model as any)
+    await hm.trigger("afterDelete", model)
   }
 }
 
@@ -75,7 +75,7 @@ export async function forceDeleteModel(def: ModelDefinition, model: ModelInstanc
   }
 
   const hm = getHooksFor(def)
-  await hm.trigger("beforeForceDelete", model as any)
+  await hm.trigger("beforeForceDelete", model)
 
   const db = getDb(def)
   try {
@@ -85,7 +85,7 @@ export async function forceDeleteModel(def: ModelDefinition, model: ModelInstanc
   }
 
   setExists(model, false)
-  await hm.trigger("afterForceDelete", model as any)
+  await hm.trigger("afterForceDelete", model)
 }
 
 // ─── RESTORE ─────────────────────────────────────────────────
@@ -97,7 +97,7 @@ export async function restoreModel(def: ModelDefinition, model: ModelInstance): 
   if (!hasSoftDelete(def)) return
 
   const hm = getHooksFor(def)
-  await hm.trigger("beforeRestore", model as any)
+  await hm.trigger("beforeRestore", model)
 
   const config = getSoftDeleteConfig(def)!
   const db = getDb(def)
@@ -113,7 +113,7 @@ export async function restoreModel(def: ModelDefinition, model: ModelInstance): 
 
   model.set(config.column, null)
   setExists(model, true)
-  await hm.trigger("afterRestore", model as any)
+  await hm.trigger("afterRestore", model)
 }
 
 // ─── TRASHED CHECK ───────────────────────────────────────────
