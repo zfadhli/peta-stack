@@ -2,7 +2,7 @@ import type { H3Event } from "h3"
 import { appendHeader, createError, getCookie } from "h3"
 import { PetaAuthError } from "./errors.js"
 import type { IronSession, SessionOptions } from "./session.js"
-import { createSessionFromAdapter } from "./session.js"
+import { createSessionFromAdapter, sessionHasData } from "./session.js"
 
 /**
  * Create a session from an h3 event (Nuxt / h3).
@@ -53,8 +53,6 @@ export function useSession<T extends Record<string, unknown> = Record<string, un
 export function requireSession(event: H3Event, session: IronSession): void
 export function requireSession<K extends string>(event: H3Event, session: IronSession, key: K): void
 export function requireSession(_event: H3Event, session: IronSession, key?: string): void {
-  const hasData = key
-    ? !!session[key]
-    : Object.keys(session).some((k) => k !== "save" && k !== "destroy" && k !== "updateConfig")
+  const hasData = sessionHasData(session, key)
   if (!hasData) throw createError({ statusCode: 401, statusMessage: "unauthorized" })
 }

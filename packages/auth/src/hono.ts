@@ -1,7 +1,7 @@
 import { parse } from "cookie"
 import type { MiddlewareHandler } from "hono"
 import { createMiddleware } from "hono/factory"
-import { createSessionFromAdapter, type IronSession, type SessionOptions } from "./session.js"
+import { createSessionFromAdapter, sessionHasData, type IronSession, type SessionOptions } from "./session.js"
 
 /**
  * Hono middleware that creates a session and makes it available
@@ -47,7 +47,7 @@ export function requireSession<K extends string>(key: K): MiddlewareHandler
 export function requireSession(key?: string): MiddlewareHandler {
   return createMiddleware(async (c, next) => {
     const s = c.var.session
-    const hasData = key ? !!s[key] : Object.keys(s).some((k) => k !== "save" && k !== "destroy" && k !== "updateConfig")
+    const hasData = sessionHasData(s, key)
     if (!hasData) return c.json({ error: "unauthorized" }, 401)
     await next()
   })

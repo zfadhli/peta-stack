@@ -43,6 +43,12 @@ export interface IronSession {
   [key: string]: unknown
 }
 
+/** Check whether a session has any user data keys beyond the built-in methods. */
+export function sessionHasData(session: IronSession, key?: string): boolean {
+  if (key) return !!session[key]
+  return Object.keys(session).some((k) => k !== "save" && k !== "destroy" && k !== "updateConfig")
+}
+
 /** @internal */
 export type ResolvedConfig = {
   timeToLive: number

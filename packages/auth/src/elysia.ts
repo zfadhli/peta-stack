@@ -1,7 +1,7 @@
 import { parse } from "cookie"
 import { Elysia } from "elysia"
 import type { IronSession, SessionOptions } from "./session.js"
-import { createSessionFromAdapter } from "./session.js"
+import { createSessionFromAdapter, sessionHasData } from "./session.js"
 
 /**
  * Elysia plugin that provides a session via the `session` store property.
@@ -49,9 +49,7 @@ export function requireSession(key?: string) {
   return (app: Elysia): Elysia =>
     app.onBeforeHandle((context) => {
       const session = (context as unknown as { session: IronSession }).session
-      const hasData = key
-        ? !!session[key]
-        : Object.keys(session).some((k) => k !== "save" && k !== "destroy" && k !== "updateConfig")
+      const hasData = sessionHasData(session, key)
       if (!hasData) {
         return new Response(JSON.stringify({ error: "unauthorized" }), {
           status: 401,
