@@ -35,8 +35,8 @@ export { softDeletes } from "./plugins/soft-deletes.js"
 export { timestamps } from "./plugins/timestamps.js"
 export { ulid } from "./plugins/ulid.js"
 // ─── Query Builder ─────────────────────────────────────────
-export type { QueryBuilder } from "./query/index.js"
-export { createQueryBuilder } from "./query/index.js"
+export type { QueryBuilder } from "./query/types.js"
+export { createQueryBuilder } from "./query/builder.js"
 // ─── Relations ────────────────────────────────────────────
 export type { Relation, RelationOptions, RelationType } from "./relations/base.js"
 export type { InsertGraphOptions, UpsertGraphOptions } from "./relations/graph/index.js"
