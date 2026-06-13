@@ -116,5 +116,21 @@ export function normalizeError(e: unknown, table?: string): DatabaseError {
     return new DatabaseError(msg, "NOT_NULL_CONSTRAINT", table, msg)
   }
 
+  // MySQL error codes
+  if (raw.code === "ER_DUP_ENTRY" || raw.errno === 1062) {
+    return new DatabaseError(`Unique constraint violation on ${table}: ${msg}`, "UNIQUE_CONSTRAINT", table, msg)
+  }
+  if (raw.code === "ER_NO_REFERENCED_ROW_2" || raw.errno === 1452) {
+    return new DatabaseError(
+      `Foreign key constraint violation on ${table}: ${msg}`,
+      "FOREIGN_KEY_CONSTRAINT",
+      table,
+      msg,
+    )
+  }
+  if (raw.code === "ER_BAD_NULL_ERROR" || raw.errno === 1048) {
+    return new DatabaseError(`Not null constraint violation on ${table}: ${msg}`, "NOT_NULL_CONSTRAINT", table, msg)
+  }
+
   return new DatabaseError(msg || "Unknown database error", "UNKNOWN", table, msg)
 }

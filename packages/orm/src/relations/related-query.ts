@@ -116,8 +116,14 @@ export function createRelationQuery(
       try {
         await db.insertInto(throughTable).values(row).execute()
       } catch (e: any) {
-        // Skip if already attached (unique constraint)
-        if (e?.code !== "SQLITE_CONSTRAINT_UNIQUE") throw e
+        // Skip if already attached (unique constraint) — dialect-agnostic
+        const isDuplicate =
+          e?.code === "SQLITE_CONSTRAINT_UNIQUE" ||
+          e?.code === "SQLITE_CONSTRAINT" ||
+          e?.code === "23505" ||        // PostgreSQL
+          e?.code === "ER_DUP_ENTRY" || // MySQL
+          e?.errno === 1062             // MySQL (numeric)
+        if (!isDuplicate) throw e
       }
     }
   }
@@ -208,8 +214,15 @@ export function createRelationQuery(
       }
       try {
         await db.insertInto(throughTable).values(row).execute()
-      } catch {
-        // Skip if already attached
+      } catch (e: any) {
+        // Skip if already attached (unique constraint) — dialect-agnostic
+        const isDuplicate =
+          e?.code === "SQLITE_CONSTRAINT_UNIQUE" ||
+          e?.code === "SQLITE_CONSTRAINT" ||
+          e?.code === "23505" ||        // PostgreSQL
+          e?.code === "ER_DUP_ENTRY" || // MySQL
+          e?.errno === 1062             // MySQL (numeric)
+        if (!isDuplicate) throw e
       }
     }
   }

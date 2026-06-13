@@ -10,7 +10,7 @@ function rawSql(str: string): any {
   return kyselySql(str)
 }
 
-const SAFE_COLUMN = /^[a-zA-Z_][a-zA-Z0-9_.]*$/
+const SAFE_COLUMN = /^[a-zA-Z_*][a-zA-Z0-9_.*]*$/
 
 // ─── QUERY BUILDER INTERFACE ──────────────────────────────
 export interface QueryBuilder extends PromiseLike<ModelInstance[]> {

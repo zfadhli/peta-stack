@@ -292,10 +292,10 @@ export function defineMorphMany(options: MorphManyOptions): Relation {
     _morphTypeValue: typeValue,
 
     query(parent: ModelInstance): ReturnType<typeof createQueryBuilder> {
-      return createQueryBuilder(related, (qb: any) => {
-        qb.where(morphId, "=", parent.get("id"))
-        qb.where(morphType, "=", typeValue)
-      })
+      const qb = createQueryBuilder(related)
+      qb.where(morphId, "=", parent.get("id"))
+      qb.where(morphType, "=", typeValue)
+      return qb
     },
 
     addEagerConstraints(query: any, models: ModelInstance[]): void {

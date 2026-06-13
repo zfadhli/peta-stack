@@ -80,12 +80,14 @@ export function manyToMany(
     query(parent: ModelInstance): ReturnType<typeof createQueryBuilder> {
       const rel = getRelated()
       const pkValue = parent.get(localKey)
-      if (pkValue == null) return createQueryBuilder(rel, (qb: any) => qb.where(localKey, "=", -1))
-
-      return createQueryBuilder(rel, (qb: any) => {
-        qb.innerJoin(throughTable, `${rel.table}.${localKey}`, `${throughTable}.${relatedPivotKey}`)
-        qb.where(`${throughTable}.${foreignPivotKey}`, "=", pkValue)
-      })
+      const qb = createQueryBuilder(rel)
+      if (pkValue == null) {
+        qb.where(localKey, "=", -1)
+        return qb
+      }
+      qb.innerJoin(throughTable, `${rel.table}.${localKey}`, `${throughTable}.${relatedPivotKey}`)
+      qb.where(`${throughTable}.${foreignPivotKey}`, "=", pkValue)
+      return qb
     },
 
     addEagerConstraints(_query: any, _models: ModelInstance[]): void {
@@ -199,12 +201,14 @@ export function hasManyThrough(
 
     query(parent: ModelInstance): ReturnType<typeof createQueryBuilder> {
       const pkValue = parent.get(localKey)
-      if (pkValue == null) return createQueryBuilder(related, (qb: any) => qb.where(localKey, "=", -1))
-
-      return createQueryBuilder(related, (qb: any) => {
-        qb.innerJoin(through.table, `${through.table}.${throughLocalKey}`, `${related.table}.${throughForeignKey}`)
-        qb.where(`${through.table}.${foreignKey}`, "=", pkValue)
-      })
+      const qb = createQueryBuilder(related)
+      if (pkValue == null) {
+        qb.where(localKey, "=", -1)
+        return qb
+      }
+      qb.innerJoin(through.table, `${through.table}.${throughLocalKey}`, `${related.table}.${throughForeignKey}`)
+      qb.where(`${through.table}.${foreignKey}`, "=", pkValue)
+      return qb
     },
 
     addEagerConstraints(query: any, models: ModelInstance[]): void {
