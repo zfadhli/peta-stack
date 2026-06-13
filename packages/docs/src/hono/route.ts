@@ -26,6 +26,15 @@ export interface PaginationOptions {
 }
 
 // ---------------------------------------------------------------------------
+// Shared helpers
+// ---------------------------------------------------------------------------
+
+/** Parse a comma-separated string into a trimmed, non-empty array. */
+function parseCommaSeparated(value: string | undefined): string[] {
+  return value ? value.split(",").map((s) => s.trim()).filter(Boolean) : []
+}
+
+// ---------------------------------------------------------------------------
 // Shared Standard Schema validation helper
 // ---------------------------------------------------------------------------
 
@@ -307,10 +316,7 @@ export class RouteBuilder<
                 if (val === undefined) continue
 
                 if (op === "in") {
-                  const items = val
-                    .split(",")
-                    .map((s) => s.trim())
-                    .filter(Boolean)
+                  const items = parseCommaSeparated(val)
                   const validatedItems: unknown[] = []
                   for (const item of items) {
                     const validated = await validateOrError(filter.schema, item, c, onError)
@@ -330,10 +336,7 @@ export class RouteBuilder<
           if (sortFields) {
             const sortVal = raw.sort
             if (sortVal !== undefined) {
-              const parts = sortVal
-                .split(",")
-                .map((s) => s.trim())
-                .filter(Boolean)
+              const parts = parseCommaSeparated(sortVal)
               const allowed = new Set(sortFields.flatMap((f: string) => [f, `-${f}`]))
               for (const part of parts) {
                 if (!allowed.has(part)) {
@@ -348,10 +351,7 @@ export class RouteBuilder<
           if (includeFields) {
             const rawInclude = raw.include
             if (rawInclude !== undefined) {
-              const parts = rawInclude
-                .split(",")
-                .map((s) => s.trim())
-                .filter(Boolean)
+              const parts = parseCommaSeparated(rawInclude)
               const allowed = new Set(includeFields)
               for (const part of parts) {
                 if (!allowed.has(part)) {
