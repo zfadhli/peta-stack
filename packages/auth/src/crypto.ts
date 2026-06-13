@@ -46,7 +46,7 @@ const SEVEN_DAYS = 14 * 24 * 3600
 const CURRENT_MAJOR_VERSION = 2
 const VERSION_DELIMITER = "~"
 
-function normalizePassword(password: Password): PasswordsMap {
+export function normalizePassword(password: Password): PasswordsMap {
   return typeof password === "string" ? { 1: password } : password
 }
 

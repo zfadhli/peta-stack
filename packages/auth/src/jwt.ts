@@ -1,10 +1,6 @@
 import * as jose from "jose"
-import type { Password } from "./crypto.js"
+import { type Password, normalizePassword } from "./crypto.js"
 import { PetaAuthError } from "./errors.js"
-
-function toPasswordMap(password: Password): Record<string, string> {
-  return typeof password === "string" ? { 1: password } : password
-}
 
 function toKey(secret: string): Uint8Array {
   return new TextEncoder().encode(secret)
@@ -27,7 +23,7 @@ export interface JWTOptions {
  * ```
  */
 export async function signJWT(payload: Record<string, unknown>, options: JWTOptions): Promise<string> {
-  const map = toPasswordMap(options.password)
+  const map = normalizePassword(options.password)
   const id = Math.max(...Object.keys(map).map(Number)).toString()
   const secret = map[id]
 
@@ -55,7 +51,8 @@ export async function signJWT(payload: Record<string, unknown>, options: JWTOpti
 export async function verifyJWT<T = Record<string, unknown>>(token: string, options: JWTOptions): Promise<T | null> {
   let result: T | null = null
 
-  for (const secret of Object.values(toPasswordMap(options.password))) {
+  const passwords = normalizePassword(options.password)
+  for (const secret of Object.values(passwords)) {
     if (!secret) continue
     try {
       const { payload } = await jose.jwtVerify(token, toKey(secret))

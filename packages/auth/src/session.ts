@@ -1,6 +1,6 @@
 import type { SerializeOptions } from "cookie"
 import { serialize } from "cookie"
-import { type Password, sealData, unsealData } from "./crypto.js"
+import { type Password, normalizePassword, sealData, unsealData } from "./crypto.js"
 import { PetaAuthError } from "./errors.js"
 
 const TIMESTAMP_SKEW_SECONDS = 60
@@ -64,7 +64,7 @@ export function resolveConfig(options: SessionOptions): ResolvedConfig {
     cookieOptions.maxAge = computeMaxAge(timeToLive)
   }
 
-  const passwordsMap = typeof options.password === "string" ? { 1: options.password } : options.password
+  const passwordsMap = normalizePassword(options.password)
 
   for (const secret of Object.values(passwordsMap)) {
     if (secret.length < 32) {
