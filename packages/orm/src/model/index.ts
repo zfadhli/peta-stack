@@ -29,13 +29,12 @@ export { FORBIDDEN_KEYS } from "./types.js"
 
 import { createRelationQuery } from "../relations/related-query.js"
 import { deleteModel, forceDeleteModel, restoreModel, trashedModel } from "./delete.js"
-// Wire up factory with module functions (avoids circular deps)
-import { setRelationQueryModule, wireDeps } from "./factory.js"
+import { initRuntime } from "./runtime.js"
 import { loadModelRelations } from "./relation.js"
 import { reloadModel, saveModel } from "./save.js"
 import { modelToJSON } from "./serialize.js"
 
-wireDeps({
+initRuntime({
   saveModel,
   deleteModel,
   forceDeleteModel,
@@ -44,10 +43,8 @@ wireDeps({
   reloadModel,
   modelToJSON,
   loadModelRelations,
+  createRelationQuery,
 })
-
-// Wire RelationQuery module for $related() support
-setRelationQueryModule({ createRelationQuery })
 
 // ─── DEFINE MODEL FACTORY ────────────────────────────────────
 import type { ColumnShape } from "../columns/column.js"

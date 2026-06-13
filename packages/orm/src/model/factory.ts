@@ -14,6 +14,7 @@ import {
 } from "./state.js"
 import type { ModelConfig, ModelDefinition, ModelInstance } from "./types.js"
 import { FORBIDDEN_KEYS } from "./types.js"
+import { getRuntime } from "./runtime.js"
 
 // Store model definition on instance for collection.load() to find
 const instanceDefs = new WeakMap<object, ModelDefinition>()
@@ -109,44 +110,43 @@ export function createInstance(
     },
 
     $load: (...relations: string[]) => {
-      return loadModelRelations(instance, def, ...relations)
+      return getRuntime().loadModelRelations(instance, def, ...relations)
     },
 
     $related: (name: string) => {
-      const { createRelationQuery } = requireRelationQuery()
-      return createRelationQuery(instance, def, name)
+      return getRuntime().createRelationQuery(instance, def, name)
     },
 
     $save: () => {
-      return saveModel(def, instance)
+      return getRuntime().saveModel(def, instance)
     },
 
     $delete: () => {
-      return deleteModel(def, instance)
+      return getRuntime().deleteModel(def, instance)
     },
 
     $forceDelete: () => {
-      return forceDeleteModel(def, instance)
+      return getRuntime().forceDeleteModel(def, instance)
     },
 
     $restore: () => {
-      return restoreModel(def, instance)
+      return getRuntime().restoreModel(def, instance)
     },
 
     $trashed(): boolean {
-      return trashedModel(def, instance)
+      return getRuntime().trashedModel(def, instance)
     },
 
     $reload: () => {
-      return reloadModel(def, instance)
+      return getRuntime().reloadModel(def, instance)
     },
 
     $toJSON(): Record<string, unknown> {
-      return modelToJSON(def, instance)
+      return getRuntime().modelToJSON(def, instance)
     },
 
     toJSON(): Record<string, unknown> {
-      return modelToJSON(def, instance)
+      return getRuntime().modelToJSON(def, instance)
     },
   }
 
@@ -167,49 +167,4 @@ export function createInstance(
   setModelDefOnInstance(instance, def)
 
   return instance
-}
-
-// These are set by the wiring in index.ts to avoid circular deps
-export let saveModel: (def: ModelDefinition, model: ModelInstance) => Promise<ModelInstance> = undefined as any
-export let deleteModel: (def: ModelDefinition, model: ModelInstance) => Promise<void> = undefined as any
-export let forceDeleteModel: (def: ModelDefinition, model: ModelInstance) => Promise<void> = undefined as any
-export let restoreModel: (def: ModelDefinition, model: ModelInstance) => Promise<void> = undefined as any
-export let trashedModel: (def: ModelDefinition, model: ModelInstance) => boolean = undefined as any
-export let reloadModel: (def: ModelDefinition, model: ModelInstance) => Promise<void> = undefined as any
-export let modelToJSON: (def: ModelDefinition, model: ModelInstance) => Record<string, unknown> = undefined as any
-export let loadModelRelations: (model: ModelInstance, def: ModelDefinition, ...relations: string[]) => Promise<void> =
-  undefined as any
-
-// Lazy import to avoid circular deps
-let _relationQueryModule: any = null
-function requireRelationQuery(): any {
-  if (!_relationQueryModule) {
-    // Will be set by wireDeps or loaded lazily
-    throw new Error("RelationQuery module not wired yet")
-  }
-  return _relationQueryModule
-}
-
-export function setRelationQueryModule(mod: any): void {
-  _relationQueryModule = mod
-}
-
-export function wireDeps(deps: {
-  saveModel: typeof saveModel
-  deleteModel: typeof deleteModel
-  forceDeleteModel: typeof forceDeleteModel
-  restoreModel: typeof restoreModel
-  trashedModel: typeof trashedModel
-  reloadModel: typeof reloadModel
-  modelToJSON: typeof modelToJSON
-  loadModelRelations: typeof loadModelRelations
-}): void {
-  saveModel = deps.saveModel
-  deleteModel = deps.deleteModel
-  forceDeleteModel = deps.forceDeleteModel
-  restoreModel = deps.restoreModel
-  trashedModel = deps.trashedModel
-  reloadModel = deps.reloadModel
-  modelToJSON = deps.modelToJSON
-  loadModelRelations = deps.loadModelRelations
 }
