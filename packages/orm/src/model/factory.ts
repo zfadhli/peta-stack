@@ -1,4 +1,5 @@
 import { applyCastsToData, castForSet, castValue } from "./casts.js"
+import { getRuntime } from "./runtime.js"
 import {
   fillAttrs,
   getAttr,
@@ -14,7 +15,6 @@ import {
 } from "./state.js"
 import type { ModelConfig, ModelDefinition, ModelInstance } from "./types.js"
 import { FORBIDDEN_KEYS } from "./types.js"
-import { getRuntime } from "./runtime.js"
 
 // Store model definition on instance for collection.load() to find
 const instanceDefs = new WeakMap<object, ModelDefinition>()

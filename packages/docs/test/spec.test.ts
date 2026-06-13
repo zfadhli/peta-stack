@@ -1,4 +1,16 @@
-import { describe, expect, it, type, Hono, route, honoScanner, buildOpenAPISpec, getOpenAPISpec, type RouteScanner, createDocApp } from "./helper.ts"
+import {
+  buildOpenAPISpec,
+  createDocApp,
+  describe,
+  expect,
+  getOpenAPISpec,
+  Hono,
+  honoScanner,
+  it,
+  type RouteScanner,
+  route,
+  type,
+} from "./helper.ts"
 
 // ---------------------------------------------------------------------------
 // buildOpenAPISpec
@@ -114,8 +126,18 @@ describe("buildOpenAPISpec", () => {
 
   it("supports multiple HTTP methods on the same path", () => {
     const app = new Hono()
-    app.get("/pets", route().response(200, { description: "OK" }).handle(() => new Response()))
-    app.post("/pets", route().response(201, { description: "Created" }).handle(() => new Response()))
+    app.get(
+      "/pets",
+      route()
+        .response(200, { description: "OK" })
+        .handle(() => new Response()),
+    )
+    app.post(
+      "/pets",
+      route()
+        .response(201, { description: "Created" })
+        .handle(() => new Response()),
+    )
 
     const spec = getOpenAPISpec(app, { title: "Test", version: "1.0.0" })
     expect(spec.paths!["/pets"]?.get).toBeDefined()
@@ -197,7 +219,12 @@ describe("buildOpenAPISpec", () => {
     const spec = getOpenAPISpec(app, { title: "Test", version: "1.0.0" })
     const params = spec.paths!["/pets"]?.get?.parameters ?? []
     expect(params.find((p) => p!.name === "page")?.schema).toMatchObject({ type: "integer", minimum: 1, default: 1 })
-    expect(params.find((p) => p!.name === "limit")?.schema).toMatchObject({ type: "integer", minimum: 1, maximum: 100, default: 20 })
+    expect(params.find((p) => p!.name === "limit")?.schema).toMatchObject({
+      type: "integer",
+      minimum: 1,
+      maximum: 100,
+      default: 20,
+    })
   })
 
   it("builds filter parameters with operator suffixes", () => {

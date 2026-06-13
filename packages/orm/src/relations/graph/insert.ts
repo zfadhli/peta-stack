@@ -1,26 +1,26 @@
 import { DatabaseError } from "../../errors.js"
 import type { ModelDefinition, ModelInstance } from "../../model/types.js"
 import type { Relation } from "../base.js"
-import type { InsertGraphOptions, GraphContext, RelationOperationShape } from "./types.js"
-import { assertRelationAllowed, joinPath, resolveAllowGraph } from "./security.js"
 import {
-  isMorphToRelation,
-  isMorphManyRelation,
+  getMorphId,
   getMorphType,
   getMorphTypeValue,
-  getMorphId,
+  isMorphManyRelation,
+  isMorphToRelation,
   resolveThunk,
 } from "./morph.js"
 import {
-  getPrimaryKeyColumn,
+  collectRefs,
+  extractGraphRelationData,
+  findRelated,
   getDb,
   getPivotInfo,
-  findRelated,
-  resolveTargetId,
-  extractGraphRelationData,
-  collectRefs,
+  getPrimaryKeyColumn,
   resolveRefs,
+  resolveTargetId,
 } from "./parser.js"
+import { assertRelationAllowed, joinPath, resolveAllowGraph } from "./security.js"
+import type { GraphContext, InsertGraphOptions, RelationOperationShape } from "./types.js"
 
 // ─── INSERT GRAPH ─────────────────────────────────────────────
 
@@ -387,7 +387,11 @@ async function processManyToMany(
   const { throughTable, foreignPivotKey, relatedPivotKey } = getPivotInfo(relation)
   const db = getDb(relatedDef)
 
-  const items: Record<string, unknown>[] = Array.isArray(op) ? op : Array.isArray((op as RelationOperationShape)?.create) ? (op as RelationOperationShape).create as Record<string, unknown>[] : []
+  const items: Record<string, unknown>[] = Array.isArray(op)
+    ? op
+    : Array.isArray((op as RelationOperationShape)?.create)
+      ? ((op as RelationOperationShape).create as Record<string, unknown>[])
+      : []
 
   for (const item of items) {
     if (item["#dbRef"] != null) {

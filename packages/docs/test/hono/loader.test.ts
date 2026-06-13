@@ -1,4 +1,14 @@
-import { describe, expect, it, Hono, loadRoutes, getOpenAPISpec, mkdirSync, writeFileSync, linkNodeModules } from "../helper.ts"
+import {
+  describe,
+  expect,
+  getOpenAPISpec,
+  Hono,
+  it,
+  linkNodeModules,
+  loadRoutes,
+  mkdirSync,
+  writeFileSync,
+} from "../helper.ts"
 
 // ---------------------------------------------------------------------------
 // loadRoutes
@@ -83,13 +93,16 @@ export default app;
     mkdirSync(commentsDir, { recursive: true })
     linkNodeModules(tmp)
 
-    writeFileSync(`${petsDir}/index.ts`,
+    writeFileSync(
+      `${petsDir}/index.ts`,
       `import { Hono } from "hono";\nimport { route } from "${cwd}/src/hono/index.ts";\nconst app = new Hono();\napp.get("/", route().summary("List pets").response(200, { description: "OK" }).handle(() => new Response()));\nexport default app;\n`,
     )
-    writeFileSync(`${idDir}/index.ts`,
+    writeFileSync(
+      `${idDir}/index.ts`,
       `import { Hono } from "hono";\nimport { route } from "${cwd}/src/hono/index.ts";\nconst app = new Hono();\napp.get("/", route().summary("Get pet").response(200, { description: "OK" }).handle(() => new Response()));\nexport default app;\n`,
     )
-    writeFileSync(`${commentsDir}/index.ts`,
+    writeFileSync(
+      `${commentsDir}/index.ts`,
       `import { Hono } from "hono";\nimport { route } from "${cwd}/src/hono/index.ts";\nconst app = new Hono();\napp.get("/", route().summary("List comments").response(200, { description: "OK" }).handle(() => new Response()));\nexport default app;\n`,
     )
 
@@ -107,7 +120,8 @@ export default app;
     mkdirSync(settingsDir, { recursive: true })
     linkNodeModules(tmp)
 
-    writeFileSync(`${settingsDir}/index.ts`,
+    writeFileSync(
+      `${settingsDir}/index.ts`,
       `import { Hono } from "hono";\nimport { route } from "${cwd}/src/hono/index.ts";\nconst app = new Hono();\napp.get("/", route().summary("Get settings").response(200, { description: "OK" }).handle(() => new Response()));\nexport default app;\n`,
     )
 

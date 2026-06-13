@@ -1,7 +1,7 @@
 import type { ColumnShape } from "../columns/column.js"
 import { ModelNotRegisteredError } from "../errors.js"
-import { addStaticHook } from "../hooks/static.js"
 import type { LifecycleEvent } from "../hooks/index.js"
+import { addStaticHook } from "../hooks/static.js"
 import type { QueryBuilder } from "../query/index.js"
 import { createQueryBuilder } from "../query/index.js"
 import type { ORMLike } from "../types.js"

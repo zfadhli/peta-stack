@@ -1,6 +1,6 @@
 import type { ModelDefinition, ModelInstance } from "../model/types.js"
-import { createQueryBuilder } from "../query/index.js"
 import type { QueryBuilder } from "../query/index.js"
+import { createQueryBuilder } from "../query/index.js"
 import type { Relation } from "./base.js"
 
 // ─── OPTIONS TYPES ─────────────────────────────────────────────

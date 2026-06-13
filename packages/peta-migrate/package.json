@@ -27,7 +27,7 @@
     "ora": "^9.4.0"
   },
   "peerDependencies": {
-    "kysely": "^0.27.0",
+    "kysely": "^0.28.17",
     "typescript": "^6.0.0"
   },
   "scripts": {

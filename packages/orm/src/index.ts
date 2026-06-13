@@ -21,9 +21,9 @@ export {
 // ─── Hooks ─────────────────────────────────────────────────
 export type { HookCallback, HookManager, LifecycleEvent } from "./hooks/index.js"
 export { createHookManager } from "./hooks/index.js"
+export { defineModel } from "./model/define.js"
 // ─── Model System ──────────────────────────────────────────
 export { Attribute } from "./model/index.js"
-export { defineModel } from "./model/define.js"
 export type { ModelConfig, ModelDefinition, ModelInstance } from "./model/types.js"
 export type { ORMConfig } from "./orm/index.js"
 export { createORM, createORM as createPeta } from "./orm/index.js"
@@ -35,9 +35,9 @@ export type { Plugin } from "./plugins/index.js"
 export { softDeletes } from "./plugins/soft-deletes.js"
 export { timestamps } from "./plugins/timestamps.js"
 export { ulid } from "./plugins/ulid.js"
+export { createQueryBuilder } from "./query/builder.js"
 // ─── Query Builder ─────────────────────────────────────────
 export type { QueryBuilder } from "./query/types.js"
-export { createQueryBuilder } from "./query/builder.js"
 // ─── Relations ────────────────────────────────────────────
 export type { Relation, RelationOptions, RelationType } from "./relations/base.js"
 export type { InsertGraphOptions, UpsertGraphOptions } from "./relations/graph/index.js"

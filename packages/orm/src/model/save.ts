@@ -124,10 +124,7 @@ export async function insertModel(def: ModelDefinition, data: Record<string, unk
       } else if (bop.connect) {
         const cond = bop.connect as Record<string, unknown>
         const condKey = Object.keys(cond)[0]!
-        const found = await relatedDef
-          .query()
-          .where(condKey, "=", cond[condKey])
-          .executeTakeFirst()
+        const found = await relatedDef.query().where(condKey, "=", cond[condKey]).executeTakeFirst()
         if (found) {
           columnData[relation.foreignKey] = found.get(relation.localKey)
         }
@@ -137,10 +134,7 @@ export async function insertModel(def: ModelDefinition, data: Record<string, unk
           create: Record<string, unknown>
         }
         const whereKey = Object.keys(where)[0]!
-        const found = await relatedDef
-          .query()
-          .where(whereKey, "=", where[whereKey])
-          .executeTakeFirst()
+        const found = await relatedDef.query().where(whereKey, "=", where[whereKey]).executeTakeFirst()
         if (found) {
           columnData[relation.foreignKey] = found.get(relation.localKey)
         } else {
@@ -327,11 +321,7 @@ export async function updateModel(
         const queries = Array.isArray(hop.update?.where) ? hop.update.where : [hop.update?.where]
         for (const where of queries) {
           const whereKey = Object.keys(where)[0]!
-          await relatedDef
-            .query()
-            .where(whereKey, "=", where[whereKey])
-            .all()
-            .updateMany(hop.update.data)
+          await relatedDef.query().where(whereKey, "=", where[whereKey]).all().updateMany(hop.update.data)
         }
       }
 

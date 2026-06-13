@@ -1,7 +1,7 @@
 import { sql as kyselySql } from "kysely"
+import type { Column } from "../columns/column.js"
 import { ModelNotFoundError, RelationNotAllowedError, RelationNotFoundError } from "../errors.js"
 import type { ModelDefinition, ModelInstance } from "../model/types.js"
-import type { Column } from "../columns/column.js"
 import { type EagerLoad, EagerLoader } from "../relations/eager.js"
 import type { InsertGraphOptions, UpsertGraphOptions } from "../relations/graph/index.js"
 import { isRelationAllowed } from "../relations/graph/index.js"
@@ -34,7 +34,10 @@ type DeletedRows = ModelInstance[]
 const SAFE_COLUMN = /^[a-zA-Z_*][a-zA-Z0-9_.*]*$/
 
 // ─── CREATE QUERY BUILDER ────────────────────────────────
-export function createQueryBuilder(def: ModelDefinition, peta?: { kysely: import("../lib/kysely.js").Database }): QueryBuilder {
+export function createQueryBuilder(
+  def: ModelDefinition,
+  peta?: { kysely: import("../lib/kysely.js").Database },
+): QueryBuilder {
   const db: any = peta?.kysely ?? def._orm?.kysely
   if (!db) throw new Error("Model not registered with an ORM instance")
 
@@ -186,25 +189,33 @@ export function createQueryBuilder(def: ModelDefinition, peta?: { kysely: import
 
     async sum(column: string) {
       applyScopes()
-      const result = await qb.select((eb: AggregateEB) => eb.fn.sum(validateColumn(column)).as("sum")).executeTakeFirst()
+      const result = await qb
+        .select((eb: AggregateEB) => eb.fn.sum(validateColumn(column)).as("sum"))
+        .executeTakeFirst()
       return Number((result as { sum: number })?.sum ?? 0)
     },
 
     async avg(column: string) {
       applyScopes()
-      const result = await qb.select((eb: AggregateEB) => eb.fn.avg(validateColumn(column)).as("avg")).executeTakeFirst()
+      const result = await qb
+        .select((eb: AggregateEB) => eb.fn.avg(validateColumn(column)).as("avg"))
+        .executeTakeFirst()
       return Number((result as { avg: number })?.avg ?? 0)
     },
 
     async min(column: string) {
       applyScopes()
-      const result = await qb.select((eb: AggregateEB) => eb.fn.min(validateColumn(column)).as("min")).executeTakeFirst()
+      const result = await qb
+        .select((eb: AggregateEB) => eb.fn.min(validateColumn(column)).as("min"))
+        .executeTakeFirst()
       return Number((result as { min: number })?.min ?? 0)
     },
 
     async max(column: string) {
       applyScopes()
-      const result = await qb.select((eb: AggregateEB) => eb.fn.max(validateColumn(column)).as("max")).executeTakeFirst()
+      const result = await qb
+        .select((eb: AggregateEB) => eb.fn.max(validateColumn(column)).as("max"))
+        .executeTakeFirst()
       return Number((result as { max: number })?.max ?? 0)
     },
 
@@ -370,7 +381,10 @@ export function createQueryBuilder(def: ModelDefinition, peta?: { kysely: import
     },
 
     // ─── Graph operations ──────────────────────────────────
-    async insertGraph(data: Record<string, unknown> | Record<string, unknown>[], options?: InsertGraphOptions): Promise<any> {
+    async insertGraph(
+      data: Record<string, unknown> | Record<string, unknown>[],
+      options?: InsertGraphOptions,
+    ): Promise<any> {
       const { insertGraph: doInsertGraph } = await import("../relations/graph/index.js")
       return doInsertGraph(def, data, {
         ...options,
@@ -378,7 +392,10 @@ export function createQueryBuilder(def: ModelDefinition, peta?: { kysely: import
       })
     },
 
-    async upsertGraph(data: Record<string, unknown> | Record<string, unknown>[], options?: UpsertGraphOptions): Promise<any> {
+    async upsertGraph(
+      data: Record<string, unknown> | Record<string, unknown>[],
+      options?: UpsertGraphOptions,
+    ): Promise<any> {
       const { upsertGraph: doUpsertGraph } = await import("../relations/graph/index.js")
       return doUpsertGraph(def, data, {
         ...options,

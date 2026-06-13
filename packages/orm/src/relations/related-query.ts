@@ -1,10 +1,10 @@
 import { sql } from "kysely"
-import { RelationNotFoundError } from "../errors.js"
-import type { ModelDefinition, ModelInstance } from "../model/types.js"
 import type { Column } from "../columns/column.js"
+import { RelationNotFoundError } from "../errors.js"
+import type { Database } from "../lib/kysely.js"
+import type { ModelDefinition, ModelInstance } from "../model/types.js"
 import type { QueryBuilder } from "../query/index.js"
 import { createQueryBuilder } from "../query/index.js"
-import type { Database } from "../lib/kysely.js"
 
 export interface RelationQuery extends QueryBuilder {
   /** Attach related model(s) for many-to-many relations. */
@@ -52,7 +52,8 @@ export function createRelationQuery(
     const pkValue = instance.get(relation.localKey)
     if (pkValue != null && relation.throughTable && relation.foreignPivotKey && relation.relatedPivotKey) {
       const relatedPk =
-        Object.keys(relatedDef.columns).find((k) => (relatedDef.columns as Record<string, Column>)[k]?.isPrimaryKey) ?? "id"
+        Object.keys(relatedDef.columns).find((k) => (relatedDef.columns as Record<string, Column>)[k]?.isPrimaryKey) ??
+        "id"
       const t = relation.throughTable
       const rpk = relation.relatedPivotKey
       const fpk = relation.foreignPivotKey
@@ -126,9 +127,9 @@ export function createRelationQuery(
         const isDuplicate =
           err.code === "SQLITE_CONSTRAINT_UNIQUE" ||
           err.code === "SQLITE_CONSTRAINT" ||
-          err.code === "23505" ||        // PostgreSQL
+          err.code === "23505" || // PostgreSQL
           err.code === "ER_DUP_ENTRY" || // MySQL
-          err.errno === 1062             // MySQL (numeric)
+          err.errno === 1062 // MySQL (numeric)
         if (!isDuplicate) throw e
       }
     }
@@ -174,7 +175,9 @@ export function createRelationQuery(
     // IDs to attach (in desired but not current)
     const toAttach = desiredIds.filter((id) => !currentIds.has(id))
     // IDs to detach (in current but not desired)
-    const toDetach = [...currentIds].filter((id): id is string | number => (typeof id === "string" || typeof id === "number") && !desiredIds.includes(id))
+    const toDetach = [...currentIds].filter(
+      (id): id is string | number => (typeof id === "string" || typeof id === "number") && !desiredIds.includes(id),
+    )
 
     // Run operations
     const ops: Promise<any>[] = []
@@ -229,9 +232,9 @@ export function createRelationQuery(
         const isDuplicate =
           err.code === "SQLITE_CONSTRAINT_UNIQUE" ||
           err.code === "SQLITE_CONSTRAINT" ||
-          err.code === "23505" ||        // PostgreSQL
+          err.code === "23505" || // PostgreSQL
           err.code === "ER_DUP_ENTRY" || // MySQL
-          err.errno === 1062             // MySQL (numeric)
+          err.errno === 1062 // MySQL (numeric)
         if (!isDuplicate) throw e
       }
     }

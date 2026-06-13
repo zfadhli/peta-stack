@@ -1,4 +1,4 @@
-import { describe, expect, it, Hono, honoScanner } from "../helper.ts"
+import { describe, expect, Hono, honoScanner, it } from "../helper.ts"
 
 // ---------------------------------------------------------------------------
 // honoScanner
@@ -6,13 +6,10 @@ import { describe, expect, it, Hono, honoScanner } from "../helper.ts"
 describe("honoScanner", () => {
   it("returns entries from Hono routes with metadata", () => {
     const app = new Hono()
-    app.get(
-      "/pets",
-      (c) => {
-        ;(c as any).routeConfig = { responses: { "200": { description: "OK" } } }
-        return c.json({})
-      },
-    )
+    app.get("/pets", (c) => {
+      ;(c as any).routeConfig = { responses: { "200": { description: "OK" } } }
+      return c.json({})
+    })
     app.get("/pets", () => new Response())
     const entries = honoScanner.scan(app)
     expect(entries.length).toBe(0)

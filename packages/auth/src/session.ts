@@ -1,6 +1,6 @@
 import type { SerializeOptions } from "cookie"
 import { serialize } from "cookie"
-import { type Password, normalizePassword, sealData, unsealData } from "./crypto.js"
+import { normalizePassword, type Password, sealData, unsealData } from "./crypto.js"
 import { PetaAuthError } from "./errors.js"
 
 const TIMESTAMP_SKEW_SECONDS = 60

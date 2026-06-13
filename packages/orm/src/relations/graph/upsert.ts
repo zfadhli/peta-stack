@@ -1,19 +1,19 @@
 import { DatabaseError } from "../../errors.js"
 import type { ModelDefinition, ModelInstance } from "../../model/types.js"
 import type { Relation } from "../base.js"
-import type { UpsertGraphOptions, GraphContext, RelationOperationShape } from "./types.js"
-import { isRelPathAllowed, assertRelationAllowed, joinPath, relNameFromPath, resolveAllowGraph } from "./security.js"
-import { isMorphManyRelation, getMorphType, getMorphTypeValue } from "./morph.js"
+import { processBelongsTo, processNode } from "./insert.js"
+import { getMorphType, getMorphTypeValue, isMorphManyRelation } from "./morph.js"
 import {
-  getPrimaryKeyColumn,
+  collectRefs,
+  extractGraphRelationData,
   getDb,
   getPivotInfo,
-  resolveTargetId,
-  extractGraphRelationData,
-  collectRefs,
+  getPrimaryKeyColumn,
   resolveRefs,
+  resolveTargetId,
 } from "./parser.js"
-import { processNode, processBelongsTo } from "./insert.js"
+import { assertRelationAllowed, isRelPathAllowed, joinPath, relNameFromPath, resolveAllowGraph } from "./security.js"
+import type { GraphContext, RelationOperationShape, UpsertGraphOptions } from "./types.js"
 
 // ─── UPSERT GRAPH ─────────────────────────────────────────────
 
@@ -174,7 +174,11 @@ async function upsertHasMany(
   }
 
   // Process incoming items
-  const items: Record<string, unknown>[] = Array.isArray(op) ? op : Array.isArray((op as RelationOperationShape)?.create) ? (op as RelationOperationShape).create as Record<string, unknown>[] : []
+  const items: Record<string, unknown>[] = Array.isArray(op)
+    ? op
+    : Array.isArray((op as RelationOperationShape)?.create)
+      ? ((op as RelationOperationShape).create as Record<string, unknown>[])
+      : []
 
   const incomingIds = new Set<unknown>()
 
@@ -271,7 +275,11 @@ async function upsertManyToMany(
 
   const incomingIds = new Set<unknown>()
 
-  const items: Record<string, unknown>[] = Array.isArray(op) ? op : Array.isArray((op as RelationOperationShape)?.create) ? (op as RelationOperationShape).create as Record<string, unknown>[] : []
+  const items: Record<string, unknown>[] = Array.isArray(op)
+    ? op
+    : Array.isArray((op as RelationOperationShape)?.create)
+      ? ((op as RelationOperationShape).create as Record<string, unknown>[])
+      : []
 
   for (const item of items) {
     if (item["#dbRef"] != null) {

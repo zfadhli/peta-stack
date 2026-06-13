@@ -31,7 +31,12 @@ export interface PaginationOptions {
 
 /** Parse a comma-separated string into a trimmed, non-empty array. */
 function parseCommaSeparated(value: string | undefined): string[] {
-  return value ? value.split(",").map((s) => s.trim()).filter(Boolean) : []
+  return value
+    ? value
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : []
 }
 
 // ---------------------------------------------------------------------------

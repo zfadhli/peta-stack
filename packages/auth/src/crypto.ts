@@ -1,42 +1,5 @@
 import { defaults as ironDefaults, seal as ironSeal, unseal as ironUnseal } from "iron-webcrypto"
 
-/**
- * Minimal Web Crypto subset needed for iron-webcrypto.
- * @internal
- */
-interface PetaCrypto {
-  readonly subtle: {
-    decrypt: (
-      algorithm: AesCbcParams | AesCtrParams | AesGcmParams | AlgorithmIdentifier | RsaOaepParams,
-      key: CryptoKey,
-      data: Uint8Array,
-    ) => Promise<ArrayBuffer>
-    deriveBits: (
-      algorithm: AlgorithmIdentifier | EcdhKeyDeriveParams | HkdfParams | Pbkdf2Params,
-      baseKey: CryptoKey,
-      length: number,
-    ) => Promise<ArrayBuffer>
-    encrypt: (
-      algorithm: AesCbcParams | AesCtrParams | AesGcmParams | AlgorithmIdentifier | RsaOaepParams,
-      key: CryptoKey,
-      data: Uint8Array,
-    ) => Promise<ArrayBuffer>
-    importKey: (
-      format: Exclude<KeyFormat, "jwk">,
-      keyData: ArrayBuffer | Uint8Array,
-      algorithm: AesKeyAlgorithm | AlgorithmIdentifier | EcKeyImportParams | HmacImportParams | RsaHashedImportParams,
-      extractable: boolean,
-      keyUsages: KeyUsage[],
-    ) => Promise<CryptoKey>
-    sign: (
-      algorithm: AlgorithmIdentifier | EcdsaParams | RsaPssParams,
-      key: CryptoKey,
-      data: Uint8Array,
-    ) => Promise<ArrayBuffer>
-  }
-  getRandomValues: (array: Uint8Array) => Uint8Array
-}
-
 /** A password that can be a plain string or a versioned map. */
 export type Password = string | Record<string, string>
 
@@ -59,16 +22,12 @@ function parseSeal(seal: string) {
   }
 }
 
-function getCrypto(): PetaCrypto {
-  return globalThis.crypto as unknown as PetaCrypto
-}
-
 /**
- * Create a `sealData` function bound to a Web Crypto instance.
+ * Create a `sealData` function.
  *
  * @internal
  */
-export function createSealData(webcrypto: PetaCrypto) {
+export function createSealData() {
   return async function sealData(
     data: unknown,
     { password, ttl = SEVEN_DAYS }: { password: Password; ttl?: number },
@@ -78,12 +37,13 @@ export function createSealData(webcrypto: PetaCrypto) {
     const secret = map[id]!
 
     const seal = await ironSeal(
-      webcrypto,
       data,
       { id, secret },
       {
         ...ironDefaults,
         ttl: ttl * 1000,
+        encode: JSON.stringify,
+        decode: JSON.parse,
       },
     )
 
@@ -92,11 +52,11 @@ export function createSealData(webcrypto: PetaCrypto) {
 }
 
 /**
- * Create an `unsealData` function bound to a Web Crypto instance.
+ * Create an `unsealData` function.
  *
  * @internal
  */
-export function createUnsealData(webcrypto: PetaCrypto) {
+export function createUnsealData() {
   return async function unsealData<T>(
     seal: string,
     { password, ttl = SEVEN_DAYS }: { password: Password; ttl?: number },
@@ -105,9 +65,11 @@ export function createUnsealData(webcrypto: PetaCrypto) {
     const { sealWithoutVersion, tokenVersion } = parseSeal(seal)
 
     try {
-      const data = (await ironUnseal(webcrypto, sealWithoutVersion, map, {
+      const data = (await ironUnseal(sealWithoutVersion, map, {
         ...ironDefaults,
         ttl: ttl * 1000,
+        encode: JSON.stringify,
+        decode: JSON.parse,
       })) as Record<string, unknown> | undefined
 
       if (tokenVersion === 2) return data as T
@@ -135,7 +97,7 @@ export function createUnsealData(webcrypto: PetaCrypto) {
  * const sealed = await sealData({ userId: 1 }, { password: "my-secret-key" })
  * ```
  */
-export const sealData = createSealData(getCrypto())
+export const sealData = createSealData()
 
 /**
  * Unseal data previously sealed with {@link sealData}.
@@ -145,4 +107,4 @@ export const sealData = createSealData(getCrypto())
  * const data = await unsealData<{ userId: number }>(sealed, { password: "my-secret-key" })
  * ```
  */
-export const unsealData = createUnsealData(getCrypto())
+export const unsealData = createUnsealData()

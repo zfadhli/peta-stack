@@ -1,3 +1,4 @@
+import { mkdirSync, symlinkSync, writeFileSync } from "node:fs"
 import { type } from "arktype"
 import { Hono } from "hono"
 import { loadRoutes } from "../src/hono/index.js"
@@ -6,12 +7,21 @@ import { honoScanner } from "../src/hono/scanner.js"
 import { serveScalarUI } from "../src/scalar.js"
 import type { RouteScanner } from "../src/scanner.js"
 import { buildOpenAPISpec, getOpenAPISpec } from "../src/spec.js"
-import { mkdirSync, symlinkSync, writeFileSync } from "node:fs"
 
 export { describe, expect, it } from "bun:test"
-
-export { type, Hono, loadRoutes, getRouteMeta, route, setOnValidationError, honoScanner, serveScalarUI, buildOpenAPISpec, getOpenAPISpec }
 export type { RouteScanner }
+export {
+  buildOpenAPISpec,
+  getOpenAPISpec,
+  getRouteMeta,
+  Hono,
+  honoScanner,
+  loadRoutes,
+  route,
+  serveScalarUI,
+  setOnValidationError,
+  type,
+}
 
 /** Create a symlink to node_modules for filesystem test fixtures. */
 export function linkNodeModules(dir: string) {

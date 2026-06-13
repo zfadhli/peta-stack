@@ -1,5 +1,5 @@
 import * as jose from "jose"
-import { type Password, normalizePassword } from "./crypto.js"
+import { normalizePassword, type Password } from "./crypto.js"
 import { PetaAuthError } from "./errors.js"
 
 function toKey(secret: string): Uint8Array {

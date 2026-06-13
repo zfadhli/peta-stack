@@ -18,7 +18,11 @@ export function getDb(def: ModelDefinition): any {
   return (def._orm as any).kysely
 }
 
-export function getPivotInfo(relation: Relation): { throughTable: string; foreignPivotKey: string; relatedPivotKey: string } {
+export function getPivotInfo(relation: Relation): {
+  throughTable: string
+  foreignPivotKey: string
+  relatedPivotKey: string
+} {
   if (relation.type !== "manyToMany" || !relation.throughTable) {
     throw new Error("Not a many-to-many relation")
   }

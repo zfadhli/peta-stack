@@ -29,8 +29,8 @@ export { FORBIDDEN_KEYS } from "./types.js"
 
 import { createRelationQuery } from "../relations/related-query.js"
 import { deleteModel, forceDeleteModel, restoreModel, trashedModel } from "./delete.js"
-import { initRuntime } from "./runtime.js"
 import { loadModelRelations } from "./relation.js"
+import { initRuntime } from "./runtime.js"
 import { reloadModel, saveModel } from "./save.js"
 import { modelToJSON } from "./serialize.js"
 

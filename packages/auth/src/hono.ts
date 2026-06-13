@@ -1,7 +1,7 @@
 import { parse } from "cookie"
 import type { MiddlewareHandler } from "hono"
 import { createMiddleware } from "hono/factory"
-import { createSessionFromAdapter, sessionHasData, type IronSession, type SessionOptions } from "./session.js"
+import { createSessionFromAdapter, type IronSession, type SessionOptions, sessionHasData } from "./session.js"
 
 /**
  * Hono middleware that creates a session and makes it available

@@ -227,11 +227,7 @@ export interface OAuthProviderConfig<TTokens, TUser> {
     pkce: Awaited<ReturnType<typeof handlePKCE>>,
   ) => Record<string, string>
   /** Fetch user info with the access token. Returns the user data. */
-  fetchUser: (
-    config: OAuthResolvedConfig,
-    tokens: TTokens,
-    request: Request,
-  ) => Promise<TUser>
+  fetchUser: (config: OAuthResolvedConfig, tokens: TTokens, request: Request) => Promise<TUser>
 }
 
 /**

@@ -1,5 +1,5 @@
-import type { ModelDefinition, ModelInstance } from "./types.js"
 import type { RelationQuery } from "../relations/related-query.js"
+import type { ModelDefinition, ModelInstance } from "./types.js"
 
 export interface ModelRuntime {
   saveModel: (def: ModelDefinition, model: ModelInstance) => Promise<ModelInstance>
