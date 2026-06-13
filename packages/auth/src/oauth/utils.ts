@@ -148,6 +148,16 @@ export function redirect(url: string, cookie?: string): Response {
 }
 
 /**
+ * Create a JSON error response with the given status code.
+ */
+export function jsonError(error: Error, status: number): Response {
+  return new Response(JSON.stringify({ error: error.message }), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  })
+}
+
+/**
  * Handle missing OAuth configuration.
  */
 export function handleMissingConfiguration(
@@ -160,10 +170,7 @@ export function handleMissingConfiguration(
   )
   const error = new Error(`Missing ${envVars.join(" or ")} env ${missingKeys.length > 1 ? "variables" : "variable"}.`)
   if (onError) return onError(error)
-  return new Response(JSON.stringify({ error: error.message }), {
-    status: 500,
-    headers: { "Content-Type": "application/json" },
-  })
+  return jsonError(error, 500)
 }
 
 /**
@@ -177,10 +184,7 @@ export function handleAccessTokenError(
   const message = `${provider} login failed: ${errorData.error_description || errorData.error || "Unknown error"}`
   const error = new Error(message)
   if (onError) return onError(error)
-  return new Response(JSON.stringify({ error: error.message }), {
-    status: 401,
-    headers: { "Content-Type": "application/json" },
-  })
+  return jsonError(error, 401)
 }
 
 /**
@@ -192,8 +196,5 @@ export function handleInvalidState(
 ): Response | Promise<Response> {
   const error = new Error(`${provider} login failed: state mismatch`)
   if (onError) return onError(error)
-  return new Response(JSON.stringify({ error: error.message }), {
-    status: 500,
-    headers: { "Content-Type": "application/json" },
-  })
+  return jsonError(error, 500)
 }

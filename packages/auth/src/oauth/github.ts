@@ -5,6 +5,7 @@ import {
   handleInvalidState,
   handleMissingConfiguration,
   handleState,
+  jsonError,
   redirect,
   requestAccessToken,
 } from "./utils.js"
@@ -82,10 +83,7 @@ export function defineOAuthGitHubEventHandler(options: {
     if (queryError) {
       const error = new Error(`GitHub login failed: ${queryError}`)
       if (onError) return onError(error)
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      })
+      return jsonError(error, 401)
     }
 
     if (!config.clientId || !config.clientSecret) {
