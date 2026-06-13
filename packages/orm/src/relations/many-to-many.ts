@@ -33,17 +33,38 @@ export function manyToMany(
   relatedThunk: () => ModelDefinition,
   options: RelationOptions & { through: string } & { pivotExtras?: string[] },
 ): Relation {
-  const related = resolveThunk(relatedThunk)
-  const foreignKey = options.foreignKey ?? `${snakeCase(resolveThunk(relatedThunk).table)}Id`
+  // Lazily resolve the thunk at first access to support forward references
+  // (models that reference other models defined later in the module).
+  let _related: ModelDefinition | undefined
+  function getRelated(): ModelDefinition {
+    if (!_related) _related = resolveThunk(relatedThunk) ?? undefined
+    if (!_related) throw new Error(`Cannot resolve manyToMany relation — related model not found`)
+    return _related!
+  }
+
+  // Resolve defaults — all keys that require the thunk are guarded so they
+  // don't crash when the thunk hasn't resolved yet (forward reference case).
   const localKey = options.localKey ?? "id"
   const throughTable = options.through ?? ""
-  const foreignPivotKey = options.foreignPivotKey ?? `${snakeCase(resolveThunk(relatedThunk).table)}Id`
-  const relatedPivotKey = options.relatedPivotKey ?? `${snakeCase(related.table)}Id`
+
+  // Only attempt thunk-based defaults if the thunk resolves immediately
+  let _table: string | undefined
+  try {
+    _table = getRelated().table
+  } catch {
+    // thunk not yet resolvable — defaults will be empty strings
+  }
+
+  const foreignKey = options.foreignKey ?? (_table ? `${snakeCase(_table)}Id` : "")
+  const foreignPivotKey = options.foreignPivotKey ?? (_table ? `${snakeCase(_table)}Id` : "")
+  const relatedPivotKey = options.relatedPivotKey ?? (_table ? `${snakeCase(_table)}Id` : "")
   const pivotExtras = options.pivotExtras ?? []
 
   return {
     type: "manyToMany" as RelationType,
-    relatedModelClass: related,
+    get relatedModelClass() {
+      return getRelated()
+    },
     foreignKey,
     localKey,
     throughTable,
@@ -57,11 +78,12 @@ export function manyToMany(
     },
 
     query(parent: ModelInstance): ReturnType<typeof createQueryBuilder> {
+      const rel = getRelated()
       const pkValue = parent.get(localKey)
-      if (pkValue == null) return createQueryBuilder(related, (qb: any) => qb.where(localKey, "=", -1))
+      if (pkValue == null) return createQueryBuilder(rel, (qb: any) => qb.where(localKey, "=", -1))
 
-      return createQueryBuilder(related, (qb: any) => {
-        qb.innerJoin(throughTable, `${related.table}.${localKey}`, `${throughTable}.${relatedPivotKey}`)
+      return createQueryBuilder(rel, (qb: any) => {
+        qb.innerJoin(throughTable, `${rel.table}.${localKey}`, `${throughTable}.${relatedPivotKey}`)
         qb.where(`${throughTable}.${foreignPivotKey}`, "=", pkValue)
       })
     },
@@ -106,17 +128,18 @@ export function manyToMany(
       relationName: string,
       constraints?: ((qb: any) => void) | null,
     ): Promise<void> {
+      const rel = getRelated()
       if (models.length === 0) return
 
       const ids = models.map((m) => m.get(localKey)).filter((id) => id != null)
       if (ids.length === 0) return
 
-      const qb = createQueryBuilder(related)
-      qb.innerJoin(throughTable, `${related.table}.${localKey}`, `${throughTable}.${relatedPivotKey}`)
+      const qb = createQueryBuilder(rel)
+      qb.innerJoin(throughTable, `${rel.table}.${localKey}`, `${throughTable}.${relatedPivotKey}`)
       qb.where(`${throughTable}.${foreignPivotKey}`, "in", ids)
 
       // Select pivot columns if extras specified
-      const selectCols = [`${related.table}.*`]
+      const selectCols = [`${rel.table}.*`]
       if (pivotExtras.length > 0) {
         for (const extra of pivotExtras) {
           selectCols.push(`${throughTable}.${extra}`)

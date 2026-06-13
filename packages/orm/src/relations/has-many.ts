@@ -32,13 +32,24 @@ function groupByArray(items: ModelInstance[], key: string): Record<string, Model
 }
 
 export function hasMany(relatedThunk: () => ModelDefinition, options: RelationOptions = {}): Relation {
-  const related = resolveThunk(relatedThunk)
-  const foreignKey = options.foreignKey ?? guessForeignKey(relatedThunk())
+  // Lazily resolve the thunk at first access to support forward references.
+  // Don't attempt to resolve at definition time — the related model may not be
+  // defined yet (forward reference / circular dependency).
+  let _related: ModelDefinition | undefined
+  function getRelated(): ModelDefinition {
+    if (!_related) _related = resolveThunk(relatedThunk) ?? undefined
+    if (!_related) throw new Error(`Cannot resolve hasMany relation — related model not found`)
+    return _related!
+  }
+
+  const foreignKey = options.foreignKey ?? ""
   const localKey = options.localKey ?? "id"
 
   return {
     type: "hasMany" as RelationType,
-    relatedModelClass: related,
+    get relatedModelClass() {
+      return getRelated()
+    },
     foreignKey,
     localKey,
     get throughTable() {
@@ -58,7 +69,8 @@ export function hasMany(relatedThunk: () => ModelDefinition, options: RelationOp
     },
 
     query(parent: ModelInstance): ReturnType<typeof createQueryBuilder> {
-      const qb = createQueryBuilder(related)
+      const rel = getRelated()
+      const qb = createQueryBuilder(rel)
       const fkValue = parent.get(localKey)
       if (fkValue != null) {
         qb.where(foreignKey, "=", fkValue)
@@ -94,9 +106,10 @@ export function hasMany(relatedThunk: () => ModelDefinition, options: RelationOp
       relationName: string,
       constraints?: ((qb: any) => void) | null,
     ): Promise<void> {
+      const rel = getRelated()
       if (models.length === 0) return
 
-      const qb = createQueryBuilder(related)
+      const qb = createQueryBuilder(rel)
       this.addEagerConstraints(qb, models)
 
       if (constraints) constraints(qb)
@@ -108,24 +121,38 @@ export function hasMany(relatedThunk: () => ModelDefinition, options: RelationOp
 }
 
 export function hasOne(relatedThunk: () => ModelDefinition, options: RelationOptions = {}): Relation {
+  // Copy property descriptors from the base hasMany relation instead of using
+  // the spread operator. Spread triggers getters (e.g. relatedModelClass) which
+  // can crash if the thunk isn't resolvable yet (forward references).
   const base = hasMany(relatedThunk, options)
+  const result: Record<string, any> = {}
 
-  return {
-    ...base,
-
-    async getResults(parent: ModelInstance): Promise<ModelInstance | null> {
-      const results = await base.getResults(parent)
-      return (results as ModelInstance[])[0] ?? null
-    },
-
-    match(models: ModelInstance[], results: ModelInstance[], relationName: string): void {
-      const grouped = groupByArray(results, base.foreignKey)
-      for (const model of models) {
-        const key = String(model.get(base.localKey))
-        model.$setRelation(relationName, (grouped[key] ?? [])[0] ?? null)
-      }
-    },
+  for (const key of Object.keys(base)) {
+    const desc = Object.getOwnPropertyDescriptor(base, key)!
+    Object.defineProperty(result, key, desc)
   }
+
+  // Override with hasOne-specific implementations
+  result.match = function match(
+    models: ModelInstance[],
+    results: ModelInstance[],
+    relationName: string,
+  ): void {
+    const grouped = groupByArray(results, base.foreignKey)
+    for (const model of models) {
+      const key = String(model.get(base.localKey))
+      model.$setRelation(relationName, (grouped[key] ?? [])[0] ?? null)
+    }
+  }
+
+  result.getResults = async function getResults(
+    parent: ModelInstance,
+  ): Promise<ModelInstance | null> {
+    const results = await base.getResults(parent)
+    return (results as ModelInstance[])[0] ?? null
+  }
+
+  return result as Relation
 }
 
 export function belongsTo(relatedThunk: () => ModelDefinition, options: RelationOptions = {}): Relation {
