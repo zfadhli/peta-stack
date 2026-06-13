@@ -1,5 +1,6 @@
 import { type } from "arktype"
 import { Hono } from "hono"
+import { hashPassword, verifyPassword } from "peta-auth"
 import { route } from "peta-docs/hono"
 import { DatabaseError } from "peta-orm"
 import { User } from "../db/schema.js"
@@ -9,7 +10,7 @@ const app = new Hono()
 
 const SignupBody = type({ email: "string.email", password: "string>=8", name: "string>0" })
 const LoginBody = type({ email: "string.email", password: "string>=1" })
-const UserResponse = type({ id: "number", email: "string", name: "string", role: "'admin'|'user'" })
+const UserResponse = type({ id: "string", email: "string", name: "string", role: "'admin'|'user'|'author'" })
 
 app.post(
   "/signup",
@@ -21,20 +22,19 @@ app.post(
     .response(409, "Email already exists")
     .handle(async (c) => {
       const body = c.req.valid("json")
-      const passwordHash = await Bun.password.hash(body.password, { algorithm: "bcrypt", cost: 10 })
+      const passwordHash = await hashPassword(body.password)
 
-      let user: import("peta-orm").ModelInstance
-      try {
-        user = await User.insert({ email: body.email, passwordHash, name: body.name, role: "user" })
-      } catch (err) {
-        if (err instanceof DatabaseError && err.code === "UNIQUE_CONSTRAINT") {
-          throw http.conflict("A user with this email already exists")
-        }
-        throw err
-      }
+      const user = await User.insert({ email: body.email, passwordHash, name: body.name, role: "user" }).catch(
+        (err) => {
+          if (err instanceof DatabaseError && err.code === "UNIQUE_CONSTRAINT") {
+            throw http.conflict("A user with this email already exists")
+          }
+          throw err
+        },
+      )
 
       const session = c.var.session
-      session.userId = user.get<number>("id")
+      session.userId = user.get<string>("id")
       session.userRole = user.get<string>("role")
       await session.save()
 
@@ -58,11 +58,11 @@ app.post(
       const user = await User.query().where("email", "=", body.email).first()
       if (!user) throw http.unauthorized("Invalid credentials")
 
-      const valid = await Bun.password.verify(body.password, user.get<string>("passwordHash"))
+      const valid = await verifyPassword(user.get<string>("passwordHash"), body.password)
       if (!valid) throw http.unauthorized("Invalid credentials")
 
       const session = c.var.session
-      session.userId = user.get<number>("id")
+      session.userId = user.get<string>("id")
       session.userRole = user.get<string>("role")
       await session.save()
 

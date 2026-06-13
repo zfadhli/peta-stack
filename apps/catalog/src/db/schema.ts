@@ -1,15 +1,30 @@
 import { Database } from "bun:sqlite"
+import { ulid } from "ulid"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
 import type { ModelDefinition } from "peta-orm"
 import {
   belongsTo,
   t as columnTypes,
   createArkTypeSchemaConfig,
-  createPeta,
+  createORM,
   defineModel,
   hasMany,
+  hasOne,
   manyToMany,
+  softDeletes,
+  timestamps,
 } from "peta-orm"
+
+// ---------------------------------------------------------------------------
+// ULID auto-generation plugin
+// ---------------------------------------------------------------------------
+function useUlid() {
+  return (def: ModelDefinition) => {
+    def.on("beforeCreate", (model: any) => {
+      if (!model.get("id")) model.set("id", ulid())
+    })
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Column type factory
@@ -29,41 +44,52 @@ let _Category: ModelDefinition
 
 export const User = defineModel("users", {
   columns: {
-    id: t.integer().primaryKey(),
+    id: t.string(26).primaryKey(),
     email: t.text().unique(),
     passwordHash: t.string(255),
     name: t.string(255),
-    role: t.enum("admin", "user"),
-    deletedAt: t.timestamp().nullable(),
-  },
-  hidden: ["passwordHash", "deletedAt"],
-})
-
-export const Author: ModelDefinition = defineModel("authors", {
-  columns: {
-    id: t.integer().primaryKey(),
-    name: t.string(255),
-    bio: t.text().nullable(),
+    role: t.enum("admin", "user", "author"),
+    createdAt: t.timestamp().nullable(),
+    updatedAt: t.timestamp().nullable(),
     deletedAt: t.timestamp().nullable(),
   },
   relations: {
+    author: hasOne(() => _Author, { foreignKey: "userId" }),
+  },
+  hidden: ["passwordHash", "deletedAt"],
+}).use(timestamps()).use(softDeletes()).use(useUlid())
+
+export const Author: ModelDefinition = defineModel("authors", {
+  columns: {
+    id: t.string(26).primaryKey(),
+    name: t.string(255),
+    bio: t.text().nullable(),
+    userId: t.string(26).nullable(),
+    createdAt: t.timestamp().nullable(),
+    updatedAt: t.timestamp().nullable(),
+    deletedAt: t.timestamp().nullable(),
+  },
+  relations: {
+    user: belongsTo(() => User),
     books: hasMany(() => _Book, { foreignKey: "authorId" }),
   },
   hidden: ["deletedAt"],
-})
+}).use(timestamps()).use(softDeletes()).use(useUlid())
 _Author = Author
 
 export const Book: ModelDefinition = defineModel("books", {
   columns: {
-    id: t.integer().primaryKey(),
+    id: t.string(26).primaryKey(),
     title: t.string(255),
     isbn: t.string(13).unique(),
     description: t.text().nullable(),
     publishedYear: t.integer().nullable(),
     price: t.float(),
-    authorId: t.integer(),
+    authorId: t.string(26),
     coverImage: t.text().nullable(),
     inStock: t.boolean(),
+    createdAt: t.timestamp().nullable(),
+    updatedAt: t.timestamp().nullable(),
     deletedAt: t.timestamp().nullable(),
   },
   relations: {
@@ -79,12 +105,12 @@ export const Book: ModelDefinition = defineModel("books", {
   casts: {
     inStock: "boolean",
   },
-})
+}).use(timestamps()).use(softDeletes()).use(useUlid())
 _Book = Book
 
 export const Category: ModelDefinition = defineModel("categories", {
   columns: {
-    id: t.integer().primaryKey(),
+    id: t.string(26).primaryKey(),
     name: t.string(255).unique(),
     description: t.text().nullable(),
   },
@@ -95,21 +121,21 @@ export const Category: ModelDefinition = defineModel("categories", {
       relatedPivotKey: "bookId",
     }),
   },
-})
+}).use(useUlid())
 _Category = Category
 
 export const BookCategory = defineModel("book_categories", {
   columns: {
-    bookId: t.integer(),
-    categoryId: t.integer(),
+    bookId: t.string(26),
+    categoryId: t.string(26),
   },
 })
 
 export const Review = defineModel("reviews", {
   columns: {
-    id: t.integer().primaryKey(),
-    bookId: t.integer(),
-    userId: t.integer(),
+    id: t.string(26).primaryKey(),
+    bookId: t.string(26),
+    userId: t.string(26),
     rating: t.integer().min(1).max(5),
     body: t.text().nullable(),
     createdAt: t.timestamp(),
@@ -118,7 +144,7 @@ export const Review = defineModel("reviews", {
     book: belongsTo(() => _Book),
     user: belongsTo(() => User),
   },
-})
+}).use(useUlid())
 
 // ---------------------------------------------------------------------------
 // Database setup
@@ -127,7 +153,7 @@ export const Review = defineModel("reviews", {
 export function createTables(database: Database): void {
   database.run(`
     CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id TEXT PRIMARY KEY,
       email TEXT NOT NULL UNIQUE,
       passwordHash TEXT NOT NULL,
       name TEXT NOT NULL,
@@ -140,9 +166,10 @@ export function createTables(database: Database): void {
 
   database.run(`
     CREATE TABLE IF NOT EXISTS authors (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       bio TEXT,
+      userId TEXT REFERENCES users(id),
       deletedAt TEXT,
       createdAt TEXT,
       updatedAt TEXT
@@ -151,13 +178,13 @@ export function createTables(database: Database): void {
 
   database.run(`
     CREATE TABLE IF NOT EXISTS books (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id TEXT PRIMARY KEY,
       title TEXT NOT NULL,
       isbn TEXT NOT NULL UNIQUE,
       description TEXT,
       publishedYear INTEGER,
       price REAL NOT NULL DEFAULT 0,
-      authorId INTEGER NOT NULL REFERENCES authors(id),
+      authorId TEXT NOT NULL REFERENCES authors(id),
       coverImage TEXT,
       inStock INTEGER NOT NULL DEFAULT 1,
       deletedAt TEXT,
@@ -168,7 +195,7 @@ export function createTables(database: Database): void {
 
   database.run(`
     CREATE TABLE IF NOT EXISTS categories (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id TEXT PRIMARY KEY,
       name TEXT NOT NULL UNIQUE,
       description TEXT
     )
@@ -176,17 +203,17 @@ export function createTables(database: Database): void {
 
   database.run(`
     CREATE TABLE IF NOT EXISTS book_categories (
-      bookId INTEGER NOT NULL REFERENCES books(id),
-      categoryId INTEGER NOT NULL REFERENCES categories(id),
+      bookId TEXT NOT NULL REFERENCES books(id),
+      categoryId TEXT NOT NULL REFERENCES categories(id),
       PRIMARY KEY (bookId, categoryId)
     )
   `)
 
   database.run(`
     CREATE TABLE IF NOT EXISTS reviews (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      bookId INTEGER NOT NULL REFERENCES books(id),
-      userId INTEGER NOT NULL REFERENCES users(id),
+      id TEXT PRIMARY KEY,
+      bookId TEXT NOT NULL REFERENCES books(id),
+      userId TEXT NOT NULL REFERENCES users(id),
       rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
       body TEXT,
       createdAt TEXT NOT NULL
@@ -198,30 +225,31 @@ export function createTables(database: Database): void {
 // Database + Peta instance (singleton, lazily created)
 // ---------------------------------------------------------------------------
 
-let _peta: ReturnType<typeof createPeta> | null = null
+let _orm: ReturnType<typeof createORM> | null = null
 
-export function getPeta(): ReturnType<typeof createPeta> {
-  if (!_peta) {
+/** Get or create the singleton ORM instance.
+ *
+ * When `dialect` is provided, a fresh ORM is created with it (bypassing the
+ * singleton). This lets tests inject an in-memory database without affecting
+ * the production singleton.
+ */
+export function getORM(dialect?: any): ReturnType<typeof createORM> {
+  if (dialect) {
+    const orm = createORM({ dialect })
+    orm.registerAll(User, Author, Book, Category, BookCategory, Review)
+    return orm
+  }
+  if (!_orm) {
     const database = new Database("catalog.db", { create: true })
     database.run("PRAGMA foreign_keys = ON")
     createTables(database)
-    _peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
-    _peta.registerAll(User, Author, Book, Category, BookCategory, Review)
-
-    // Timestamps for models that have createdAt/updatedAt
-    User.registerTimestamps()
-    Author.registerTimestamps()
-    Book.registerTimestamps()
-
-    // Soft deletes for User, Book, and Author
-    User.registerSoftDeletes()
-    Book.registerSoftDeletes()
-    Author.registerSoftDeletes()
+    _orm = createORM({ dialect: new BunSqliteDialect({ database }) })
+    _orm.registerAll(User, Author, Book, Category, BookCategory, Review)
   }
-  return _peta
+  return _orm
 }
 
 // Lazily initialize on first import in development
 if (process.env.NODE_ENV !== "test") {
-  getPeta()
+  getORM()
 }

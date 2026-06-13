@@ -3,7 +3,7 @@ import "hono"
 declare module "hono" {
   interface ContextVariableMap {
     session: {
-      userId?: number
+      userId?: string
       userRole?: string
       save(): Promise<void>
       destroy(): void

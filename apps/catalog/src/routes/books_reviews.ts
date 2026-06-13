@@ -8,11 +8,11 @@ import { http } from "../middleware/http-error.js"
 const app = new Hono()
 
 const ReviewResponse = type({
-  id: "number",
-  bookId: "number",
-  userId: "number",
+  id: "string",
+  bookId: "string",
+  userId: "string",
   rating: "number",
-  body: "string?",
+  body: "string | null",
   createdAt: "string",
 })
 const ReviewListResponse = type({
@@ -35,7 +35,7 @@ app.get(
     .response(200, ReviewListResponse)
     .response(404, "Book not found")
     .handle(async (c) => {
-      const bookId = Number(c.req.param("id"))
+      const bookId = c.req.param("id")!
       const q = c.req.valid("query") as { page: number; limit: number; offset: number }
 
       const book = await Book.find(bookId)
@@ -59,10 +59,7 @@ app.get(
 
 app.post(
   "/",
-  async (c, next) => {
-    if (!c.var.session?.userId) throw http.unauthorized()
-    await next()
-  },
+  requireSession(),
   route()
     .summary("Create a review for a book")
     .tags("reviews")
@@ -71,7 +68,7 @@ app.post(
     .response(404, "Book not found")
     .response(401, "Unauthorized")
     .handle(async (c) => {
-      const bookId = Number(c.req.param("id"))
+      const bookId = c.req.param("id")!
       const body = c.req.valid("json")
 
       const book = await Book.find(bookId)
@@ -101,8 +98,8 @@ app.get(
     .response(200, ReviewResponse)
     .response(404, "Not found")
     .handle(async (c) => {
-      const bookId = Number(c.req.param("id")!)
-      const reviewId = Number(c.req.param("reviewId")!)
+      const bookId = c.req.param("id")!
+      const reviewId = c.req.param("reviewId")!
       const review = await Review.query().where("id", "=", reviewId).where("bookId", "=", bookId).limit(1).execute()
       if (!review[0]) throw http.notFound()
       return c.json(review[0].$toJSON())
@@ -125,11 +122,11 @@ app.patch(
     .response(401, "Unauthorized")
     .response(403, "Forbidden")
     .handle(async (c) => {
-      const bookId = Number(c.req.param("id")!)
-      const reviewId = Number(c.req.param("reviewId")!)
+      const bookId = c.req.param("id")!
+      const reviewId = c.req.param("reviewId")!
       const review = await Review.query().where("id", "=", reviewId).where("bookId", "=", bookId).limit(1).execute()
       if (!review[0]) throw http.notFound()
-      if (review[0].get<number>("userId") !== c.var.session.userId) throw http.forbidden()
+      if (review[0].get<string>("userId") !== c.var.session.userId) throw http.forbidden()
 
       const body = c.req.valid("json")
       review[0].fill(body as Record<string, unknown>)
@@ -153,11 +150,11 @@ app.delete(
     .response(401, "Unauthorized")
     .response(403, "Forbidden")
     .handle(async (c) => {
-      const bookId = Number(c.req.param("id")!)
-      const reviewId = Number(c.req.param("reviewId")!)
+      const bookId = c.req.param("id")!
+      const reviewId = c.req.param("reviewId")!
       const review = await Review.query().where("id", "=", reviewId).where("bookId", "=", bookId).limit(1).execute()
       if (!review[0]) throw http.notFound()
-      if (review[0].get<number>("userId") !== c.var.session.userId) throw http.forbidden()
+      if (review[0].get<string>("userId") !== c.var.session.userId) throw http.forbidden()
 
       await review[0].$delete()
       return c.body(null, 204)

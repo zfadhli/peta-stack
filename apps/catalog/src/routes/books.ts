@@ -2,37 +2,48 @@ import { type } from "arktype"
 import { Hono } from "hono"
 import { route } from "peta-docs/hono"
 import type { ModelInstance } from "peta-orm"
-import { Book, BookCategory } from "../db/schema.js"
+import { Book, User } from "../db/schema.js"
 import { pick } from "../helpers.js"
-import { requireSession } from "../middleware/auth.js"
+import { requireRole, requireSession } from "../middleware/auth.js"
 import { http } from "../middleware/http-error.js"
 
 const app = new Hono()
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Look up the author ID linked to a user's session (for non-admin role). */
+async function getOwnAuthorId(userId: string): Promise<string | null> {
+  const { Author } = await import("../db/schema.js")
+  const author = await Author.query().where("userId", "=", userId).first()
+  return author?.get<string>("id") ?? null
+}
+
+// ---------------------------------------------------------------------------
 // Schemas
 // ---------------------------------------------------------------------------
 const BookDetailResponse = type({
-  id: "number",
+  id: "string",
   title: "string",
   isbn: "string",
-  description: "string?",
-  publishedYear: "number?",
+  description: "string | null",
+  publishedYear: "number | null",
   price: "number",
-  authorId: "number",
-  coverImage: "string?",
+  authorId: "string",
+  coverImage: "string | null",
   inStock: "boolean",
-  createdAt: "string?",
-  updatedAt: "string?",
+  createdAt: "string | null",
+  updatedAt: "string | null",
 })
 
 const BookListEntry = type({
-  id: "number",
+  id: "string",
   title: "string",
   isbn: "string",
   price: "number",
   inStock: "boolean",
-  authorId: "number",
+  authorId: "string",
 })
 
 const BookListResponse = type({
@@ -57,10 +68,10 @@ const CreateBookBody = type({
   description: "string?",
   publishedYear: "number?",
   price: "number>=0",
-  authorId: "number",
+  authorId: "string?",
   coverImage: "string?",
   inStock: "boolean",
-  categoryIds: "number[]?",
+  categoryIds: "string[]?",
 })
 
 const UpdateBookBody = type({
@@ -69,10 +80,10 @@ const UpdateBookBody = type({
   description: "string?",
   publishedYear: "number?",
   price: "number>=0?",
-  authorId: "number?",
+  authorId: "string?",
   coverImage: "string?",
   inStock: "boolean?",
-  categoryIds: "number[]?",
+  categoryIds: "string[]?",
 })
 
 // ---------------------------------------------------------------------------
@@ -85,7 +96,7 @@ app.get(
     .description("Returns a paginated, filterable, sortable list of books")
     .tags("books")
     .paginated({ maxLimit: 100 })
-    .filter("authorId", Num)
+    .filter("authorId", type("string"))
     .filter("inStock", Bool)
     .filter("price", Num, { operators: ["gte", "lte"] })
     .sort(["title", "price", "publishedYear"])
@@ -95,7 +106,7 @@ app.get(
       const { page, limit, sort, include, authorId, inStock, price__gte, price__lte } = c.req.valid("query") as {
         page: number
         limit: number
-        authorId?: number
+        authorId?: string
         inStock?: boolean
         price__gte?: number
         price__lte?: number
@@ -136,47 +147,36 @@ app.get(
 // ---------------------------------------------------------------------------
 app.post(
   "/",
-  requireSession(),
+  requireRole("author"),
   route()
     .summary("Create a new book")
     .tags("books")
     .requestBody(CreateBookBody)
     .response(201, BookDetailResponse)
     .response(400, "Invalid input")
-    .response(401, "Unauthorized")
+    .response(403, "Forbidden")
     .handle(async (c) => {
       const body = c.req.valid("json")
 
-      // Insert book and categories atomically
-      const bookId = await Book.transaction(async (trx) => {
-        const result = await trx
-          .insertInto("books")
-          .values({
-            title: body.title,
-            isbn: body.isbn,
-            description: body.description ?? null,
-            publishedYear: body.publishedYear ?? null,
-            price: body.price,
-            authorId: body.authorId,
-            coverImage: body.coverImage ?? null,
-            inStock: body.inStock,
-          })
-          .executeTakeFirst()
+      // Admin can set any authorId; authors are locked to their own author profile
+      const authorId = c.var.session.userRole === "admin"
+        ? body.authorId
+        : (await getOwnAuthorId(c.var.session.userId!))
 
-        const id = Number(result.insertId!)
+      if (!authorId) throw http.forbidden()
 
-        if (body.categoryIds?.length) {
-          await BookCategory.insertMany(
-            body.categoryIds.map((cid) => ({ bookId: id, categoryId: cid })),
-            trx,
-          )
-        }
-
-        return id
+      const book = await Book.insertGraph({
+        title: body.title,
+        isbn: body.isbn,
+        description: body.description ?? null,
+        publishedYear: body.publishedYear ?? null,
+        price: body.price,
+        authorId,
+        coverImage: body.coverImage ?? null,
+        inStock: body.inStock,
+        categories: body.categoryIds?.map((id) => ({ "#dbRef": id })) ?? [],
       })
 
-      // Re-fetch after commit to get a properly hydrated model
-      const book = (await Book.query().where("id", "=", bookId).execute())[0]!
       return c.json(book.$toJSON(), 201)
     }),
 )
@@ -197,10 +197,10 @@ app.get(
       const rawId = c.req.param("id")!
       const q = c.req.valid("query") as { include?: string[] } | undefined
 
-      let query = Book.query().where("id", "=", Number(rawId))
+      let query = Book.query().where("id", "=", rawId)
       if (q?.include) for (const rel of q.include) query = query.with(rel)
 
-      const books = await (query.limit(1).execute() as Promise<any[]>)
+      const books = await (query.limit(1).execute() as Promise<ModelInstance[]>)
       const book = books[0]
       if (!book) throw http.notFound()
       return c.json(book.$toJSON())
@@ -212,7 +212,7 @@ app.get(
 // ---------------------------------------------------------------------------
 app.patch(
   "/:id",
-  requireSession(),
+  requireRole("author"),
   route()
     .summary("Update a book")
     .tags("books")
@@ -220,16 +220,22 @@ app.patch(
     .requestBody(UpdateBookBody)
     .response(200, BookDetailResponse)
     .response(404, "Not found")
-    .response(401, "Unauthorized")
+    .response(403, "Forbidden")
     .handle(async (c) => {
       const rawId = c.req.param("id")!
       const body = c.req.valid("json") as Record<string, unknown>
 
-      const books = await (Book.query().where("id", "=", Number(rawId)).execute() as Promise<any[]>)
+      const books = await (Book.query().where("id", "=", rawId).execute() as Promise<ModelInstance[]>)
       const book = books[0]
       if (!book) throw http.notFound()
 
-      const categoryIds = body.categoryIds as number[] | undefined
+      // Only admin or the book's author can update
+      if (c.var.session.userRole !== "admin") {
+        const ownAuthorId = await getOwnAuthorId(c.var.session.userId!)
+        if (book.get<string>("authorId") !== ownAuthorId) throw http.forbidden()
+      }
+
+      const categoryIds = body.categoryIds as string[] | undefined
       const modelData: Record<string, unknown> = {}
       for (const [key, value] of Object.entries(body)) {
         if (key !== "categoryIds") modelData[key] = value
@@ -238,18 +244,9 @@ app.patch(
       book.fill(modelData)
       await book.$save()
 
-      // Atomically replace categories
+      // Replace categories via sync (attaches new, detaches removed)
       if (categoryIds !== undefined) {
-        const bookId = (book as ModelInstance).get<number>("id")
-        await Book.transaction(async (trx) => {
-          await (trx.deleteFrom("book_categories") as any).where("bookId", "=", bookId).execute()
-          if (categoryIds.length > 0) {
-            await BookCategory.insertMany(
-              categoryIds.map((cid) => ({ bookId, categoryId: cid })),
-              trx,
-            )
-          }
-        })
+        await book.$related("categories").sync(categoryIds)
       }
 
       return c.json(book.$toJSON())
@@ -261,19 +258,26 @@ app.patch(
 // ---------------------------------------------------------------------------
 app.delete(
   "/:id",
-  requireSession(),
+  requireRole("author"),
   route()
     .summary("Delete a book (soft-delete)")
     .tags("books")
     .params(type({ id: "string" }))
     .response(204, "Deleted")
     .response(404, "Not found")
-    .response(401, "Unauthorized")
+    .response(403, "Forbidden")
     .handle(async (c) => {
       const rawId = c.req.param("id")!
-      const books = await (Book.query().where("id", "=", Number(rawId)).execute() as Promise<any[]>)
+      const books = await (Book.query().where("id", "=", rawId).execute() as Promise<ModelInstance[]>)
       const book = books[0]
       if (!book) throw http.notFound()
+
+      // Only admin or the book's author can delete
+      if (c.var.session.userRole !== "admin") {
+        const ownAuthorId = await getOwnAuthorId(c.var.session.userId!)
+        if (book.get<string>("authorId") !== ownAuthorId) throw http.forbidden()
+      }
+
       await book.$delete()
       return c.body(null, 204)
     }),

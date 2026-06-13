@@ -4,12 +4,12 @@ import { route } from "peta-docs/hono"
 import type { ModelInstance } from "peta-orm"
 import { Author, Book } from "../db/schema.js"
 import { pick } from "../helpers.js"
-import { requireSession } from "../middleware/auth.js"
+import { requireRole, requireSession } from "../middleware/auth.js"
 import { http } from "../middleware/http-error.js"
 
 const app = new Hono()
 
-const AuthorResponse = type({ id: "number", name: "string", bio: "string?" })
+const AuthorResponse = type({ id: "string", name: "string", bio: "string | null" })
 const AuthorListResponse = type({
   data: AuthorResponse.array(),
   total: "number",
@@ -22,14 +22,14 @@ const CreateAuthorBody = type({ name: "string>0", bio: "string?" })
 const UpdateAuthorBody = type({ name: "string>0?", bio: "string?" })
 
 const BookSummary = type({
-  id: "number",
+  id: "string",
   title: "string",
   isbn: "string",
   price: "number",
-  publishedYear: "number?",
+  publishedYear: "number | null",
   inStock: "boolean",
 })
-const AuthorDetailResponse = type({ id: "number", name: "string", bio: "string?", books: BookSummary.array() })
+const AuthorDetailResponse = type({ id: "string", name: "string", bio: "string | null", books: BookSummary.array() })
 
 app.get(
   "/",
@@ -55,16 +55,17 @@ app.get(
 
 app.post(
   "/",
-  requireSession(),
+  requireRole("author"),
   route()
     .summary("Create a new author")
     .tags("authors")
     .requestBody(CreateAuthorBody)
     .response(201, AuthorResponse)
-    .response(401, "Unauthorized")
+    .response(403, "Forbidden")
     .handle(async (c) => {
       const body = c.req.valid("json")
-      const author = await Author.insert({ name: body.name, bio: body.bio ?? null })
+      // Auto-set userId from session so the author is owned by the current user
+      const author = await Author.insert({ name: body.name, bio: body.bio ?? null, userId: c.var.session.userId })
       return c.json(author.$toJSON() as Record<string, unknown>, 201)
     }),
 )
@@ -82,7 +83,7 @@ app.get(
     .response(404, "Not found")
     .handle(async (c) => {
       const rawId = c.req.param("id")!
-      const author = await Author.query().with("books").where("id", "=", Number(rawId)).execute()
+      const author = await Author.query().with("books").where("id", "=", rawId).execute()
       const model = author[0]
       if (!model) throw http.notFound()
 
@@ -98,7 +99,7 @@ app.get(
 // ---------------------------------------------------------------------------
 app.patch(
   "/:id",
-  requireSession(),
+  requireRole("author"),
   route()
     .summary("Update an author")
     .tags("authors")
@@ -106,13 +107,18 @@ app.patch(
     .requestBody(UpdateAuthorBody)
     .response(200, AuthorResponse)
     .response(404, "Not found")
-    .response(401, "Unauthorized")
+    .response(403, "Forbidden")
     .handle(async (c) => {
       const rawId = c.req.param("id")!
       const body = c.req.valid("json")
 
-      const author = await Author.find(Number(rawId))
+      const author = await Author.find(rawId)
       if (!author) throw http.notFound()
+
+      // Only admin or the linked user can update
+      if (c.var.session.userRole !== "admin" && author.get<string>("userId") !== c.var.session.userId) {
+        throw http.forbidden()
+      }
 
       author.fill(body as Record<string, unknown>)
       await author.$save()
@@ -125,21 +131,26 @@ app.patch(
 // ---------------------------------------------------------------------------
 app.delete(
   "/:id",
-  requireSession(),
+  requireRole("author"),
   route()
     .summary("Delete an author (soft-delete)")
     .tags("authors")
     .params(type({ id: "string" }))
     .response(204, "Deleted")
     .response(404, "Not found")
-    .response(401, "Unauthorized")
+    .response(403, "Forbidden")
     .response(409, "Has books")
     .handle(async (c) => {
       const rawId = c.req.param("id")!
-      const author = await Author.find(Number(rawId))
+      const author = await Author.find(rawId)
       if (!author) throw http.notFound()
 
-      const books = await Book.query().where("authorId", "=", Number(rawId)).limit(1).execute()
+      // Only admin or the linked user can delete
+      if (c.var.session.userRole !== "admin" && author.get<string>("userId") !== c.var.session.userId) {
+        throw http.forbidden()
+      }
+
+      const books = await Book.query().where("authorId", "=", rawId).limit(1).execute()
       if (books.length > 0) throw http.conflict("Cannot delete author with existing books")
 
       await author.$delete()

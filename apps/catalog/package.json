@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "bun run src/index.ts",
     "seed": "bun run src/db/seed.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "test:hurl": "bash test/hurl/run.sh"
   },
   "dependencies": {
     "peta-orm": "workspace:*",

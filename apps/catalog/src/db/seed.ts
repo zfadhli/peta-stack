@@ -1,27 +1,28 @@
-import { Author, Book, BookCategory, Category, getPeta, Review, User } from "./schema.js"
+import { hashPassword } from "peta-auth"
+import { Author, Book, BookCategory, Category, getORM, Review, User } from "./schema.js"
 
-const peta = getPeta()
+const orm = getORM()
 
 // ---------------------------------------------------------------------------
 // Users
 // ---------------------------------------------------------------------------
 const admin = await User.insert({
   email: "admin@catalog.dev",
-  passwordHash: await Bun.password.hash("admin123", { algorithm: "bcrypt", cost: 10 }),
+  passwordHash: await hashPassword("admin123"),
   name: "Admin",
   role: "admin",
 })
 
 const alice = await User.insert({
   email: "alice@example.com",
-  passwordHash: await Bun.password.hash("alice123", { algorithm: "bcrypt", cost: 10 }),
+  passwordHash: await hashPassword("alice123"),
   name: "Alice Reader",
-  role: "user",
+  role: "author",
 })
 
 const bob = await User.insert({
   email: "bob@example.com",
-  passwordHash: await Bun.password.hash("bob123", { algorithm: "bcrypt", cost: 10 }),
+  passwordHash: await hashPassword("bob123"),
   name: "Bob Reviewer",
   role: "user",
 })
@@ -46,6 +47,11 @@ const sagan = await Author.insert({
   bio: "American astronomer and science communicator",
 })
 const weir = await Author.insert({ name: "Andy Weir", bio: "American novelist" })
+const aliceAuthor = await Author.insert({
+  name: "Alice Reader",
+  bio: "A catalog user who writes their own books",
+  userId: alice.get<string>("id"),
+})
 
 console.log(`Authors: ${orwell.get("name")}, ${lee.get("name")}, ${tolkien.get("name")}, ...`)
 
@@ -75,7 +81,7 @@ const book1984 = await Book.insert({
   description: "A dystopian social science fiction novel",
   publishedYear: 1949,
   price: 9.99,
-  authorId: orwell.get<number>("id"),
+  authorId: orwell.get<string>("id"),
   inStock: true,
 })
 
@@ -85,7 +91,7 @@ const animalFarm = await Book.insert({
   description: "A satirical allegorical novella",
   publishedYear: 1945,
   price: 7.99,
-  authorId: orwell.get<number>("id"),
+  authorId: orwell.get<string>("id"),
   inStock: true,
 })
 
@@ -95,7 +101,7 @@ const mockingbird = await Book.insert({
   description: "A novel about racial injustice in the Deep South",
   publishedYear: 1960,
   price: 11.99,
-  authorId: lee.get<number>("id"),
+  authorId: lee.get<string>("id"),
   inStock: true,
 })
 
@@ -105,7 +111,7 @@ const lotr = await Book.insert({
   description: "An epic high-fantasy novel",
   publishedYear: 1954,
   price: 19.99,
-  authorId: tolkien.get<number>("id"),
+  authorId: tolkien.get<string>("id"),
   inStock: true,
 })
 
@@ -115,7 +121,7 @@ const hobbit = await Book.insert({
   description: "A children's fantasy novel",
   publishedYear: 1937,
   price: 10.99,
-  authorId: tolkien.get<number>("id"),
+  authorId: tolkien.get<string>("id"),
   inStock: false,
 })
 
@@ -125,7 +131,7 @@ const cosmos = await Book.insert({
   description: "A journey through the universe",
   publishedYear: 1980,
   price: 14.99,
-  authorId: sagan.get<number>("id"),
+  authorId: sagan.get<string>("id"),
   inStock: true,
 })
 
@@ -135,7 +141,7 @@ const martian = await Book.insert({
   description: "An astronaut's struggle to survive on Mars",
   publishedYear: 2011,
   price: 9.99,
-  authorId: weir.get<number>("id"),
+  authorId: weir.get<string>("id"),
   inStock: true,
 })
 
@@ -145,7 +151,7 @@ const hp1 = await Book.insert({
   description: "A young wizard discovers his magical heritage",
   publishedYear: 1997,
   price: 12.99,
-  authorId: rowling.get<number>("id"),
+  authorId: rowling.get<string>("id"),
   inStock: true,
 })
 
@@ -155,7 +161,7 @@ const hp2 = await Book.insert({
   description: "Harry's second year at Hogwarts",
   publishedYear: 1998,
   price: 12.99,
-  authorId: rowling.get<number>("id"),
+  authorId: rowling.get<string>("id"),
   inStock: true,
 })
 
@@ -165,7 +171,18 @@ const hp3 = await Book.insert({
   description: "Harry's third year at Hogwarts",
   publishedYear: 1999,
   price: 13.99,
-  authorId: rowling.get<number>("id"),
+  authorId: rowling.get<string>("id"),
+  inStock: true,
+})
+
+// Alice's own book (authored under her linked author profile)
+const aliceBook = await Book.insert({
+  title: "My First Catalog Book",
+  isbn: "9781234567890",
+  description: "A book written by Alice, who is both a user and an author.",
+  publishedYear: 2026,
+  price: 4.99,
+  authorId: aliceAuthor.get<string>("id"),
   inStock: true,
 })
 
@@ -175,23 +192,23 @@ console.log(`Books: ${book1984.get("title")}, ${lotr.get("title")}, ${martian.ge
 // Book-Category pivot relationships
 // ---------------------------------------------------------------------------
 await BookCategory.insertMany([
-  { bookId: book1984.get<number>("id"), categoryId: fiction.get<number>("id") },
-  { bookId: book1984.get<number>("id"), categoryId: classic.get<number>("id") },
-  { bookId: book1984.get<number>("id"), categoryId: scifi.get<number>("id") },
-  { bookId: animalFarm.get<number>("id"), categoryId: fiction.get<number>("id") },
-  { bookId: animalFarm.get<number>("id"), categoryId: classic.get<number>("id") },
-  { bookId: mockingbird.get<number>("id"), categoryId: fiction.get<number>("id") },
-  { bookId: mockingbird.get<number>("id"), categoryId: classic.get<number>("id") },
-  { bookId: lotr.get<number>("id"), categoryId: fantasy.get<number>("id") },
-  { bookId: lotr.get<number>("id"), categoryId: classic.get<number>("id") },
-  { bookId: hobbit.get<number>("id"), categoryId: fantasy.get<number>("id") },
-  { bookId: hobbit.get<number>("id"), categoryId: classic.get<number>("id") },
-  { bookId: cosmos.get<number>("id"), categoryId: science.get<number>("id") },
-  { bookId: cosmos.get<number>("id"), categoryId: classic.get<number>("id") },
-  { bookId: martian.get<number>("id"), categoryId: scifi.get<number>("id") },
-  { bookId: hp1.get<number>("id"), categoryId: fantasy.get<number>("id") },
-  { bookId: hp2.get<number>("id"), categoryId: fantasy.get<number>("id") },
-  { bookId: hp3.get<number>("id"), categoryId: fantasy.get<number>("id") },
+  { bookId: book1984.get<string>("id"), categoryId: fiction.get<string>("id") },
+  { bookId: book1984.get<string>("id"), categoryId: classic.get<string>("id") },
+  { bookId: book1984.get<string>("id"), categoryId: scifi.get<string>("id") },
+  { bookId: animalFarm.get<string>("id"), categoryId: fiction.get<string>("id") },
+  { bookId: animalFarm.get<string>("id"), categoryId: classic.get<string>("id") },
+  { bookId: mockingbird.get<string>("id"), categoryId: fiction.get<string>("id") },
+  { bookId: mockingbird.get<string>("id"), categoryId: classic.get<string>("id") },
+  { bookId: lotr.get<string>("id"), categoryId: fantasy.get<string>("id") },
+  { bookId: lotr.get<string>("id"), categoryId: classic.get<string>("id") },
+  { bookId: hobbit.get<string>("id"), categoryId: fantasy.get<string>("id") },
+  { bookId: hobbit.get<string>("id"), categoryId: classic.get<string>("id") },
+  { bookId: cosmos.get<string>("id"), categoryId: science.get<string>("id") },
+  { bookId: cosmos.get<string>("id"), categoryId: classic.get<string>("id") },
+  { bookId: martian.get<string>("id"), categoryId: scifi.get<string>("id") },
+  { bookId: hp1.get<string>("id"), categoryId: fantasy.get<string>("id") },
+  { bookId: hp2.get<string>("id"), categoryId: fantasy.get<string>("id") },
+  { bookId: hp3.get<string>("id"), categoryId: fantasy.get<string>("id") },
 ])
 
 console.log("Book-category pivot rows inserted")
@@ -200,15 +217,15 @@ console.log("Book-category pivot rows inserted")
 // Reviews
 // ---------------------------------------------------------------------------
 await Review.insert({
-  bookId: book1984.get<number>("id"),
-  userId: alice.get<number>("id"),
+  bookId: book1984.get<string>("id"),
+  userId: alice.get<string>("id"),
   rating: 5,
   body: "A masterpiece of dystopian fiction.",
   createdAt: new Date().toISOString(),
 })
 await Review.insert({
-  bookId: book1984.get<number>("id"),
-  userId: bob.get<number>("id"),
+  bookId: book1984.get<string>("id"),
+  userId: bob.get<string>("id"),
   rating: 4,
   body: "Thought-provoking and eerily relevant.",
   createdAt: new Date().toISOString(),
@@ -220,4 +237,4 @@ console.log("Reviews: 2 reviews for 1984")
 // Done
 // ---------------------------------------------------------------------------
 console.log("\nSeed complete! Run with: bun run src/index.ts")
-await peta.destroy()
+await orm.destroy()
