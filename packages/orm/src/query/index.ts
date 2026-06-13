@@ -2,8 +2,8 @@ import { sql as kyselySql } from "kysely"
 import { ModelNotFoundError, RelationNotAllowedError, RelationNotFoundError } from "../errors.js"
 import type { ModelDefinition, ModelInstance } from "../model/types.js"
 import { type EagerLoad, EagerLoader } from "../relations/eager.js"
-import type { InsertGraphOptions, UpsertGraphOptions } from "../relations/graph.js"
-import { isRelationAllowed } from "../relations/graph.js"
+import type { InsertGraphOptions, UpsertGraphOptions } from "../relations/graph/index.js"
+import { isRelationAllowed } from "../relations/graph/index.js"
 
 // Helper to create raw SQL expressions compatible with Kysely 0.27
 function rawSql(str: string): any {
@@ -451,7 +451,7 @@ export function createQueryBuilder(def: ModelDefinition, peta?: any): QueryBuild
 
     // ─── Graph operations ──────────────────────────────────
     async insertGraph(data: any, options?: any): Promise<any> {
-      const { insertGraph: doInsertGraph } = await import("../relations/graph.js")
+      const { insertGraph: doInsertGraph } = await import("../relations/graph/index.js")
       return doInsertGraph(def, data, {
         ...options,
         allowGraph: allowedGraphSet ? [...allowedGraphSet] : options?.allowGraph,
@@ -459,7 +459,7 @@ export function createQueryBuilder(def: ModelDefinition, peta?: any): QueryBuild
     },
 
     async upsertGraph(data: any, options?: any): Promise<any> {
-      const { upsertGraph: doUpsertGraph } = await import("../relations/graph.js")
+      const { upsertGraph: doUpsertGraph } = await import("../relations/graph/index.js")
       return doUpsertGraph(def, data, {
         ...options,
         allowGraph: allowedGraphSet ? [...allowedGraphSet] : options?.allowGraph,

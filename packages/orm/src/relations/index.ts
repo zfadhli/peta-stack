@@ -6,3 +6,5 @@ export type { MorphManyOptions, MorphOneOptions, MorphToOptions } from "./morph.
 export { defineMorphMany, defineMorphOne, defineMorphTo, resolveMorphRelation } from "./morph.js"
 export type { RelationQuery } from "./related-query.js"
 export { createRelationQuery } from "./related-query.js"
+export { insertGraph, upsertGraph, isRelationAllowed } from "./graph/index.js"
+export type { InsertGraphOptions, UpsertGraphOptions } from "./graph/types.js"

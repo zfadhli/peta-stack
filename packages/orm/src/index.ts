@@ -39,7 +39,7 @@ export type { QueryBuilder } from "./query/index.js"
 export { createQueryBuilder } from "./query/index.js"
 // ─── Relations ────────────────────────────────────────────
 export type { Relation, RelationOptions, RelationType } from "./relations/base.js"
-export type { InsertGraphOptions, UpsertGraphOptions } from "./relations/graph.js"
+export type { InsertGraphOptions, UpsertGraphOptions } from "./relations/graph/index.js"
 export {
   belongsTo,
   defineMorphMany,

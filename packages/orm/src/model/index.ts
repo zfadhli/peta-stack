@@ -112,12 +112,12 @@ export function defineModel<TColumns extends ColumnShape>(
     },
 
     async insertGraph(data, options) {
-      const mod = await import("../relations/graph.js")
+      const mod = await import("../relations/graph/index.js")
       return mod.insertGraph(this as any, data, options)
     },
 
     async upsertGraph(data, options) {
-      const mod = await import("../relations/graph.js")
+      const mod = await import("../relations/graph/index.js")
       return mod.upsertGraph(this as any, data, options)
     },
 
