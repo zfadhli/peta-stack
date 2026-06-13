@@ -26,6 +26,28 @@ export interface PaginationOptions {
 }
 
 // ---------------------------------------------------------------------------
+// Shared Standard Schema validation helper
+// ---------------------------------------------------------------------------
+
+/**
+ * Validate a value against a Standard Schema.
+ * Returns the validated value, or calls `onError` and returns a Response.
+ */
+async function validateOrError<T>(
+  schema: ArkTypeSchema,
+  value: unknown,
+  c: Context,
+  onError: ValidationErrorHandler,
+): Promise<T | Response> {
+  const result = await schema["~standard"].validate(value)
+  if (Array.isArray(result)) return onError(result, c)
+  const r = result as { issues?: Iterable<unknown>; value?: unknown }
+  if (r.issues) return onError([...r.issues], c)
+  if ("value" in r && r.value !== undefined) return r.value as T
+  return value as T
+}
+
+// ---------------------------------------------------------------------------
 // Validation error handler — customize the response on validation failure
 // ---------------------------------------------------------------------------
 export type ValidationErrorHandler = (issues: unknown[], c: Context) => Response | Promise<Response>
@@ -58,22 +80,9 @@ export function createValidator(
   onError: ValidationErrorHandler,
 ): MiddlewareHandler {
   return validator(target, async (value, c) => {
-    const result = await schema["~standard"].validate(value)
-
-    if (Array.isArray(result)) {
-      return onError(result, c)
-    }
-
-    const r = result as { issues?: Iterable<unknown>; value?: unknown }
-    if (r.issues) {
-      return onError([...r.issues], c)
-    }
-
-    if ("value" in r && r.value !== undefined) {
-      return r.value
-    }
-
-    return c.json({ error: "Validation returned no value" }, 400)
+    const validated = await validateOrError(schema, value, c, onError)
+    if (validated instanceof Response) return validated
+    return validated
   })
 }
 
@@ -285,16 +294,9 @@ export class RouteBuilder<
           const raw = value as Record<string, string | undefined>
 
           if (querySchema) {
-            const result = await querySchema["~standard"].validate(value)
-            if (Array.isArray(result)) return onError(result, c)
-            const r = result as {
-              issues?: Iterable<unknown>
-              value?: unknown
-            }
-            if (r.issues) return onError([...r.issues], c)
-            if ("value" in r && r.value !== undefined) {
-              merged = { ...merged, ...(r.value as Record<string, unknown>) }
-            }
+            const validated = await validateOrError<Record<string, unknown>>(querySchema, value, c, onError)
+            if (validated instanceof Response) return validated
+            merged = { ...merged, ...validated }
           }
 
           if (filters) {
@@ -309,21 +311,17 @@ export class RouteBuilder<
                     .split(",")
                     .map((s) => s.trim())
                     .filter(Boolean)
-                  const validated: unknown[] = []
+                  const validatedItems: unknown[] = []
                   for (const item of items) {
-                    const result = await filter.schema["~standard"].validate(item)
-                    if (Array.isArray(result)) return onError(result, c)
-                    const r = result as { issues?: Iterable<unknown>; value?: unknown }
-                    if (r.issues) return onError([...r.issues], c)
-                    if ("value" in r) validated.push(r.value)
+                    const validated = await validateOrError(filter.schema, item, c, onError)
+                    if (validated instanceof Response) return validated
+                    validatedItems.push(validated)
                   }
-                  merged[paramName] = validated
+                  merged[paramName] = validatedItems
                 } else {
-                  const result = await filter.schema["~standard"].validate(val)
-                  if (Array.isArray(result)) return onError(result, c)
-                  const r = result as { issues?: Iterable<unknown>; value?: unknown }
-                  if (r.issues) return onError([...r.issues], c)
-                  if ("value" in r) merged[paramName] = r.value
+                  const validated = await validateOrError(filter.schema, val, c, onError)
+                  if (validated instanceof Response) return validated
+                  merged[paramName] = validated
                 }
               }
             }
@@ -446,12 +444,8 @@ export class RouteBuilder<
     try {
       const cloned = response.clone()
       const body = await cloned.json()
-      const result = await (schema as ArkTypeSchema)["~standard"].validate(body)
-
-      if (Array.isArray(result)) return onError([...result], c)
-      const r = result as { issues?: Iterable<unknown>; value?: unknown }
-      if (r.issues) return onError([...r.issues], c)
-
+      const validated = await validateOrError(schema as ArkTypeSchema, body, c, onError)
+      if (validated instanceof Response) return validated
       return response
     } catch {
       // Body couldn't be parsed as JSON — skip validation
