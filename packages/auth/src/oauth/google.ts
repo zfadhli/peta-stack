@@ -1,15 +1,4 @@
-import { constantTimeEqual } from "../csrf.js"
-import {
-  getOAuthRedirectURL,
-  handleAccessTokenError,
-  handleInvalidState,
-  handleMissingConfiguration,
-  handlePKCE,
-  handleState,
-  jsonError,
-  redirect,
-  requestAccessToken,
-} from "./utils.js"
+import { defineOAuthHandler, type OAuthProviderConfig } from "./utils.js"
 
 /** Configuration for Google OAuth. */
 export interface OAuthGoogleConfig {
@@ -42,17 +31,69 @@ interface GoogleUser {
   locale: string
 }
 
-function resolveConfig(config: OAuthGoogleConfig) {
-  return {
-    authorizationURL: config.authorizationURL ?? "https://accounts.google.com/o/oauth2/v2/auth",
-    tokenURL: config.tokenURL ?? "https://oauth2.googleapis.com/token",
-    userInfoURL: config.userInfoURL ?? "https://www.googleapis.com/oauth2/v3/userinfo",
-    clientId: config.clientId ?? process.env.PETA_OAUTH_GOOGLE_CLIENT_ID ?? "",
-    clientSecret: config.clientSecret ?? process.env.PETA_OAUTH_GOOGLE_CLIENT_SECRET ?? "",
-    scope: config.scope ?? ["openid", "email", "profile"],
-    authorizationParams: config.authorizationParams ?? {},
-    redirectURL: config.redirectURL,
-  }
+const googleProvider: OAuthProviderConfig<GoogleTokens, GoogleUser> = {
+  name: "google",
+
+  resolveConfig(config) {
+    const c = config as OAuthGoogleConfig
+    return {
+      authorizationURL: c.authorizationURL ?? "https://accounts.google.com/o/oauth2/v2/auth",
+      tokenURL: c.tokenURL ?? "https://oauth2.googleapis.com/token",
+      userInfoURL: c.userInfoURL ?? "https://www.googleapis.com/oauth2/v3/userinfo",
+      clientId: c.clientId ?? process.env.PETA_OAUTH_GOOGLE_CLIENT_ID ?? "",
+      clientSecret: c.clientSecret ?? process.env.PETA_OAUTH_GOOGLE_CLIENT_SECRET ?? "",
+      scope: c.scope ?? ["openid", "email", "profile"],
+      authorizationParams: c.authorizationParams ?? {},
+      redirectURL: c.redirectURL,
+    }
+  },
+
+  buildAuthUrl(config, redirectURL, state, pkce) {
+    const c = config as ReturnType<typeof googleProvider.resolveConfig>
+
+    const authUrl = new URL(c.authorizationURL)
+    authUrl.searchParams.set("client_id", c.clientId)
+    authUrl.searchParams.set("redirect_uri", redirectURL)
+    authUrl.searchParams.set("scope", c.scope.join(" "))
+    authUrl.searchParams.set("response_type", "code")
+    authUrl.searchParams.set("state", state.state ?? "")
+
+    if (pkce.codeChallenge) {
+      authUrl.searchParams.set("code_challenge", pkce.codeChallenge)
+      authUrl.searchParams.set("code_challenge_method", pkce.codeChallengeMethod ?? "S256")
+    }
+
+    for (const [key, value] of Object.entries(c.authorizationParams)) {
+      authUrl.searchParams.set(key, value)
+    }
+
+    const cookies = [state.setCookie, pkce.setCookie].filter(Boolean).join("; ")
+    return { url: authUrl.toString(), cookies: cookies || undefined }
+  },
+
+  requestTokenBody(config, redirectURL, code, pkce) {
+    return {
+      grant_type: "authorization_code",
+      client_id: config.clientId,
+      client_secret: config.clientSecret,
+      redirect_uri: redirectURL,
+      code,
+      code_verifier: pkce.codeVerifier ?? "",
+    }
+  },
+
+  async fetchUser(config, tokens, _request) {
+    const userURL = config.userInfoURL ?? "https://www.googleapis.com/oauth2/v3/userinfo"
+    const userResponse = await fetch(userURL, {
+      headers: { Authorization: `Bearer ${tokens.access_token}` },
+    })
+
+    if (!userResponse.ok) {
+      throw new Error(`Google user fetch failed: ${userResponse.status}`)
+    }
+
+    return userResponse.json() as Promise<GoogleUser>
+  },
 }
 
 /**
@@ -72,85 +113,5 @@ export function defineOAuthGoogleEventHandler(options: {
   onSuccess: (event: { user: GoogleUser; tokens: GoogleTokens; request: Request }) => Response | Promise<Response>
   onError?: (error: Error) => Response | Promise<Response>
 }): (request: Request) => Promise<Response> {
-  const { config: userConfig = {}, onSuccess, onError } = options
-
-  return async (request: Request): Promise<Response> => {
-    const config = resolveConfig(userConfig)
-
-    const url = new URL(request.url)
-    const queryCode = url.searchParams.get("code")
-    const queryError = url.searchParams.get("error")
-    const queryState = url.searchParams.get("state")
-
-    if (queryError) {
-      const error = new Error(`Google login failed: ${queryError}`)
-      if (onError) return onError(error)
-      return jsonError(error, 401)
-    }
-
-    if (!config.clientId || !config.clientSecret) {
-      const missing: string[] = []
-      if (!config.clientId) missing.push("clientId")
-      if (!config.clientSecret) missing.push("clientSecret")
-      return handleMissingConfiguration("google", missing, onError)
-    }
-
-    const redirectURL = config.redirectURL || getOAuthRedirectURL(request)
-    const state = handleState(request)
-    const pkce = await handlePKCE(request)
-
-    if (!queryCode) {
-      const authUrl = new URL(config.authorizationURL)
-      authUrl.searchParams.set("client_id", config.clientId)
-      authUrl.searchParams.set("redirect_uri", redirectURL)
-      authUrl.searchParams.set("scope", config.scope.join(" "))
-      authUrl.searchParams.set("response_type", "code")
-      authUrl.searchParams.set("state", state.state ?? "")
-
-      if (pkce.codeChallenge) {
-        authUrl.searchParams.set("code_challenge", pkce.codeChallenge)
-        authUrl.searchParams.set("code_challenge_method", pkce.codeChallengeMethod ?? "S256")
-      }
-
-      for (const [key, value] of Object.entries(config.authorizationParams)) {
-        authUrl.searchParams.set(key, value)
-      }
-
-      const cookies = [state.setCookie, pkce.setCookie].filter(Boolean).join("; ")
-      return redirect(authUrl.toString(), cookies || undefined)
-    }
-
-    if (!queryState || !state.expectedState || !constantTimeEqual(queryState, state.expectedState)) {
-      return handleInvalidState("google", onError)
-    }
-
-    const tokens = await requestAccessToken<GoogleTokens>(config.tokenURL, {
-      body: {
-        grant_type: "authorization_code",
-        client_id: config.clientId,
-        client_secret: config.clientSecret,
-        redirect_uri: redirectURL,
-        code: queryCode,
-        code_verifier: pkce.codeVerifier,
-      },
-    })
-
-    if ((tokens as unknown as Record<string, string | undefined>).error) {
-      return handleAccessTokenError("google", tokens as unknown as Record<string, string>, onError)
-    }
-
-    const userResponse = await fetch(config.userInfoURL, {
-      headers: { Authorization: `Bearer ${tokens.access_token}` },
-    })
-
-    if (!userResponse.ok) {
-      const error = new Error(`Google user fetch failed: ${userResponse.status}`)
-      if (onError) return onError(error)
-      throw error
-    }
-
-    const user: GoogleUser = await userResponse.json()
-
-    return onSuccess({ user, tokens, request })
-  }
+  return defineOAuthHandler<GoogleTokens, GoogleUser>(googleProvider, options)
 }

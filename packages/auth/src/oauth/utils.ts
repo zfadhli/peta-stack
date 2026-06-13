@@ -1,4 +1,5 @@
 import { parse, serialize } from "cookie"
+import { constantTimeEqual } from "../csrf.js"
 import { PetaAuthError } from "../errors.js"
 
 const IS_DEVELOPMENT = process.env.NODE_ENV === "development"
@@ -185,6 +186,116 @@ export function handleAccessTokenError(
   const error = new Error(message)
   if (onError) return onError(error)
   return jsonError(error, 401)
+}
+
+/** Resolved config shape shared across OAuth providers. */
+export interface OAuthResolvedConfig {
+  clientId: string
+  clientSecret: string
+  redirectURL?: string
+  authorizationURL: string
+  tokenURL: string
+  scope: string[]
+  authorizationParams: Record<string, string>
+  // Provider-specific extras
+  apiURL?: string
+  userInfoURL?: string
+  emailRequired?: boolean
+}
+
+/**
+ * Configuration for a specific OAuth provider (GitHub, Google, etc.).
+ * Provides the variation points that differ between providers.
+ */
+export interface OAuthProviderConfig<TTokens, TUser> {
+  /** Provider name for error messages (e.g. "github", "google"). */
+  name: string
+  /** Resolve user-provided config with defaults and env vars. */
+  resolveConfig: (config: object) => OAuthResolvedConfig
+  /** Build the authorization URL for the initial redirect. */
+  buildAuthUrl: (
+    config: OAuthResolvedConfig,
+    redirectURL: string,
+    state: { state?: string; setCookie?: string },
+    pkce: Awaited<ReturnType<typeof handlePKCE>>,
+  ) => { url: string; cookies?: string }
+  /** Build the token request body for the access token exchange. */
+  requestTokenBody: (
+    config: OAuthResolvedConfig,
+    redirectURL: string,
+    code: string,
+    pkce: Awaited<ReturnType<typeof handlePKCE>>,
+  ) => Record<string, string>
+  /** Fetch user info with the access token. Returns the user data. */
+  fetchUser: (
+    config: OAuthResolvedConfig,
+    tokens: TTokens,
+    request: Request,
+  ) => Promise<TUser>
+}
+
+/**
+ * Define an OAuth event handler using a provider-specific config.
+ *
+ * Handles the shared OAuth flow (redirect, callback, token exchange, user fetch)
+ * while delegating provider-specific behavior to the config callbacks.
+ */
+export function defineOAuthHandler<TTokens, TUser>(
+  provider: OAuthProviderConfig<TTokens, TUser>,
+  options: {
+    config?: object
+    onSuccess: (data: { user: TUser; tokens: TTokens; request: Request }) => Response | Promise<Response>
+    onError?: (error: Error) => Response | Promise<Response>
+  },
+): (request: Request) => Promise<Response> {
+  const { config: userConfig = {}, onSuccess, onError } = options
+
+  return async (request: Request): Promise<Response> => {
+    const config = provider.resolveConfig(userConfig)
+
+    const url = new URL(request.url)
+    const queryCode = url.searchParams.get("code")
+    const queryError = url.searchParams.get("error")
+    const queryState = url.searchParams.get("state")
+
+    if (queryError) {
+      const error = new Error(`${provider.name} login failed: ${queryError}`)
+      if (onError) return onError(error)
+      return jsonError(error, 401)
+    }
+
+    if (!config.clientId || !config.clientSecret) {
+      const missing: string[] = []
+      if (!config.clientId) missing.push("clientId")
+      if (!config.clientSecret) missing.push("clientSecret")
+      return handleMissingConfiguration(provider.name, missing, onError)
+    }
+
+    const redirectURL = config.redirectURL || getOAuthRedirectURL(request)
+    const state = handleState(request)
+    const pkce = await handlePKCE(request)
+
+    if (!queryCode) {
+      const { url: authUrl, cookies } = provider.buildAuthUrl(config, redirectURL, state, pkce)
+      return redirect(authUrl, cookies)
+    }
+
+    if (!queryState || !state.expectedState || !constantTimeEqual(queryState, state.expectedState)) {
+      return handleInvalidState(provider.name, onError)
+    }
+
+    const tokens = await requestAccessToken<TTokens>(config.tokenURL, {
+      body: provider.requestTokenBody(config, redirectURL, queryCode, pkce),
+    })
+
+    if ((tokens as unknown as Record<string, string | undefined>).error) {
+      return handleAccessTokenError(provider.name, tokens as unknown as Record<string, string>, onError)
+    }
+
+    const user = await provider.fetchUser(config, tokens, request)
+
+    return onSuccess({ user, tokens, request })
+  }
 }
 
 /**
