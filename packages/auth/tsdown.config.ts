@@ -8,7 +8,6 @@ export default defineConfig({
     "src/nuxt.ts",
     "src/jwt.ts",
     "src/csrf.ts",
-    "src/oauth/index.ts",
     "src/oauth/github.ts",
     "src/oauth/google.ts",
   ],

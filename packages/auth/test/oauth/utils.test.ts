@@ -7,7 +7,7 @@ import {
   handleState,
   redirect,
   requestAccessToken,
-} from "../../src/oauth/index.js"
+} from "../../src/oauth/utils.js"
 
 describe("getOAuthRedirectURL", () => {
   it("extracts URL from request", () => {

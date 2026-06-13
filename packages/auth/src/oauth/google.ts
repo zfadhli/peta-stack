@@ -8,7 +8,7 @@ import {
   handleState,
   redirect,
   requestAccessToken,
-} from "./index.js"
+} from "./utils.js"
 
 /** Configuration for Google OAuth. */
 export interface OAuthGoogleConfig {
