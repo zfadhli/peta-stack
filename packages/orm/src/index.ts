@@ -22,7 +22,8 @@ export {
 export type { HookCallback, HookManager, LifecycleEvent } from "./hooks/index.js"
 export { createHookManager } from "./hooks/index.js"
 // ─── Model System ──────────────────────────────────────────
-export { Attribute, defineModel } from "./model/index.js"
+export { Attribute } from "./model/index.js"
+export { defineModel } from "./model/define.js"
 export type { ModelConfig, ModelDefinition, ModelInstance } from "./model/types.js"
 export type { ORMConfig } from "./orm/index.js"
 export { createORM, createORM as createPeta } from "./orm/index.js"
