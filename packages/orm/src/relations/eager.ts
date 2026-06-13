@@ -6,11 +6,10 @@ export interface EagerLoad {
   constraints?: ((qb: QueryBuilder) => void) | null
 }
 
-// Sentinel key used to mark morphTo relations on the relation object
-const MORPH_MAP_KEY = "_morphMap"
+import type { Relation } from "./base.js"
 
-function isMorphRelation(relation: any): boolean {
-  return relation?.[MORPH_MAP_KEY] !== undefined
+function isMorphRelation(relation: Relation): boolean {
+  return relation._morphMap !== undefined
 }
 
 export class EagerLoader {

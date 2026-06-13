@@ -25,6 +25,12 @@ export interface Relation {
   readonly throughForeignKey?: string
   readonly throughLocalKey?: string
 
+  // Morph (polymorphic) metadata — set by defineMorphTo/MorphMany/MorphOne
+  _morphMap?: Record<string, () => ModelDefinition>
+  _morphType?: string
+  _morphId?: string
+  _morphTypeValue?: string
+
   query(parent: ModelInstance): QueryBuilder
   addEagerConstraints(query: QueryBuilder, models: ModelInstance[]): void
   match(models: ModelInstance[], results: ModelInstance[], relationName: string): void

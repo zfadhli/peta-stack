@@ -74,8 +74,8 @@ export function resolveThunk(thunk: () => ModelDefinition): ModelDefinition {
  * missing, or the relation is not a morphTo.
  */
 export function resolveMorphRelation(relation: Relation, parent: ModelInstance): ModelDefinition | undefined {
-  const morphMap = (relation as any)._morphMap as Record<string, () => ModelDefinition> | undefined
-  const morphType = (relation as any)._morphType as string | undefined
+  const morphMap = relation._morphMap
+  const morphType = relation._morphType
   if (!morphMap || !morphType) return undefined
 
   const typeValue = parent.get(morphType) as string | undefined
@@ -142,9 +142,9 @@ export function defineMorphTo(options: MorphToOptions): Relation {
     },
 
     // Store morph metadata for runtime resolution
-    _morphMap: morphMap as any,
-    _morphType: morphType as any,
-    _morphId: morphId as any,
+    _morphMap: morphMap,
+    _morphType: morphType,
+    _morphId: morphId,
 
     /**
      * Build a query for the related model.

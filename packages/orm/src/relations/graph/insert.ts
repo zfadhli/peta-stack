@@ -231,7 +231,7 @@ async function processMorphTo(
   path: string,
   parentColumnData?: Record<string, unknown>,
 ): Promise<ModelInstance | null> {
-  const morphMap = (relation as any)._morphMap as Record<string, () => ModelDefinition> | undefined
+  const morphMap = relation._morphMap
   const morphType = getMorphType(relation)!
   const morphId = getMorphId(relation)!
 
