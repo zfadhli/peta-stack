@@ -1,8 +1,8 @@
 import { Database } from "bun:sqlite"
 import type { Hono } from "hono"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
-import { createApp } from "../src/index.js"
 import { createTables, getORM } from "../src/db/schema.js"
+import { createApp } from "../src/index.js"
 
 // ─── Test Database Factory ────────────────────────────────────────────────
 
@@ -33,7 +33,7 @@ export function createTestApp(): { app: Hono; orm: ReturnType<typeof getORM> } {
 /**
  * Extract a JWT token from a response body.
  */
-export function extractToken(res: Response): string {
+export function extractToken(_res: Response): string {
   // The response body should be JSON with a user.token field
   return "" // Overridden below via the actual extractor
 }

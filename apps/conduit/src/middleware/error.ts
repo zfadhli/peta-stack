@@ -70,7 +70,7 @@ export function onValidationError(issues: unknown[], c: Context): Response {
     // Strip it to get just the validation message
     let msg = issue.message ?? "is invalid"
     if (issue.path?.length) {
-      const prefix = issue.path.join(".") + " "
+      const prefix = `${issue.path.join(".")} `
       if (msg.startsWith(prefix)) msg = msg.slice(prefix.length)
     }
 

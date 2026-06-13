@@ -1,5 +1,4 @@
 import { describe, expect, it } from "bun:test"
-import type { Hono } from "hono"
 import { createArticle, createTestApp, signupUser } from "./setup.js"
 
 const uniqueId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6)

@@ -7,7 +7,7 @@ describe("Profiles", () => {
   it("should get a profile", async () => {
     const { app } = createTestApp()
     const uid = uniqueId()
-    const { token: userToken } = await signupUser(app, {
+    await signupUser(app, {
       username: `pro_${uid}`,
       email: `pro_${uid}@test.com`,
       password: "password123",
@@ -29,7 +29,7 @@ describe("Profiles", () => {
   it("should follow a user", async () => {
     const { app } = createTestApp()
     const uid = uniqueId()
-    const { token: targetToken } = await signupUser(app, {
+    await signupUser(app, {
       username: `target_${uid}`,
       email: `target_${uid}@test.com`,
       password: "password123",
@@ -54,7 +54,7 @@ describe("Profiles", () => {
   it("should unfollow a user", async () => {
     const { app } = createTestApp()
     const uid = uniqueId()
-    const { token: targetToken } = await signupUser(app, {
+    await signupUser(app, {
       username: `untarget_${uid}`,
       email: `untarget_${uid}@test.com`,
       password: "password123",

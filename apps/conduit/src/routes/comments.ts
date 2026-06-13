@@ -4,8 +4,8 @@ import { route } from "peta-docs/hono"
 import type { ModelInstance } from "peta-orm"
 import { Article, Comment, Follow, User } from "../db/schema.js"
 import { getCurrentUserId, requireAuth } from "../middleware/auth.js"
-import { http } from "../middleware/http-error.js"
 import { onValidationError } from "../middleware/error.js"
+import { http } from "../middleware/http-error.js"
 
 const app = new Hono()
 

@@ -188,7 +188,7 @@ export async function insertManyModel(
       if (key !== pk) fillData[key] = value
     }
     instance.fill(fillData)
-		await hm.trigger("beforeCreate", instance)
+    await hm.trigger("beforeCreate", instance)
     instances.push(instance)
   }
 

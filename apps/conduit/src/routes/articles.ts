@@ -5,8 +5,8 @@ import type { ModelInstance } from "peta-orm"
 import { Article, ArticleTag, Comment, Favorite, Follow, Tag, User } from "../db/schema.js"
 import { uniqueSlug } from "../lib/slug.js"
 import { getCurrentUserId, requireAuth } from "../middleware/auth.js"
-import { http } from "../middleware/http-error.js"
 import { onValidationError } from "../middleware/error.js"
+import { http } from "../middleware/http-error.js"
 
 const app = new Hono()
 

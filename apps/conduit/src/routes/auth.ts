@@ -1,14 +1,13 @@
 import { type } from "arktype"
 import { Hono } from "hono"
-import { HTTPException } from "hono/http-exception"
 import { hashPassword, verifyPassword } from "peta-auth"
 import { route } from "peta-docs/hono"
 import { DatabaseError } from "peta-orm"
 import { User } from "../db/schema.js"
 import { signToken } from "../lib/jwt.js"
 import { requireAuth } from "../middleware/auth.js"
-import { http } from "../middleware/http-error.js"
 import { onValidationError } from "../middleware/error.js"
+import { http } from "../middleware/http-error.js"
 
 const app = new Hono()
 
