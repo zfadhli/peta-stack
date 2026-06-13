@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test"
 import type { Hono } from "hono"
 import { createApp } from "../src/index.js"
-import { createTestORM, createUser, createLinkedAuthor, extractSessionCookie } from "./setup.js"
+import { createLinkedAuthor, createTestORM, createUser } from "./setup.js"
 
 let app: Hono
 let close: () => void
@@ -18,7 +18,7 @@ afterAll(() => {
 
 function req(method: string, path: string, body?: Record<string, unknown>, cookie?: string): Promise<Response> {
   const headers: Record<string, string> = { "Content-Type": "application/json" }
-  if (cookie) headers["Cookie"] = cookie
+  if (cookie) headers.Cookie = cookie
   const init: RequestInit = { method, headers }
   if (body) init.body = JSON.stringify(body)
   return app.fetch(new Request(`http://localhost${path}`, init))
@@ -33,13 +33,21 @@ describe("Authors API", () => {
 
   beforeAll(async () => {
     // Admin user
-    adminCookie = (await createUser(app, {
-      email: "admin-authors@test.com", password: "password123", name: "Admin", role: "admin",
-    })).cookie
+    adminCookie = (
+      await createUser(app, {
+        email: "admin-authors@test.com",
+        password: "password123",
+        name: "Admin",
+        role: "admin",
+      })
+    ).cookie
 
     // Author user — creates an author profile
     const authorUser = await createUser(app, {
-      email: "author@test.com", password: "password123", name: "Author", role: "author",
+      email: "author@test.com",
+      password: "password123",
+      name: "Author",
+      role: "author",
     })
     authorCookie = authorUser.cookie
     authorUserId = authorUser.userId
@@ -49,9 +57,14 @@ describe("Authors API", () => {
     authorId = a.id
 
     // Regular user (no author profile)
-    userCookie = (await createUser(app, {
-      email: "plain-user@test.com", password: "password123", name: "User", role: "user",
-    })).cookie
+    userCookie = (
+      await createUser(app, {
+        email: "plain-user@test.com",
+        password: "password123",
+        name: "User",
+        role: "user",
+      })
+    ).cookie
   })
 
   it("GET /api/authors → 200 returns paginated list", async () => {
@@ -109,9 +122,12 @@ describe("Authors API", () => {
   it("PATCH /api/authors/:id → 403 for non-owner author", async () => {
     // Create another author user
     const otherUser = await createUser(app, {
-      email: "other-author@test.com", password: "password123", name: "Other", role: "author",
+      email: "other-author@test.com",
+      password: "password123",
+      name: "Other",
+      role: "author",
     })
-    const otherAuthor = await createLinkedAuthor(otherUser.userId, "Other Author")
+    const _otherAuthor = await createLinkedAuthor(otherUser.userId, "Other Author")
 
     const res = await req("PATCH", `/api/authors/${authorId}`, { name: "Hacked" }, otherUser.cookie)
     expect(res.status).toBe(403)
@@ -126,9 +142,12 @@ describe("Authors API", () => {
 
   it("DELETE /api/authors/:id → 403 for non-owner author", async () => {
     const otherUser = await createUser(app, {
-      email: "other-author2@test.com", password: "password123", name: "Other2", role: "author",
+      email: "other-author2@test.com",
+      password: "password123",
+      name: "Other2",
+      role: "author",
     })
-    const otherAuthor = await createLinkedAuthor(otherUser.userId, "Other Author 2")
+    const _otherAuthor = await createLinkedAuthor(otherUser.userId, "Other Author 2")
 
     const res = await req("DELETE", `/api/authors/${authorId}`, undefined, otherUser.cookie)
     expect(res.status).toBe(403)
@@ -137,7 +156,10 @@ describe("Authors API", () => {
   it("DELETE /api/authors/:id → 204 for owner", async () => {
     // Create a fresh author+user pair for cleanup
     const freshUser = await createUser(app, {
-      email: "fresh-author@test.com", password: "password123", name: "Fresh", role: "author",
+      email: "fresh-author@test.com",
+      password: "password123",
+      name: "Fresh",
+      role: "author",
     })
     const freshAuthor = await createLinkedAuthor(freshUser.userId, "Fresh Author")
 

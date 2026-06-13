@@ -1,5 +1,5 @@
 import { Database } from "bun:sqlite"
-import { afterAll, beforeAll, describe, expect, it } from "bun:test"
+import { describe, expect, it } from "bun:test"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
 import { t as columnTypes, createArkTypeSchemaConfig } from "../src/columns/index.js"
 import { createPeta, defineModel, softDeletes, timestamps } from "../src/index.js"

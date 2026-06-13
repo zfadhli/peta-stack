@@ -176,7 +176,7 @@ const hp3 = await Book.insert({
 })
 
 // Alice's own book (authored under her linked author profile)
-const aliceBook = await Book.insert({
+const _aliceBook = await Book.insert({
   title: "My First Catalog Book",
   isbn: "9781234567890",
   description: "A book written by Alice, who is both a user and an author.",

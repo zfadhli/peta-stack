@@ -1,5 +1,4 @@
 import { Database } from "bun:sqlite"
-import { ulid } from "ulid"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
 import type { ModelDefinition } from "peta-orm"
 import {
@@ -13,18 +12,8 @@ import {
   manyToMany,
   softDeletes,
   timestamps,
+  ulid,
 } from "peta-orm"
-
-// ---------------------------------------------------------------------------
-// ULID auto-generation plugin
-// ---------------------------------------------------------------------------
-function useUlid() {
-  return (def: ModelDefinition) => {
-    def.on("beforeCreate", (model: any) => {
-      if (!model.get("id")) model.set("id", ulid())
-    })
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Column type factory
@@ -57,7 +46,10 @@ export const User = defineModel("users", {
     author: hasOne(() => _Author, { foreignKey: "userId" }),
   },
   hidden: ["passwordHash", "deletedAt"],
-}).use(timestamps()).use(softDeletes()).use(useUlid())
+})
+  .use(timestamps())
+  .use(softDeletes())
+  .use(ulid())
 
 export const Author: ModelDefinition = defineModel("authors", {
   columns: {
@@ -74,7 +66,10 @@ export const Author: ModelDefinition = defineModel("authors", {
     books: hasMany(() => _Book, { foreignKey: "authorId" }),
   },
   hidden: ["deletedAt"],
-}).use(timestamps()).use(softDeletes()).use(useUlid())
+})
+  .use(timestamps())
+  .use(softDeletes())
+  .use(ulid())
 _Author = Author
 
 export const Book: ModelDefinition = defineModel("books", {
@@ -105,7 +100,10 @@ export const Book: ModelDefinition = defineModel("books", {
   casts: {
     inStock: "boolean",
   },
-}).use(timestamps()).use(softDeletes()).use(useUlid())
+})
+  .use(timestamps())
+  .use(softDeletes())
+  .use(ulid())
 _Book = Book
 
 export const Category: ModelDefinition = defineModel("categories", {
@@ -121,7 +119,7 @@ export const Category: ModelDefinition = defineModel("categories", {
       relatedPivotKey: "bookId",
     }),
   },
-}).use(useUlid())
+}).use(ulid())
 _Category = Category
 
 export const BookCategory = defineModel("book_categories", {
@@ -144,7 +142,7 @@ export const Review = defineModel("reviews", {
     book: belongsTo(() => _Book),
     user: belongsTo(() => User),
   },
-}).use(useUlid())
+}).use(ulid())
 
 // ---------------------------------------------------------------------------
 // Database setup

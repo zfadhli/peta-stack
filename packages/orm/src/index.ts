@@ -33,6 +33,7 @@ export { createPaginator } from "./pagination/index.js"
 export type { Plugin } from "./plugins/index.js"
 export { softDeletes } from "./plugins/soft-deletes.js"
 export { timestamps } from "./plugins/timestamps.js"
+export { ulid } from "./plugins/ulid.js"
 // ─── Query Builder ─────────────────────────────────────────
 export type { QueryBuilder } from "./query/index.js"
 export { createQueryBuilder } from "./query/index.js"

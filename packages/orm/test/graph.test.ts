@@ -241,8 +241,8 @@ describe("insertGraph", () => {
 
     const sharedPost = posts[0]!
     // Both users should have pivot relationships (actually hasMany FK)
-    const alice = results.find((r: any) => r.get("name") === "Ref Alice")
-    const bob = results.find((r: any) => r.get("name") === "Ref Bob")
+    const _alice = results.find((r: any) => r.get("name") === "Ref Alice")
+    const _bob = results.find((r: any) => r.get("name") === "Ref Bob")
 
     // The post's userId should be set to one of the users
     expect(sharedPost.get("userId")).toBeGreaterThan(0)
@@ -317,7 +317,7 @@ describe("upsertGraph", () => {
 
     // Create some initial posts
     const post1 = await Post.insert({ title: "Keep Me", userId })
-    const post2 = await Post.insert({ title: "Update Me", userId })
+    const _post2 = await Post.insert({ title: "Update Me", userId })
 
     await User.upsertGraph({
       id: userId,

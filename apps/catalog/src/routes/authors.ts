@@ -4,7 +4,7 @@ import { route } from "peta-docs/hono"
 import type { ModelInstance } from "peta-orm"
 import { Author, Book } from "../db/schema.js"
 import { pick } from "../helpers.js"
-import { requireRole, requireSession } from "../middleware/auth.js"
+import { requireRole } from "../middleware/auth.js"
 import { http } from "../middleware/http-error.js"
 
 const app = new Hono()

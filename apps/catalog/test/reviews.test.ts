@@ -18,7 +18,7 @@ afterAll(() => {
 
 function req(method: string, path: string, body?: Record<string, unknown>, cookie?: string): Promise<Response> {
   const headers: Record<string, string> = { "Content-Type": "application/json" }
-  if (cookie) headers["Cookie"] = cookie
+  if (cookie) headers.Cookie = cookie
   const init: RequestInit = { method, headers }
   if (body) init.body = JSON.stringify(body)
   return app.fetch(new Request(`http://localhost${path}`, init))
@@ -28,46 +28,62 @@ describe("Reviews API", () => {
   let userCookie: string
   let userId: string
   let anotherUserCookie: string
-  let anotherUserId: string
+  let _anotherUserId: string
   let bookId: string
 
   beforeAll(async () => {
     const { Author, Book, User } = await import("../src/db/schema.js")
 
     // Create users directly via ORM
-    const admin = await createUser(app, {
-      email: "admin-rev@test.com", password: "password123", name: "Admin", role: "admin",
+    const _admin = await createUser(app, {
+      email: "admin-rev@test.com",
+      password: "password123",
+      name: "Admin",
+      role: "admin",
     })
     const authorUser = await createUser(app, {
-      email: "author-rev@test.com", password: "password123", name: "Author", role: "author",
+      email: "author-rev@test.com",
+      password: "password123",
+      name: "Author",
+      role: "author",
     })
 
     // Create author record linked to the author user
     const author = await Author.insert({
-      name: "Reviewable Author", bio: "Bio",
+      name: "Reviewable Author",
+      bio: "Bio",
       userId: authorUser.userId,
     })
     const authorId = author.get<string>("id")
 
     // Create a book directly (bypass API)
     const book = await Book.insert({
-      title: "Reviewable Book", isbn: "9780000000030", price: 9.99,
-      authorId, inStock: true,
+      title: "Reviewable Book",
+      isbn: "9780000000030",
+      price: 9.99,
+      authorId,
+      inStock: true,
     })
     bookId = book.get<string>("id")
 
     // Create reviewer users
     const user = await createUser(app, {
-      email: "reviewer@test.com", password: "password123", name: "Reviewer", role: "user",
+      email: "reviewer@test.com",
+      password: "password123",
+      name: "Reviewer",
+      role: "user",
     })
     userCookie = user.cookie
     userId = user.userId
 
     const another = await createUser(app, {
-      email: "another-reviewer@test.com", password: "password123", name: "Another", role: "user",
+      email: "another-reviewer@test.com",
+      password: "password123",
+      name: "Another",
+      role: "user",
     })
     anotherUserCookie = another.cookie
-    anotherUserId = another.userId
+    _anotherUserId = another.userId
   })
 
   it("GET /api/books/:id/reviews → 200 returns empty list initially", async () => {
@@ -119,8 +135,12 @@ describe("Reviews API", () => {
     const createRes = await req("POST", `/api/books/${bookId}/reviews`, { rating: 3, body: "Meh" }, userCookie)
     const created = await createRes.json()
 
-    const res = await req("PATCH", `/api/books/${bookId}/reviews/${created.id}`,
-      { rating: 4, body: "Updated" }, userCookie)
+    const res = await req(
+      "PATCH",
+      `/api/books/${bookId}/reviews/${created.id}`,
+      { rating: 4, body: "Updated" },
+      userCookie,
+    )
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.rating).toBe(4)
@@ -131,8 +151,7 @@ describe("Reviews API", () => {
     const createRes = await req("POST", `/api/books/${bookId}/reviews`, { rating: 5, body: "Mine" }, userCookie)
     const created = await createRes.json()
 
-    const res = await req("PATCH", `/api/books/${bookId}/reviews/${created.id}`,
-      { rating: 1 }, anotherUserCookie)
+    const res = await req("PATCH", `/api/books/${bookId}/reviews/${created.id}`, { rating: 1 }, anotherUserCookie)
     expect(res.status).toBe(403)
   })
 

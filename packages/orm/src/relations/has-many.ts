@@ -133,11 +133,7 @@ export function hasOne(relatedThunk: () => ModelDefinition, options: RelationOpt
   }
 
   // Override with hasOne-specific implementations
-  result.match = function match(
-    models: ModelInstance[],
-    results: ModelInstance[],
-    relationName: string,
-  ): void {
+  result.match = function match(models: ModelInstance[], results: ModelInstance[], relationName: string): void {
     const grouped = groupByArray(results, base.foreignKey)
     for (const model of models) {
       const key = String(model.get(base.localKey))
@@ -145,9 +141,7 @@ export function hasOne(relatedThunk: () => ModelDefinition, options: RelationOpt
     }
   }
 
-  result.getResults = async function getResults(
-    parent: ModelInstance,
-  ): Promise<ModelInstance | null> {
+  result.getResults = async function getResults(parent: ModelInstance): Promise<ModelInstance | null> {
     const results = await base.getResults(parent)
     return (results as ModelInstance[])[0] ?? null
   }

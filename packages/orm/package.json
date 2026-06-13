@@ -30,7 +30,8 @@
   "dependencies": {
     "arktype": "^2.2.0",
     "cac": "^7.0.0",
-    "ora": "^9.4.0"
+    "ora": "^9.4.0",
+    "ulid": "^3.0.2"
   },
   "peerDependencies": {
     "kysely": "^0.27.0",

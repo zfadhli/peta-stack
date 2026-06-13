@@ -134,7 +134,7 @@ console.log(`  ${pivots.length} tag(s) associated`)
 
 console.log("\n=== 6. #dbRef (relate to existing) ===")
 const existingTag = await Tag.insert({ name: "existing-tag" })
-const dbRefPost = await Post.insertGraph({
+const _dbRefPost = await Post.insertGraph({
   title: "DbRef Post",
   userId: alice.get("id") as number,
   tags: {

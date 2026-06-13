@@ -4,7 +4,7 @@ import { route } from "peta-docs/hono"
 import type { ModelInstance } from "peta-orm"
 import { DatabaseError } from "peta-orm"
 import { BookCategory, Category } from "../db/schema.js"
-import { requireRole, requireSession } from "../middleware/auth.js"
+import { requireRole } from "../middleware/auth.js"
 import { http } from "../middleware/http-error.js"
 
 const app = new Hono()
@@ -38,14 +38,14 @@ app.post(
     .handle(async (c) => {
       const body = c.req.valid("json")
 
-      const category = await Category.insert(
-        { name: body.name, description: body.description ?? null },
-      ).catch((err) => {
-        if (err instanceof DatabaseError && err.code === "UNIQUE_CONSTRAINT") {
-          throw http.conflict("This category name already exists")
-        }
-        throw err
-      })
+      const category = await Category.insert({ name: body.name, description: body.description ?? null }).catch(
+        (err) => {
+          if (err instanceof DatabaseError && err.code === "UNIQUE_CONSTRAINT") {
+            throw http.conflict("This category name already exists")
+          }
+          throw err
+        },
+      )
 
       return c.json(category.$toJSON() as Record<string, unknown>, 201)
     }),

@@ -18,7 +18,7 @@ afterAll(() => {
 
 function req(method: string, path: string, body?: Record<string, unknown>, cookie?: string): Promise<Response> {
   const headers: Record<string, string> = { "Content-Type": "application/json" }
-  if (cookie) headers["Cookie"] = cookie
+  if (cookie) headers.Cookie = cookie
   const init: RequestInit = { method, headers }
   if (body) init.body = JSON.stringify(body)
   return app.fetch(new Request(`http://localhost${path}`, init))
@@ -29,13 +29,23 @@ describe("Categories API", () => {
   let userCookie: string
 
   beforeAll(async () => {
-    adminCookie = (await createUser(app, {
-      email: "admin@test.com", password: "password123", name: "Admin", role: "admin",
-    })).cookie
+    adminCookie = (
+      await createUser(app, {
+        email: "admin@test.com",
+        password: "password123",
+        name: "Admin",
+        role: "admin",
+      })
+    ).cookie
 
-    userCookie = (await createUser(app, {
-      email: "user@test.com", password: "password123", name: "User", role: "user",
-    })).cookie
+    userCookie = (
+      await createUser(app, {
+        email: "user@test.com",
+        password: "password123",
+        name: "User",
+        role: "user",
+      })
+    ).cookie
   })
 
   it("GET /api/categories → 200 returns empty array initially", async () => {
@@ -98,7 +108,12 @@ describe("Categories API", () => {
     const createRes = await req("POST", "/api/categories", { name: "ToUpdate", description: "Old" }, adminCookie)
     const created = await createRes.json()
 
-    const res = await req("PATCH", `/api/categories/${created.id}`, { name: "Updated", description: "New" }, adminCookie)
+    const res = await req(
+      "PATCH",
+      `/api/categories/${created.id}`,
+      { name: "Updated", description: "New" },
+      adminCookie,
+    )
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.name).toBe("Updated")
@@ -126,7 +141,10 @@ describe("Categories API", () => {
 
     // Create author and book directly (bypass API for setup)
     const adminUser = await createUser(app, {
-      email: "admin2@test.com", password: "password123", name: "Admin2", role: "admin",
+      email: "admin2@test.com",
+      password: "password123",
+      name: "Admin2",
+      role: "admin",
     })
     const author = await Author.insert({ name: "Test Auth", userId: adminUser.userId })
 
@@ -137,8 +155,11 @@ describe("Categories API", () => {
 
     // Create book directly (bypass API)
     const book = await Book.insert({
-      title: "Linked Book", isbn: "9780000000098", price: 10,
-      authorId: author.get<string>("id"), inStock: true,
+      title: "Linked Book",
+      isbn: "9780000000098",
+      price: 10,
+      authorId: author.get<string>("id"),
+      inStock: true,
     })
 
     // Link book to category directly

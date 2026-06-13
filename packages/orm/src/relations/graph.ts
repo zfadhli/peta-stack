@@ -1,4 +1,4 @@
-import { DatabaseError, RelationNotAllowedError, RelationNotFoundError } from "../errors.js"
+import { DatabaseError, RelationNotAllowedError } from "../errors.js"
 import type { ModelDefinition, ModelInstance } from "../model/types.js"
 import type { Relation } from "./base.js"
 
@@ -860,7 +860,7 @@ async function upsertHasMany(
 
   for (const item of items) {
     const pkCol = getPrimaryKeyColumn(relatedDef)
-    const itemId = item[pkCol] ?? item["id"]
+    const itemId = item[pkCol] ?? item.id
 
     if (itemId != null) {
       incomingIds.add(itemId)
@@ -971,7 +971,7 @@ async function upsertManyToMany(
     }
 
     const pkCol = getPrimaryKeyColumn(relatedDef)
-    const itemId = item[pkCol] ?? item["id"]
+    const itemId = item[pkCol] ?? item.id
 
     if (itemId != null) {
       incomingIds.add(itemId)

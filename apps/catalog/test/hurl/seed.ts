@@ -8,18 +8,27 @@ db.run("PRAGMA foreign_keys = ON")
 createTables(db)
 const orm = getORM(new BunSqliteDialect({ database: db }))
 
-const { User, Author, Category, Book, BookCategory } = await import("../../src/db/schema.js")
+const { User, Author, Category } = await import("../../src/db/schema.js")
 
 // ── Users with different roles ────────────────────────────────────────
 const ph = await hashPassword("password123")
 
-await User.insert({ email: "admin@hurl.test",  passwordHash: ph, name: "Admin",  role: "admin" })
-const authorUser = await User.insert({ email: "author@hurl.test", passwordHash: ph, name: "Author User", role: "author" })
-const user = await User.insert({ email: "user@hurl.test",   passwordHash: ph, name: "Regular User", role: "user" })
+await User.insert({ email: "admin@hurl.test", passwordHash: ph, name: "Admin", role: "admin" })
+const authorUser = await User.insert({
+  email: "author@hurl.test",
+  passwordHash: ph,
+  name: "Author User",
+  role: "author",
+})
+const _user = await User.insert({ email: "user@hurl.test", passwordHash: ph, name: "Regular User", role: "user" })
 
 // ── Author profiles ───────────────────────────────────────────────────
 // Linked to author user (used for owner tests)
-const linkedAuthor = await Author.insert({ name: "Hurl Author", bio: "Hurl test author", userId: authorUser.get<string>("id") })
+const linkedAuthor = await Author.insert({
+  name: "Hurl Author",
+  bio: "Hurl test author",
+  userId: authorUser.get<string>("id"),
+})
 // Unlinked author (used for non-owner tests)
 const unlinkedAuthor = await Author.insert({ name: "Other Author", bio: "No user link" })
 

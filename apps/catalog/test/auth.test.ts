@@ -18,7 +18,7 @@ afterAll(() => {
 
 function req(method: string, path: string, body?: Record<string, unknown>, cookie?: string): Promise<Response> {
   const headers: Record<string, string> = { "Content-Type": "application/json" }
-  if (cookie) headers["Cookie"] = cookie
+  if (cookie) headers.Cookie = cookie
   const init: RequestInit = { method, headers }
   if (body) init.body = JSON.stringify(body)
   return app.fetch(new Request(`http://localhost${path}`, init))

@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite"
-import { BunSqliteDialect } from "kysely-bun-sqlite"
 import type { Hono } from "hono"
+import { BunSqliteDialect } from "kysely-bun-sqlite"
 import { hashPassword } from "peta-auth"
 import { createTables, getORM } from "../src/db/schema.js"
 
@@ -73,10 +73,7 @@ export async function createUser(
 /**
  * Create an author linked to a user. Returns the author record.
  */
-export async function createLinkedAuthor(
-  userId: string,
-  name?: string,
-): Promise<Record<string, unknown>> {
+export async function createLinkedAuthor(userId: string, name?: string): Promise<Record<string, unknown>> {
   const { Author } = await import("../src/db/schema.js")
   const author = await Author.insert({ name: name ?? "Test Author", bio: "Bio", userId })
   return author.$toJSON() as Record<string, unknown>

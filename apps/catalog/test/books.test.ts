@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test"
 import type { Hono } from "hono"
 import { createApp } from "../src/index.js"
-import { createTestORM, createUser, createLinkedAuthor, createCategory } from "./setup.js"
+import { createCategory, createLinkedAuthor, createTestORM, createUser } from "./setup.js"
 
 let app: Hono
 let close: () => void
@@ -18,7 +18,7 @@ afterAll(() => {
 
 function req(method: string, path: string, body?: Record<string, unknown>, cookie?: string): Promise<Response> {
   const headers: Record<string, string> = { "Content-Type": "application/json" }
-  if (cookie) headers["Cookie"] = cookie
+  if (cookie) headers.Cookie = cookie
   const init: RequestInit = { method, headers }
   if (body) init.body = JSON.stringify(body)
   return app.fetch(new Request(`http://localhost${path}`, init))
@@ -36,22 +36,33 @@ describe("Books API", () => {
 
     // Admin user
     const adminUser = await createUser(app, {
-      email: "admin-books@test.com", password: "password123", name: "Admin", role: "admin",
+      email: "admin-books@test.com",
+      password: "password123",
+      name: "Admin",
+      role: "admin",
     })
     adminCookie = adminUser.cookie
 
     // Author user with linked author
     const authorUser = await createUser(app, {
-      email: "author-books@test.com", password: "password123", name: "Author", role: "author",
+      email: "author-books@test.com",
+      password: "password123",
+      name: "Author",
+      role: "author",
     })
     authorCookie = authorUser.cookie
     const linked = await createLinkedAuthor(authorUser.userId, "Book Author")
     authorId = linked.id
 
     // Regular user (no author profile)
-    userCookie = (await createUser(app, {
-      email: "user-books@test.com", password: "password123", name: "User", role: "user",
-    })).cookie
+    userCookie = (
+      await createUser(app, {
+        email: "user-books@test.com",
+        password: "password123",
+        name: "User",
+        role: "user",
+      })
+    ).cookie
 
     // Create a category for tests
     const cat = await createCategory("BookCategory")
@@ -67,18 +78,33 @@ describe("Books API", () => {
   })
 
   it("POST /api/books → 403 for user without author profile", async () => {
-    const res = await req("POST", "/api/books", {
-      title: "Hacked Book", isbn: "9780000000010", price: 10,
-      authorId: "some-id", inStock: true,
-    }, userCookie)
+    const res = await req(
+      "POST",
+      "/api/books",
+      {
+        title: "Hacked Book",
+        isbn: "9780000000010",
+        price: 10,
+        authorId: "some-id",
+        inStock: true,
+      },
+      userCookie,
+    )
     expect(res.status).toBe(403)
   })
 
   it("POST /api/books → 201 for author, auto-sets authorId", async () => {
-    const res = await req("POST", "/api/books", {
-      title: "My Book", isbn: "9780000000011", price: 14.99,
-      inStock: true,
-    }, authorCookie)
+    const res = await req(
+      "POST",
+      "/api/books",
+      {
+        title: "My Book",
+        isbn: "9780000000011",
+        price: 14.99,
+        inStock: true,
+      },
+      authorCookie,
+    )
     expect(res.status).toBe(201)
     const body = await res.json()
     expect(body.title).toBe("My Book")
@@ -87,10 +113,18 @@ describe("Books API", () => {
   })
 
   it("POST /api/books → 201 for admin with explicit authorId", async () => {
-    const res = await req("POST", "/api/books", {
-      title: "Admin Book", isbn: "9780000000012", price: 9.99,
-      authorId, inStock: true,
-    }, adminCookie)
+    const res = await req(
+      "POST",
+      "/api/books",
+      {
+        title: "Admin Book",
+        isbn: "9780000000012",
+        price: 9.99,
+        authorId,
+        inStock: true,
+      },
+      adminCookie,
+    )
     expect(res.status).toBe(201)
     const body = await res.json()
     expect(body.title).toBe("Admin Book")
@@ -98,10 +132,19 @@ describe("Books API", () => {
   })
 
   it("POST /api/books → 201 with categoryIds", async () => {
-    const res = await req("POST", "/api/books", {
-      title: "Categorized Book", isbn: "9780000000013", price: 12.99,
-      authorId, inStock: true, categoryIds: [categoryId],
-    }, adminCookie)
+    const res = await req(
+      "POST",
+      "/api/books",
+      {
+        title: "Categorized Book",
+        isbn: "9780000000013",
+        price: 12.99,
+        authorId,
+        inStock: true,
+        categoryIds: [categoryId],
+      },
+      adminCookie,
+    )
     expect(res.status).toBe(201)
     const body = await res.json()
     expect(body.title).toBe("Categorized Book")
@@ -119,7 +162,13 @@ describe("Books API", () => {
 
   it("GET /api/books/:id → 200 returns a book", async () => {
     const { Book } = await import("../src/db/schema.js")
-    const book = await Book.insert({ title: "Specific Book", isbn: "9780000000014", price: 5.99, authorId, inStock: true })
+    const book = await Book.insert({
+      title: "Specific Book",
+      isbn: "9780000000014",
+      price: 5.99,
+      authorId,
+      inStock: true,
+    })
 
     const res = await req("GET", `/api/books/${book.get<string>("id")}`)
     expect(res.status).toBe(200)
@@ -147,7 +196,10 @@ describe("Books API", () => {
   it("PATCH /api/books/:id → 403 for non-owner author", async () => {
     const { Book } = await import("../src/db/schema.js")
     const otherUser = await createUser(app, {
-      email: "other-book-auth@test.com", password: "password123", name: "Other", role: "author",
+      email: "other-book-auth@test.com",
+      password: "password123",
+      name: "Other",
+      role: "author",
     })
     await createLinkedAuthor(otherUser.userId, "Other Book Auth")
     const book = await Book.insert({ title: "Not Yours", isbn: "9780000000016", price: 7.99, authorId, inStock: true })
@@ -171,7 +223,13 @@ describe("Books API", () => {
   it("PATCH /api/books/:id → 200 syncs categories", async () => {
     const { Book } = await import("../src/db/schema.js")
     const cat2 = await createCategory("SyncCat")
-    const book = await Book.insert({ title: "Category Sync", isbn: "9780000000018", price: 5.99, authorId, inStock: true })
+    const book = await Book.insert({
+      title: "Category Sync",
+      isbn: "9780000000018",
+      price: 5.99,
+      authorId,
+      inStock: true,
+    })
     const bookId = book.get<string>("id")
 
     const res = await req("PATCH", `/api/books/${bookId}`, { categoryIds: [cat2.id] }, adminCookie)
@@ -190,10 +248,19 @@ describe("Books API", () => {
   it("DELETE /api/books/:id → 403 for non-owner author", async () => {
     const { Book } = await import("../src/db/schema.js")
     const otherUser = await createUser(app, {
-      email: "other-book-del@test.com", password: "password123", name: "OtherDel", role: "author",
+      email: "other-book-del@test.com",
+      password: "password123",
+      name: "OtherDel",
+      role: "author",
     })
     await createLinkedAuthor(otherUser.userId, "Other Del Auth")
-    const book = await Book.insert({ title: "Not Yours Del", isbn: "9780000000020", price: 3.99, authorId, inStock: true })
+    const book = await Book.insert({
+      title: "Not Yours Del",
+      isbn: "9780000000020",
+      price: 3.99,
+      authorId,
+      inStock: true,
+    })
     const bookId = book.get<string>("id")
 
     const res = await req("DELETE", `/api/books/${bookId}`, undefined, otherUser.cookie)
@@ -202,7 +269,13 @@ describe("Books API", () => {
 
   it("DELETE /api/books/:id → 204 for admin", async () => {
     const { Book } = await import("../src/db/schema.js")
-    const book = await Book.insert({ title: "Admin Delete", isbn: "9780000000021", price: 2.99, authorId, inStock: true })
+    const book = await Book.insert({
+      title: "Admin Delete",
+      isbn: "9780000000021",
+      price: 2.99,
+      authorId,
+      inStock: true,
+    })
     const bookId = book.get<string>("id")
 
     const res = await req("DELETE", `/api/books/${bookId}`, undefined, adminCookie)

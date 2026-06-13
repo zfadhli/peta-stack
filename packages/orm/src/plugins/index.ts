@@ -12,4 +12,4 @@ import type { ModelDefinition } from "../model/types.js"
  *   }
  * ```
  */
-export type Plugin = (def: ModelDefinition) => void | ModelDefinition
+export type Plugin = (def: ModelDefinition) => undefined | ModelDefinition

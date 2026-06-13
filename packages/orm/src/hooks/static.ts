@@ -1,4 +1,4 @@
-import type { ModelDefinition, ModelInstance } from "../model/types.js"
+import type { ModelDefinition } from "../model/types.js"
 import type { QueryBuilder } from "../query/index.js"
 
 // ─── TYPES ───────────────────────────────────────────────────

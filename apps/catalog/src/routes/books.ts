@@ -2,9 +2,9 @@ import { type } from "arktype"
 import { Hono } from "hono"
 import { route } from "peta-docs/hono"
 import type { ModelInstance } from "peta-orm"
-import { Book, User } from "../db/schema.js"
+import { Book } from "../db/schema.js"
 import { pick } from "../helpers.js"
-import { requireRole, requireSession } from "../middleware/auth.js"
+import { requireRole } from "../middleware/auth.js"
 import { http } from "../middleware/http-error.js"
 
 const app = new Hono()
@@ -159,9 +159,7 @@ app.post(
       const body = c.req.valid("json")
 
       // Admin can set any authorId; authors are locked to their own author profile
-      const authorId = c.var.session.userRole === "admin"
-        ? body.authorId
-        : (await getOwnAuthorId(c.var.session.userId!))
+      const authorId = c.var.session.userRole === "admin" ? body.authorId : await getOwnAuthorId(c.var.session.userId!)
 
       if (!authorId) throw http.forbidden()
 
