@@ -1,0 +1,154 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-sqlite:
+    name: ORM Tests (SQLite)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/orm
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install --frozen-lockfile
+        working-directory: ./
+
+      - run: bun test
+      - run: bun test test/integration/
+      - run: bun run typecheck
+
+  test-pg:
+    name: ORM Tests (PostgreSQL)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/orm
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: peta_orm_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install --frozen-lockfile
+        working-directory: ./
+
+      - name: Wait for PostgreSQL
+        run: |
+          for i in $(seq 1 10); do
+            bun x tsx -e "const { Pool } = require('pg'); const p = new Pool({ connectionString: 'postgres://postgres:postgres@localhost:5432/peta_orm_test' }); await p.query('SELECT 1'); await p.end(); process.exit(0);" 2>/dev/null && break
+            echo "Waiting for PostgreSQL..."
+            sleep 2
+          done
+
+      - run: bun test test/integration/
+        env:
+          INTEGRATION_SKIP_MYSQL: "1"
+
+  test-mysql:
+    name: ORM Tests (MySQL)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/orm
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: mysqlroot
+          MYSQL_DATABASE: peta_orm_test
+          MYSQL_USER: peta
+          MYSQL_PASSWORD: petapass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install --frozen-lockfile
+        working-directory: ./
+
+      - name: Wait for MySQL
+        run: |
+          for i in $(seq 1 30); do
+            bun x tsx -e "const mysql = require('mysql2'); const p = mysql.createPool({ uri: 'mysql://root:mysqlroot@localhost:3306/peta_orm_test', connectionLimit: 1 }); const pp = p.promise(); await pp.query('SELECT 1'); await pp.end(); process.exit(0);" 2>/dev/null && break
+            echo "Waiting for MySQL..."
+            sleep 2
+          done
+
+      - run: bun test test/integration/
+        env:
+          INTEGRATION_SKIP_PG: "1"
+
+  test-catalog:
+    name: Catalog App Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/catalog
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install --frozen-lockfile
+        working-directory: ./
+
+      - run: bun test
+      - run: bun run typecheck
+
+  test-conduit:
+    name: Conduit App Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/conduit
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install --frozen-lockfile
+        working-directory: ./
+
+      - run: bun test
+      - run: bun run typecheck

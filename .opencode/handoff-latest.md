@@ -2,7 +2,7 @@
 
 ## Goal
 
-Migrate `@apps/conduit/` to the latest peta-orm features: ULID primary keys, plugin-based lifecycle hooks, `createORM`/`getORM` rename, `createApp()` factory for testability, `peta-auth` password hashing, and full Bun test coverage.
+Migrate `@apps/conduit/` to the latest peta-orm features: ULID primary keys, plugin-based lifecycle hooks, `createORM`/`getORM` rename, `createApp()` factory for testability, `peta-auth` password hashing, and full Bun test coverage. Along the way, fix ORM bugs uncovered by conduit's many-to-many pivot patterns and `insertMany` usage.
 
 Conduit is a RealWorld API (Medium clone) that uses JWT token auth per spec — kept JWT, migrated everything else.
 
@@ -26,6 +26,8 @@ Conduit is a RealWorld API (Medium clone) that uses JWT token auth per spec — 
 | `src/types/hono.d.ts` | `currentUserId?: string` |
 | `src/db/seed.ts` | `hashPassword()` from peta-auth, `getORM()`, string IDs |
 | `package.json` | Added `"test": "bun test"`, fixed `"test:hurl"` path |
+| `src/middleware/error.ts` | Template string simplification (biome lint fix) |
+| Various routes | Import ordering fixed (biome auto-fix) |
 
 ### Tests (new — `apps/conduit/test/`)
 
@@ -46,9 +48,13 @@ Conduit is a RealWorld API (Medium clone) that uses JWT token auth per spec — 
 | `src/model/save.ts` | `insertManyModel` now runs `beforeCreate`/`afterCreate` hooks per-item (was missing — ULID plugin never fired for `insertMany`) |
 | `src/query/index.ts` | `innerJoin`/`leftJoin` switched from `join.on(..., sql.id(...))` to `join.onRef(...)` — `sql.id()` treated `"tags.id"` as a single identifier, `onRef` properly resolves table-qualified columns |
 
+### Catalog (`apps/catalog/`) — from previous session
+
+Already migrated in prior session. See `git log` for `39ebd7c`.
+
 ## Key Decisions
 
-1. **Kept JWT auth** — RealWorld spec mandates `Authorization: Token <jwt>`. Only password hashing changed (`Bun.password` → `peta-auth`'s argon2-based `hashPassword`/`verifyPassword`).
+1. **Kept JWT auth** — RealWorld spec mandates `Authorization: Token <jwt>`. Only password hashing changed (`Bun.password` → `peta-auth`'s `hashPassword`/`verifyPassword`).
 2. **No soft-deletes for conduit** — RealWorld spec doesn't require them. The ORM's `applyScopes()` auto-adds `WHERE deletedAt IS NULL` when it finds nullable timestamp columns, which was causing queries to return 0 results. Fixed by making `createdAt`/`updatedAt` non-nullable (timestamps plugin always sets them).
 3. **No RBAC for conduit** — Simple auth (authenticated vs unauthenticated). No role hierarchy needed.
 4. **Kept existing tag management pattern** — Uses `ArticleTag` pivot model directly. No migration to `insertGraph`/`$related().sync()`.
@@ -56,26 +62,27 @@ Conduit is a RealWorld API (Medium clone) that uses JWT token auth per spec — 
 ## Current State
 
 ### Test Results ✅
-- **ORM: 238 tests pass**, 0 fail, 2 todo (same as before)
+- **ORM: 238 tests pass**, 0 fail, 2 todo
 - **Conduit Bun tests: 35 pass**, 0 fail
 
 ### Feature Status
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| ULID primary keys | ✅ Complete | All models use `t.string(26).primaryKey()` |
-| Plugin-based timestamps | ✅ Complete | `.use(timestamps()).use(ulid())` on User/Article/Comment |
+| ULID primary keys | ✅ Complete | Both catalog + conduit |
+| Plugin-based lifecycle | ✅ Complete | `timestamps()`, `ulid()`, `softDeletes()` |
 | `createORM`/`getORM` rename | ✅ Complete | `createPeta` still aliased for backward compat |
-| `createApp()` factory | ✅ Complete | With `import.meta.main` guard |
-| `peta-auth` password hashing | ✅ Complete | `hashPassword`/`verifyPassword` |
-| `http.*` error helpers | ✅ Complete | Consistent with catalog pattern |
-| String ID types | ✅ Complete | Routes, middleware, types, JWT |
-| `insertManyModel` hooks fix | ✅ Complete | ULID plugin now fires for `insertMany` |
-| `innerJoin`/`leftJoin` fix | ✅ Complete | `onRef` instead of `on` for column-to-column joins |
-| Conduit Bun tests | ✅ Complete | 35 tests across 6 files |
-| Hurl tests | 🔶 Needs verification | Script fixed in package.json, actual Hurl execution not tested |
-| peta-orm v1.0.0 release | ❌ Not started | From previous handoff |
-| Integration tests with real DBs | ❌ Not started | From previous handoff |
+| `createApp()` factory | ✅ Complete | Both apps with DI for testability |
+| `peta-auth` password hashing | ✅ Complete | Both apps |
+| `http.*` error helpers | ✅ Complete | Both apps |
+| RBAC hierarchy | ✅ Complete | Catalog only (admin > author > user) |
+| Conduit tests | ✅ Complete | 35 Bun tests |
+| Catalog tests | ✅ Complete | 59 Bun + 62 Hurl |
+| `insertManyModel` hooks fix | ✅ Complete | ULID plugin fires for `insertMany` |
+| `innerJoin`/`leftJoin` fix | ✅ Complete | `onRef` instead of `on` for column-to-column |
+| `peta-migrate` publishable package | ❌ Not started | From earlier handoffs |
+| `peta-orm` v1.0.0 release | ❌ Not started | Publish to npm with changelog |
+| Integration tests with real DBs | ❌ Not started | PostgreSQL, MySQL |
 
 ### How to run
 
@@ -89,11 +96,21 @@ cd apps/conduit && rm -f conduit.db && bun run seed
 # Conduit dev server
 cd apps/conduit && bun run dev
 
+# Catalog tests (Bun)
+cd apps/catalog && bun test
+
+# Catalog tests (Hurl — starts server on port 4000)
+cd apps/catalog && bun run test:hurl
+
 # ORM tests
 cd packages/orm && bun test
 
 # ORM rebuild (after source changes)
 cd packages/orm && bun run build
+
+# Typecheck (both apps)
+cd apps/conduit && bun run typecheck
+cd apps/catalog && bun run typecheck
 ```
 
 ## ORM Bugs Found & Fixed
@@ -109,9 +126,24 @@ cd packages/orm && bun run build
 - [ ] **`peta-migrate` as publishable package** — CI, README, proper versioning
 - [ ] **peta-orm v1.0.0 release** — Publish to npm with changelog
 - [ ] **Integration tests with real databases** — PostgreSQL, MySQL
-- [ ] **Verify Hurl tests pass** — The script path was fixed but actual Hurl test execution not verified this session
+- [ ] **Production hardening** — Env var validation on startup (no fallback secrets in prod), CORS origin config, rate limiting, health endpoint
 
 ## Important Context
+
+### Architecture
+```
+packages/
+├── peta-orm/          # ORM with ULID, timestamps, soft-deletes plugins
+│   ├── src/plugins/   # ulid.ts, timestamps.ts, soft-deletes.ts
+│   ├── src/relations/ # has-many.ts, many-to-many.ts (lazy thunks)
+│   └── test/          # 238 tests
+├── peta-auth/         # hashPassword/verifyPassword, signJWT/verifyJWT, sessions
+└── peta-docs/         # route() helper with response validation
+
+apps/
+├── catalog/           # Session-cookie auth, RBAC, ULID — 59 Bun + 62 Hurl tests
+└── conduit/           # JWT token auth (RealWorld spec), ULID — 35 Bun tests
+```
 
 ### Gotchas
 
@@ -119,5 +151,8 @@ cd packages/orm && bun run build
 - **Kysely `join.on()` vs `join.onRef()`** — In the callback form of Kysely joins, `join.on(lhs, '=', rhs)` treats `rhs` as a value (parameterized). Use `join.onRef(lhs, '=', rhs)` for column-to-column comparisons. The ORM's `innerJoin`/`leftJoin` now uses `onRef`.
 - **JWT auth in RealWorld spec** — The conduit API uses Token-based auth (`Authorization: Token <jwt>` header), not session cookies. The JWT payload now carries string user IDs.
 - **`insertMany` and hooks** — Models using plugins (like `ulid()`) must go through `insertManyModel` which now properly triggers `beforeCreate`/`afterCreate` hooks per item.
+- **`peta-auth` dist is stale** — The dist version uses bcrypt (from bcryptjs), but the source code uses `@node-rs/argon2`. The dist works correctly with bcrypt, but if the source is changed, rebuild with `bun run build` in `packages/auth/`.
+- **ArkType `"string?"` vs `"string | null"`** — `"string?"` means `string | undefined`, but JSON serialization uses `null`. Response schemas with nullable DB columns must use `"string | null"`, not `"string?"`. Request body schemas for optional fields should use `"string?"`.
+- **Soft-deletes filter by default** — After `model.$delete()`, the record is soft-deleted and excluded from normal queries. `find()` returns `null`. Use `.withTrashed()` to include soft-deleted records.
 
 (End of file)

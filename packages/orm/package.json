@@ -44,12 +44,16 @@
     "hono": "^4.12.25",
     "kysely": "^0.27.0",
     "kysely-bun-sqlite": "^0.4.0",
+    "mysql2": "^3.14.0",
+    "pg": "^8.14.0",
     "tsdown": "^0.22.2",
     "typescript": "^6.0.0"
   },
   "scripts": {
     "test": "bun test",
     "test:all": "for f in test/*.ts; do echo === $f ===; bun test $f || exit 1; done",
+    "test:integration": "bun test test/integration/",
+    "test:all:integration": "for f in test/integration/*.ts; do echo === $f ===; bun test $f || exit 1; done",
     "typecheck": "bun x tsc --noEmit",
     "build": "tsdown",
     "lint": "bunx biome check src test examples",
