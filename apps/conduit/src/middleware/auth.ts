@@ -43,6 +43,6 @@ export function requireAuth(): MiddlewareHandler {
  * Helper: check if a user is authenticated. Returns the current user's
  * ID or undefined. Useful for auth-optional endpoints.
  */
-export function getCurrentUserId(c: Context): number | undefined {
+export function getCurrentUserId(c: Context): string | undefined {
   return c.var.currentUserId
 }

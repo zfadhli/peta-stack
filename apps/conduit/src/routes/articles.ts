@@ -1,11 +1,11 @@
 import { type } from "arktype"
 import { Hono } from "hono"
-import { HTTPException } from "hono/http-exception"
 import { route } from "peta-docs/hono"
 import type { ModelInstance } from "peta-orm"
 import { Article, ArticleTag, Comment, Favorite, Follow, Tag, User } from "../db/schema.js"
 import { uniqueSlug } from "../lib/slug.js"
 import { getCurrentUserId, requireAuth } from "../middleware/auth.js"
+import { http } from "../middleware/http-error.js"
 import { onValidationError } from "../middleware/error.js"
 
 const app = new Hono()
@@ -93,25 +93,24 @@ const ArticleParams = type({ slug: "string" })
 // Helpers
 // ---------------------------------------------------------------------------
 
-async function findOrCreateTags(names: string[]): Promise<number[]> {
+async function findOrCreateTags(names: string[]): Promise<string[]> {
   // Deduplicate and clean input
   const cleaned = [...new Set(names.map((n) => n.trim()).filter(Boolean))]
   if (cleaned.length === 0) return []
 
   // 1. Bulk lookup — find all existing tags in one query
   const existing = await Tag.query().whereIn("name", cleaned).execute()
-  const nameToId = new Map<string, number>()
+  const nameToId = new Map<string, string>()
   for (const tag of existing) {
-    nameToId.set(tag.get<string>("name"), tag.get<number>("id"))
+    nameToId.set(tag.get<string>("name"), tag.get<string>("id"))
   }
 
   // 2. Bulk insert — only the tags that don't exist yet.
-  //    insertMany now uses RETURNING *, so returned models have real DB-generated IDs.
   const missing = cleaned.filter((n) => !nameToId.has(n))
   if (missing.length > 0) {
     const newTags = await Tag.insertMany(missing.map((name) => ({ name })))
     for (const tag of newTags) {
-      nameToId.set(tag.get<string>("name"), tag.get<number>("id"))
+      nameToId.set(tag.get<string>("name"), tag.get<string>("id"))
     }
   }
 
@@ -119,7 +118,7 @@ async function findOrCreateTags(names: string[]): Promise<number[]> {
   return cleaned.map((n) => nameToId.get(n)!)
 }
 
-async function getTagListForArticle(articleId: number): Promise<string[]> {
+async function getTagListForArticle(articleId: string): Promise<string[]> {
   const tags = await Tag.query()
     .select("name")
     .innerJoin("article_tags", "article_tags.tagId", "tags.id")
@@ -128,26 +127,26 @@ async function getTagListForArticle(articleId: number): Promise<string[]> {
   return tags.map((t) => t.get<string>("name"))
 }
 
-async function getFavoritesCount(articleId: number): Promise<number> {
+async function getFavoritesCount(articleId: string): Promise<number> {
   const result = await Favorite.query().where("articleId", "=", articleId).count()
   return result
 }
 
-async function isFavorited(articleId: number, userId?: number): Promise<boolean> {
+async function isFavorited(articleId: string, userId?: string): Promise<boolean> {
   if (!userId) return false
   const fav = await Favorite.query().where("userId", "=", userId).where("articleId", "=", articleId).first()
   return !!fav
 }
 
-async function isFollowing(authorId: number, currentUserId?: number): Promise<boolean> {
+async function isFollowing(authorId: string, currentUserId?: string): Promise<boolean> {
   if (!currentUserId) return false
   const follow = await Follow.query().where("followerId", "=", currentUserId).where("followeeId", "=", authorId).first()
   return !!follow
 }
 
-async function getAuthorProfile(authorId: number, currentUserId?: number) {
+async function getAuthorProfile(authorId: string, currentUserId?: string) {
   const author = await User.find(authorId)
-  if (!author) throw new HTTPException(404, { message: "Author not found" })
+  if (!author) throw http.notFound("Author not found")
   return {
     username: author.get<string>("username"),
     bio: author.get<string | null>("bio"),
@@ -156,10 +155,10 @@ async function getAuthorProfile(authorId: number, currentUserId?: number) {
   }
 }
 
-async function buildArticleResponse(article: ModelInstance, currentUserId?: number, includeBody = true) {
-  const articleId = article.get<number>("id")
+async function buildArticleResponse(article: ModelInstance, currentUserId?: string, includeBody = true) {
+  const articleId = article.get<string>("id")
   const tagList = await getTagListForArticle(articleId)
-  const authorProfile = await getAuthorProfile(article.get<number>("authorId"), currentUserId)
+  const authorProfile = await getAuthorProfile(article.get<string>("authorId"), currentUserId)
   const faveCount = await getFavoritesCount(articleId)
   const favorited = await isFavorited(articleId, currentUserId)
 
@@ -182,7 +181,7 @@ async function buildArticleResponse(article: ModelInstance, currentUserId?: numb
   return result
 }
 
-async function buildMultipleArticlesResponse(articles: ModelInstance[], totalCount: number, currentUserId?: number) {
+async function buildMultipleArticlesResponse(articles: ModelInstance[], totalCount: number, currentUserId?: string) {
   const items = await Promise.all(articles.map((a) => buildArticleResponse(a, currentUserId, false)))
   return { articles: items, articlesCount: totalCount }
 }
@@ -207,8 +206,7 @@ app.get(
       const offset = Math.max(0, Number(c.req.query("offset") ?? "0"))
 
       // Build a list of matching article IDs using separate (non-join) queries
-      // to avoid the peta-orm selectAll() override bug with joins.
-      let articleIds: number[] | null = null
+      let articleIds: string[] | null = null
 
       // Filter by tag: find article IDs via article_tags + tags join
       if (qTag) {
@@ -216,7 +214,7 @@ app.get(
           .innerJoin("tags", "tags.id", "article_tags.tagId")
           .where("tags.name", "=", qTag)
           .execute()
-        articleIds = tagged.map((t) => t.get<number>("articleId"))
+        articleIds = tagged.map((t) => t.get<string>("articleId"))
       }
 
       // Filter by author username
@@ -225,8 +223,8 @@ app.get(
         if (!author) {
           return c.json({ articles: [], articlesCount: 0 })
         }
-        const authorId = author.get<number>("id")
-        const ids = (await Article.query().where("authorId", "=", authorId).execute()).map((a) => a.get<number>("id"))
+        const authorId = author.get<string>("id")
+        const ids = (await Article.query().where("authorId", "=", authorId).execute()).map((a) => a.get<string>("id"))
         if (articleIds !== null) {
           articleIds = articleIds.filter((id) => ids.includes(id))
         } else {
@@ -240,8 +238,8 @@ app.get(
         if (!favUser) {
           return c.json({ articles: [], articlesCount: 0 })
         }
-        const favArticleIds = (await Favorite.query().where("userId", "=", favUser.get<number>("id")).execute()).map(
-          (f) => f.get<number>("articleId"),
+        const favArticleIds = (await Favorite.query().where("userId", "=", favUser.get<string>("id")).execute()).map(
+          (f) => f.get<string>("articleId"),
         )
         if (articleIds !== null) {
           articleIds = articleIds.filter((id) => favArticleIds.includes(id))
@@ -296,7 +294,7 @@ app.get(
 
       // Get IDs of followed users
       const follows = await Follow.query().where("followerId", "=", currentUserId).execute()
-      const followeeIds = follows.map((f) => f.get<number>("followeeId"))
+      const followeeIds = follows.map((f) => f.get<string>("followeeId"))
 
       if (followeeIds.length === 0) {
         return c.json({ articles: [], articlesCount: 0 })
@@ -326,7 +324,7 @@ app.get(
     .handle(async (c) => {
       const { slug } = c.req.valid("param")
       const article = await Article.query().where("slug", "=", slug).first()
-      if (!article) throw new HTTPException(404, { message: "article: not found" })
+      if (!article) throw http.notFound("article: not found")
 
       const currentUserId = getCurrentUserId(c)
       return c.json({
@@ -368,7 +366,7 @@ app.post(
         authorId: currentUserId,
       })
 
-      const articleId = article.get<number>("id")
+      const articleId = article.get<string>("id")
 
       // Handle tags
       if (body.tagList?.length) {
@@ -405,15 +403,15 @@ app.put(
       const { article: body } = c.req.valid("json")
 
       const article = await Article.query().where("slug", "=", slug).first()
-      if (!article) throw new HTTPException(404, { message: "article: not found" })
+      if (!article) throw http.notFound("article: not found")
 
       // Only author can update
-      if (article.get<number>("authorId") !== currentUserId) {
-        throw new HTTPException(403, { message: "article: forbidden" })
+      if (article.get<string>("authorId") !== currentUserId) {
+        throw http.forbidden("article: forbidden")
       }
 
       const updates: Record<string, unknown> = {}
-      const articleId = article.get<number>("id")
+      const articleId = article.get<string>("id")
 
       if (body.title !== undefined) {
         updates.title = body.title
@@ -426,7 +424,6 @@ app.put(
       if (body.body !== undefined) updates.body = body.body
 
       if (Object.keys(updates).length > 0) {
-        updates.updatedAt = new Date().toISOString()
         await Article.update(articleId, updates)
       }
 
@@ -443,7 +440,7 @@ app.put(
       }
 
       const updated = await Article.find(articleId)
-      if (!updated) throw new HTTPException(404, { message: "article: not found" })
+      if (!updated) throw http.notFound("article: not found")
       return c.json({ article: await buildArticleResponse(updated, currentUserId, true) })
     }),
 )
@@ -470,14 +467,14 @@ app.delete(
       const { slug } = c.req.valid("param")
 
       const article = await Article.query().where("slug", "=", slug).first()
-      if (!article) throw new HTTPException(404, { message: "article: not found" })
+      if (!article) throw http.notFound("article: not found")
 
       // Only author can delete
-      if (article.get<number>("authorId") !== currentUserId) {
-        throw new HTTPException(403, { message: "article: forbidden" })
+      if (article.get<string>("authorId") !== currentUserId) {
+        throw http.forbidden("article: forbidden")
       }
 
-      const articleId = article.get<number>("id")
+      const articleId = article.get<string>("id")
 
       // Clean up related records
       await ArticleTag.query().where("articleId", "=", articleId).deleteMany()

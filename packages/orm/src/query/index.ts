@@ -713,16 +713,12 @@ export function createQueryBuilder(def: ModelDefinition, peta?: any): QueryBuild
 
     // ─── Joins ──────────────────────────────────────────────
     innerJoin(table: string, lhs: string, rhs: string): QueryBuilder {
-      qb = qb.innerJoin(table, (join: any) =>
-        join.on(kyselySql`${kyselySql.id(lhs)}`, "=", kyselySql`${kyselySql.id(rhs)}`),
-      )
+      qb = qb.innerJoin(table, (join: any) => join.onRef(lhs, "=", rhs))
       return self
     },
 
     leftJoin(table: string, lhs: string, rhs: string): QueryBuilder {
-      qb = qb.leftJoin(table, (join: any) =>
-        join.on(kyselySql`${kyselySql.id(lhs)}`, "=", kyselySql`${kyselySql.id(rhs)}`),
-      )
+      qb = qb.leftJoin(table, (join: any) => join.onRef(lhs, "=", rhs))
       return self
     },
 

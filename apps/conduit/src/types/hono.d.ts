@@ -2,7 +2,7 @@ import "hono"
 
 declare module "hono" {
   interface ContextVariableMap {
-    currentUserId?: number
+    currentUserId?: string
     currentUsername?: string
   }
 }

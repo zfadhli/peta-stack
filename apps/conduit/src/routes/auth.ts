@@ -1,11 +1,13 @@
 import { type } from "arktype"
 import { Hono } from "hono"
 import { HTTPException } from "hono/http-exception"
+import { hashPassword, verifyPassword } from "peta-auth"
 import { route } from "peta-docs/hono"
 import { DatabaseError } from "peta-orm"
 import { User } from "../db/schema.js"
 import { signToken } from "../lib/jwt.js"
 import { requireAuth } from "../middleware/auth.js"
+import { http } from "../middleware/http-error.js"
 import { onValidationError } from "../middleware/error.js"
 
 const app = new Hono()
@@ -47,7 +49,7 @@ const UserResponse = type({
 // ---------------------------------------------------------------------------
 
 async function buildUserResponse(
-  userId: number,
+  userId: string,
   username: string,
   email: string,
   bio: string | null | undefined,
@@ -73,39 +75,35 @@ app.post(
     .onValidationError(onValidationError)
     .handle(async (c) => {
       const { user: body } = c.req.valid("json")
-      const passwordHash = await Bun.password.hash(body.password, { algorithm: "bcrypt", cost: 10 })
+      const passwordHash = await hashPassword(body.password)
 
-      let user: import("peta-orm").ModelInstance
-      try {
-        user = await User.insert({
-          username: body.username,
-          email: body.email,
-          password: passwordHash,
-          bio: null,
-          image: null,
-        })
-      } catch (err) {
+      const user = await User.insert({
+        username: body.username,
+        email: body.email,
+        password: passwordHash,
+        bio: null,
+        image: null,
+      }).catch((err) => {
         if (err instanceof DatabaseError && err.code === "UNIQUE_CONSTRAINT") {
           const raw = (err.cause as Error)?.message ?? err.message
           const col = raw.includes(":") ? (raw.split(":").pop()?.trim().split(".").pop() ?? "") : ""
-          if (col === "email") {
-            throw new HTTPException(409, { message: "email: has already been taken" })
-          }
-          if (col === "username") {
-            throw new HTTPException(409, { message: "username: has already been taken" })
-          }
-          throw new HTTPException(409, { message: "user: has already been taken" })
+          if (col === "email") throw http.conflict("email: has already been taken")
+          if (col === "username") throw http.conflict("username: has already been taken")
+          throw http.conflict("user: has already been taken")
         }
         throw err
-      }
+      })
 
-      const id = user.get<number>("id")
-      const name = user.get<string>("username")
-      const email = user.get<string>("email")
-      const bio = user.get<string | null>("bio")
-      const image = user.get<string | null>("image")
-
-      return c.json(await buildUserResponse(id, name, email, bio, image), 201)
+      return c.json(
+        await buildUserResponse(
+          user.get<string>("id"),
+          user.get<string>("username"),
+          user.get<string>("email"),
+          user.get<string | null>("bio"),
+          user.get<string | null>("image"),
+        ),
+        201,
+      )
     }),
 )
 
@@ -126,18 +124,20 @@ app.post(
     .handle(async (c) => {
       const { user: body } = c.req.valid("json")
       const user = await User.query().where("email", "=", body.email).first()
-      if (!user) throw new HTTPException(401, { message: "credentials: invalid" })
+      if (!user) throw http.unauthorized("credentials: invalid")
 
-      const valid = await Bun.password.verify(body.password, user.get<string>("password"))
-      if (!valid) throw new HTTPException(401, { message: "credentials: invalid" })
+      const valid = await verifyPassword(user.get<string>("password"), body.password)
+      if (!valid) throw http.unauthorized("credentials: invalid")
 
-      const id = user.get<number>("id")
-      const name = user.get<string>("username")
-      const email = user.get<string>("email")
-      const bio = user.get<string | null>("bio")
-      const image = user.get<string | null>("image")
-
-      return c.json(await buildUserResponse(id, name, email, bio, image))
+      return c.json(
+        await buildUserResponse(
+          user.get<string>("id"),
+          user.get<string>("username"),
+          user.get<string>("email"),
+          user.get<string | null>("bio"),
+          user.get<string | null>("image"),
+        ),
+      )
     }),
 )
 
@@ -158,11 +158,11 @@ app.get(
     .handle(async (c) => {
       const userId = c.var.currentUserId!
       const user = await User.find(userId)
-      if (!user) throw new HTTPException(404, { message: "user: not found" })
+      if (!user) throw http.notFound("user: not found")
 
       return c.json(
         await buildUserResponse(
-          user.get<number>("id"),
+          user.get<string>("id"),
           user.get<string>("username"),
           user.get<string>("email"),
           user.get<string | null>("bio"),
@@ -196,7 +196,7 @@ app.put(
       if (body.email !== undefined) updates.email = body.email
       if (body.username !== undefined) updates.username = body.username
       if (body.password !== undefined) {
-        updates.password = await Bun.password.hash(body.password, { algorithm: "bcrypt", cost: 10 })
+        updates.password = await hashPassword(body.password)
       }
       if (body.bio !== undefined) updates.bio = body.bio === "" ? null : body.bio
       if (body.image !== undefined) updates.image = body.image === "" ? null : body.image
@@ -204,10 +204,10 @@ app.put(
       if (Object.keys(updates).length === 0) {
         // Return current user unchanged
         const user = await User.find(userId)
-        if (!user) throw new HTTPException(404, { message: "user: not found" })
+        if (!user) throw http.notFound("user: not found")
         return c.json(
           await buildUserResponse(
-            user.get<number>("id"),
+            user.get<string>("id"),
             user.get<string>("username"),
             user.get<string>("email"),
             user.get<string | null>("bio"),
@@ -220,16 +220,16 @@ app.put(
         await User.update(userId, updates)
       } catch (err) {
         if (err instanceof DatabaseError && err.code === "UNIQUE_CONSTRAINT") {
-          throw new HTTPException(409, { message: "Email or username already taken" })
+          throw http.conflict("Email or username already taken")
         }
         throw err
       }
 
       const user = await User.find(userId)
-      if (!user) throw new HTTPException(404, { message: "user: not found" })
+      if (!user) throw http.notFound("user: not found")
       return c.json(
         await buildUserResponse(
-          user.get<number>("id"),
+          user.get<string>("id"),
           user.get<string>("username"),
           user.get<string>("email"),
           user.get<string | null>("bio"),

@@ -1,9 +1,9 @@
 import { type } from "arktype"
 import { Hono } from "hono"
-import { HTTPException } from "hono/http-exception"
 import { route } from "peta-docs/hono"
 import { Follow, User } from "../db/schema.js"
 import { getCurrentUserId, requireAuth } from "../middleware/auth.js"
+import { http } from "../middleware/http-error.js"
 import { onValidationError } from "../middleware/error.js"
 
 const app = new Hono({ strict: true })
@@ -25,15 +25,15 @@ const ProfileResponse = type({
 // Helpers
 // ---------------------------------------------------------------------------
 
-async function buildProfile(username: string, currentUserId?: number) {
+async function buildProfile(username: string, currentUserId?: string) {
   const user = await User.query().where("username", "=", username).first()
-  if (!user) throw new HTTPException(404, { message: "profile: not found" })
+  if (!user) throw http.notFound("profile: not found")
 
   let following = false
   if (currentUserId) {
     const follow = await Follow.query()
       .where("followerId", "=", currentUserId)
-      .where("followeeId", "=", user.get<number>("id"))
+      .where("followeeId", "=", user.get<string>("id"))
       .first()
     following = !!follow
   }
@@ -89,9 +89,9 @@ app.post(
       const currentUserId = c.var.currentUserId!
 
       const target = await User.query().where("username", "=", username).first()
-      if (!target) throw new HTTPException(404, { message: "profile: not found" })
+      if (!target) throw http.notFound("profile: not found")
 
-      const targetId = target.get<number>("id")
+      const targetId = target.get<string>("id")
 
       // Don't allow following yourself
       if (targetId === currentUserId) {
@@ -133,9 +133,9 @@ app.delete(
       const currentUserId = c.var.currentUserId!
 
       const target = await User.query().where("username", "=", username).first()
-      if (!target) throw new HTTPException(404, { message: "profile: not found" })
+      if (!target) throw http.notFound("profile: not found")
 
-      const targetId = target.get<number>("id")
+      const targetId = target.get<string>("id")
 
       await Follow.query().where("followerId", "=", currentUserId).where("followeeId", "=", targetId).deleteMany()
 

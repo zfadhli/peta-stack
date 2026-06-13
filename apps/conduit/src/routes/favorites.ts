@@ -1,10 +1,10 @@
 import { type } from "arktype"
 import { Hono } from "hono"
-import { HTTPException } from "hono/http-exception"
 import { route } from "peta-docs/hono"
 import type { ModelInstance } from "peta-orm"
 import { Article, Favorite, Follow, User } from "../db/schema.js"
 import { requireAuth } from "../middleware/auth.js"
+import { http } from "../middleware/http-error.js"
 import { onValidationError } from "../middleware/error.js"
 
 const app = new Hono()
@@ -39,7 +39,7 @@ const SlugParams = type({ slug: "string" })
 // Helpers
 // ---------------------------------------------------------------------------
 
-async function getTagListForArticle(articleId: number): Promise<string[]> {
+async function getTagListForArticle(articleId: string): Promise<string[]> {
   const { Tag } = await import("../db/schema.js")
   const tags = await Tag.query()
     .select("name")
@@ -49,18 +49,18 @@ async function getTagListForArticle(articleId: number): Promise<string[]> {
   return tags.map((t) => t.get<string>("name"))
 }
 
-async function buildArticleResponse(article: ModelInstance, currentUserId?: number) {
-  const articleId = article.get<number>("id")
+async function buildArticleResponse(article: ModelInstance, currentUserId?: string) {
+  const articleId = article.get<string>("id")
   const tagList = await getTagListForArticle(articleId)
 
-  const author = await User.find(article.get<number>("authorId"))
-  if (!author) throw new HTTPException(404, { message: "Author not found" })
+  const author = await User.find(article.get<string>("authorId"))
+  if (!author) throw http.notFound("Author not found")
 
   let following = false
   if (currentUserId) {
     const follow = await Follow.query()
       .where("followerId", "=", currentUserId)
-      .where("followeeId", "=", author.get<number>("id"))
+      .where("followeeId", "=", author.get<string>("id"))
       .first()
     following = !!follow
   }
@@ -115,9 +115,9 @@ app.post(
       const { slug } = c.req.valid("param")
 
       const article = await Article.query().where("slug", "=", slug).first()
-      if (!article) throw new HTTPException(404, { message: "article: not found" })
+      if (!article) throw http.notFound("article: not found")
 
-      const articleId = article.get<number>("id")
+      const articleId = article.get<string>("id")
 
       // Check if already favorited
       const existing = await Favorite.query()
@@ -154,9 +154,9 @@ app.delete(
       const { slug } = c.req.valid("param")
 
       const article = await Article.query().where("slug", "=", slug).first()
-      if (!article) throw new HTTPException(404, { message: "article: not found" })
+      if (!article) throw http.notFound("article: not found")
 
-      const articleId = article.get<number>("id")
+      const articleId = article.get<string>("id")
 
       await Favorite.query().where("userId", "=", currentUserId).where("articleId", "=", articleId).deleteMany()
 

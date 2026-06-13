@@ -1,9 +1,10 @@
 import { type } from "arktype"
 import { Hono } from "hono"
-import { HTTPException } from "hono/http-exception"
 import { route } from "peta-docs/hono"
+import type { ModelInstance } from "peta-orm"
 import { Article, Comment, Follow, User } from "../db/schema.js"
 import { getCurrentUserId, requireAuth } from "../middleware/auth.js"
+import { http } from "../middleware/http-error.js"
 import { onValidationError } from "../middleware/error.js"
 
 const app = new Hono()
@@ -14,7 +15,7 @@ const app = new Hono()
 
 const CommentResponse = type({
   comment: {
-    id: "number",
+    id: "string",
     createdAt: "string",
     updatedAt: "string",
     body: "string",
@@ -29,7 +30,7 @@ const CommentResponse = type({
 
 const MultipleCommentsResponse = type({
   comments: type({
-    id: "number",
+    id: "string",
     createdAt: "string",
     updatedAt: "string",
     body: "string",
@@ -46,24 +47,24 @@ const CreateCommentBody = type({
   comment: { body: "string>0" },
 })
 
-const SlugAndIdParams = type({ slug: "string", id: "string | number" })
 const SlugParams = type({ slug: "string" })
+const SlugAndIdParams = type({ slug: "string", id: "string" })
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-async function isFollowing(authorId: number, currentUserId?: number): Promise<boolean> {
+async function isFollowing(authorId: string, currentUserId?: string): Promise<boolean> {
   if (!currentUserId) return false
   const follow = await Follow.query().where("followerId", "=", currentUserId).where("followeeId", "=", authorId).first()
   return !!follow
 }
 
-async function buildCommentResponse(comment: import("peta-orm").ModelInstance, currentUserId?: number) {
-  const author = await User.find(comment.get<number>("authorId"))
-  if (!author) throw new HTTPException(404, { message: "Author not found" })
+async function buildCommentResponse(comment: ModelInstance, currentUserId?: string) {
+  const author = await User.find(comment.get<string>("authorId"))
+  if (!author) throw http.notFound("Author not found")
   return {
-    id: comment.get<number>("id"),
+    id: comment.get<string>("id"),
     createdAt: comment.get<string>("createdAt"),
     updatedAt: comment.get<string>("updatedAt"),
     body: comment.get<string>("body"),
@@ -71,7 +72,7 @@ async function buildCommentResponse(comment: import("peta-orm").ModelInstance, c
       username: author.get<string>("username"),
       bio: author.get<string | null>("bio"),
       image: author.get<string | null>("image"),
-      following: await isFollowing(author.get<number>("id"), currentUserId),
+      following: await isFollowing(author.get<string>("id"), currentUserId),
     },
   }
 }
@@ -92,10 +93,10 @@ app.get(
     .handle(async (c) => {
       const { slug } = c.req.valid("param")
       const article = await Article.query().where("slug", "=", slug).first()
-      if (!article) throw new HTTPException(404, { message: "article: not found" })
+      if (!article) throw http.notFound("article: not found")
 
       const comments = await Comment.query()
-        .where("articleId", "=", article.get<number>("id"))
+        .where("articleId", "=", article.get<string>("id"))
         .orderBy("createdAt", "asc")
         .execute()
 
@@ -129,10 +130,10 @@ app.post(
       const { comment: body } = c.req.valid("json")
 
       const article = await Article.query().where("slug", "=", slug).first()
-      if (!article) throw new HTTPException(404, { message: "article: not found" })
+      if (!article) throw http.notFound("article: not found")
 
       const comment = await Comment.insert({
-        articleId: article.get<number>("id"),
+        articleId: article.get<string>("id"),
         authorId: currentUserId,
         body: body.body,
       })
@@ -160,18 +161,17 @@ app.delete(
     .onValidationError(onValidationError)
     .handle(async (c) => {
       const currentUserId = c.var.currentUserId!
-      const { slug, id: rawId } = c.req.valid("param")
-      const id = typeof rawId === "string" ? Number(rawId) : rawId
+      const { slug, id } = c.req.valid("param")
 
       const article = await Article.query().where("slug", "=", slug).first()
-      if (!article) throw new HTTPException(404, { message: "article: not found" })
+      if (!article) throw http.notFound("article: not found")
 
       const comment = await Comment.find(id)
-      if (!comment) throw new HTTPException(404, { message: "comment: not found" })
+      if (!comment) throw http.notFound("comment: not found")
 
       // Only comment author can delete
-      if (comment.get<number>("authorId") !== currentUserId) {
-        throw new HTTPException(403, { message: "comment: forbidden" })
+      if (comment.get<string>("authorId") !== currentUserId) {
+        throw http.forbidden("comment: forbidden")
       }
 
       await Comment.delete(id)

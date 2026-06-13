@@ -176,13 +176,28 @@ export async function insertManyModel(
   const db = getDb(def)
   const pk = getPrimaryKeyColumn(def)
   const config = getConfig(def)
+  const hm = getHooksFor(def)
 
-  const prepared = dataArray.map((data) => {
-    const row: Record<string, unknown> = {}
+  // Create instances and run beforeCreate hooks (e.g. ulid() plugin)
+  const instances: ModelInstance[] = []
+  for (const data of dataArray) {
+    // Exclude PK from the data passed to fill() so RETURNING can provide it
+    const instance = createInstance(def, config ?? { columns: def.columns }, {}, false)
+    const fillData: Record<string, unknown> = {}
     for (const [key, value] of Object.entries(data)) {
-      if (key !== pk) {
-        row[key] = config?.casts?.[key] ? prepareForDb(value, config.casts[key]) : value
-      }
+      if (key !== pk) fillData[key] = value
+    }
+    instance.fill(fillData)
+		await hm.trigger("beforeCreate", instance)
+    instances.push(instance)
+  }
+
+  // Extract prepared data from instances (with ULIDs / defaults populated)
+  const prepared = instances.map((inst) => {
+    const attrs = (inst as any).attributes ?? {}
+    const row: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(attrs)) {
+      row[key] = config?.casts?.[key] ? prepareForDb(value, config.casts[key]) : value
     }
     return row
   })
@@ -197,10 +212,17 @@ export async function insertManyModel(
     throw normalizeError(e, getTable(def))
   }
 
-  return results.map((row) => {
+  const models = results.map((row) => {
     const applied = config?.casts ? applyCastsToData(config as any, row as any, "get") : row
     return createInstance(def, config ?? { columns: def.columns }, applied, true)
   })
+
+  // Run afterCreate hooks
+  for (const model of models) {
+    await hm.trigger("afterCreate", model)
+  }
+
+  return models
 }
 
 // ─── UPDATE MODEL (with nested relation support) ──────────────

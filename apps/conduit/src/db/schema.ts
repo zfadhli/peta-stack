@@ -5,10 +5,12 @@ import {
   belongsTo,
   t as columnTypes,
   createArkTypeSchemaConfig,
-  createPeta,
+  createORM,
   defineModel,
   hasMany,
   manyToMany,
+  timestamps,
+  ulid,
 } from "peta-orm"
 
 // ---------------------------------------------------------------------------
@@ -28,35 +30,41 @@ let _Article: ModelDefinition
 
 export const User = defineModel("users", {
   columns: {
-    id: t.integer().primaryKey(),
+    id: t.string(26).primaryKey(),
     email: t.string(255).unique(),
     username: t.string(255).unique(),
     password: t.string(255),
     bio: t.text().nullable(),
     image: t.text().nullable(),
+    createdAt: t.timestamp(),
+    updatedAt: t.timestamp(),
   },
   relations: {
     articles: hasMany(() => _Article, { foreignKey: "authorId" }),
   },
   hidden: ["password"],
 })
+  .use(timestamps())
+  .use(ulid())
 _User = User
 
 export const Tag = defineModel("tags", {
   columns: {
-    id: t.integer().primaryKey(),
+    id: t.string(26).primaryKey(),
     name: t.string(255).unique(),
   },
-})
+}).use(ulid())
 
 export const Article: ModelDefinition = defineModel("articles", {
   columns: {
-    id: t.integer().primaryKey(),
+    id: t.string(26).primaryKey(),
     slug: t.string(255).unique(),
     title: t.string(255),
     description: t.text(),
     body: t.text(),
-    authorId: t.integer(),
+    authorId: t.string(26),
+    createdAt: t.timestamp(),
+    updatedAt: t.timestamp(),
   },
   relations: {
     author: belongsTo(() => _User),
@@ -73,39 +81,45 @@ export const Article: ModelDefinition = defineModel("articles", {
     }),
   },
 })
+  .use(timestamps())
+  .use(ulid())
 _Article = Article
 
 export const ArticleTag = defineModel("article_tags", {
   columns: {
-    articleId: t.integer(),
-    tagId: t.integer(),
+    articleId: t.string(26),
+    tagId: t.string(26),
   },
 })
 
 export const Comment = defineModel("comments", {
   columns: {
-    id: t.integer().primaryKey(),
-    articleId: t.integer(),
-    authorId: t.integer(),
+    id: t.string(26).primaryKey(),
+    articleId: t.string(26),
+    authorId: t.string(26),
     body: t.text(),
+    createdAt: t.timestamp(),
+    updatedAt: t.timestamp(),
   },
   relations: {
     article: belongsTo(() => _Article),
     author: belongsTo(() => _User),
   },
 })
+  .use(timestamps())
+  .use(ulid())
 
 export const Favorite = defineModel("favorites", {
   columns: {
-    userId: t.integer(),
-    articleId: t.integer(),
+    userId: t.string(26),
+    articleId: t.string(26),
   },
 })
 
 export const Follow = defineModel("follows", {
   columns: {
-    followerId: t.integer(),
-    followeeId: t.integer(),
+    followerId: t.string(26),
+    followeeId: t.string(26),
   },
 })
 
@@ -116,7 +130,7 @@ export const Follow = defineModel("follows", {
 export function createTables(database: Database): void {
   database.run(`
     CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id TEXT PRIMARY KEY,
       email TEXT NOT NULL UNIQUE,
       username TEXT NOT NULL UNIQUE,
       password TEXT NOT NULL,
@@ -129,12 +143,12 @@ export function createTables(database: Database): void {
 
   database.run(`
     CREATE TABLE IF NOT EXISTS articles (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id TEXT PRIMARY KEY,
       slug TEXT NOT NULL UNIQUE,
       title TEXT NOT NULL,
       description TEXT NOT NULL,
       body TEXT NOT NULL,
-      authorId INTEGER NOT NULL REFERENCES users(id),
+      authorId TEXT NOT NULL REFERENCES users(id),
       createdAt TEXT,
       updatedAt TEXT
     )
@@ -142,24 +156,24 @@ export function createTables(database: Database): void {
 
   database.run(`
     CREATE TABLE IF NOT EXISTS tags (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id TEXT PRIMARY KEY,
       name TEXT NOT NULL UNIQUE
     )
   `)
 
   database.run(`
     CREATE TABLE IF NOT EXISTS article_tags (
-      articleId INTEGER NOT NULL REFERENCES articles(id),
-      tagId INTEGER NOT NULL REFERENCES tags(id),
+      articleId TEXT NOT NULL REFERENCES articles(id),
+      tagId TEXT NOT NULL REFERENCES tags(id),
       PRIMARY KEY (articleId, tagId)
     )
   `)
 
   database.run(`
     CREATE TABLE IF NOT EXISTS comments (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      articleId INTEGER NOT NULL REFERENCES articles(id),
-      authorId INTEGER NOT NULL REFERENCES users(id),
+      id TEXT PRIMARY KEY,
+      articleId TEXT NOT NULL REFERENCES articles(id),
+      authorId TEXT NOT NULL REFERENCES users(id),
       body TEXT NOT NULL,
       createdAt TEXT,
       updatedAt TEXT
@@ -168,44 +182,50 @@ export function createTables(database: Database): void {
 
   database.run(`
     CREATE TABLE IF NOT EXISTS favorites (
-      userId INTEGER NOT NULL REFERENCES users(id),
-      articleId INTEGER NOT NULL REFERENCES articles(id),
+      userId TEXT NOT NULL REFERENCES users(id),
+      articleId TEXT NOT NULL REFERENCES articles(id),
       PRIMARY KEY (userId, articleId)
     )
   `)
 
   database.run(`
     CREATE TABLE IF NOT EXISTS follows (
-      followerId INTEGER NOT NULL REFERENCES users(id),
-      followeeId INTEGER NOT NULL REFERENCES users(id),
+      followerId TEXT NOT NULL REFERENCES users(id),
+      followeeId TEXT NOT NULL REFERENCES users(id),
       PRIMARY KEY (followerId, followeeId)
     )
   `)
 }
 
 // ---------------------------------------------------------------------------
-// Database + Peta instance (singleton, lazily created)
+// Database + ORM instance (singleton, lazily created)
 // ---------------------------------------------------------------------------
 
-let _peta: ReturnType<typeof createPeta> | null = null
+let _orm: ReturnType<typeof createORM> | null = null
 
-export function getPeta(): ReturnType<typeof createPeta> {
-  if (!_peta) {
+/** Get or create the singleton ORM instance.
+ *
+ * When `dialect` is provided, a fresh ORM is created with it (bypassing the
+ * singleton). This lets tests inject an in-memory database without affecting
+ * the production singleton.
+ */
+export function getORM(dialect?: any): ReturnType<typeof createORM> {
+  if (dialect) {
+    const orm = createORM({ dialect })
+    orm.registerAll(User, Article, Tag, ArticleTag, Comment, Favorite, Follow)
+    return orm
+  }
+  if (!_orm) {
     const database = new Database("conduit.db", { create: true })
     database.run("PRAGMA foreign_keys = ON")
     createTables(database)
-    _peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
-    _peta.registerAll(User, Article, Tag, ArticleTag, Comment, Favorite, Follow)
-
-    // Timestamps for models that have createdAt/updatedAt
-    User.registerTimestamps()
-    Article.registerTimestamps()
-    Comment.registerTimestamps()
+    _orm = createORM({ dialect: new BunSqliteDialect({ database }) })
+    _orm.registerAll(User, Article, Tag, ArticleTag, Comment, Favorite, Follow)
   }
-  return _peta
+  return _orm
 }
 
 // Lazily initialize on first import in development
 if (process.env.NODE_ENV !== "test") {
-  getPeta()
+  getORM()
 }
