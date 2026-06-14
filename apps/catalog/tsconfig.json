@@ -6,8 +6,8 @@
     "noUncheckedIndexedAccess": true,
     "paths": {
       "peta-orm": ["../../packages/orm/src/index.ts"],
-      "peta-auth": ["../../packages/auth/dist/index.d.mts"],
-      "peta-auth/*": ["../../packages/auth/dist/*.d.mts"],
+      "peta-auth": ["../../packages/auth/src/index.ts"],
+      "peta-auth/*": ["../../packages/auth/src/*"],
       "peta-docs": ["../../packages/docs/src/index.ts"],
       "peta-docs/*": ["../../packages/docs/src/*"]
     }
