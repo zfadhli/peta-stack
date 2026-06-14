@@ -1,7 +1,7 @@
 {
   "name": "peta-migrate",
   "type": "module",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Migration tools for peta-orm",
   "license": "MIT",
   "module": "src/index.ts",
@@ -30,8 +30,12 @@
     "kysely": "^0.28.17",
     "typescript": "^6.0.0"
   },
+  "devDependencies": {
+    "tsdown": "^0.22.2"
+  },
   "scripts": {
     "build": "tsdown",
+    "prepublish": "bun run build",
     "typecheck": "bun x tsc --noEmit"
   }
 }

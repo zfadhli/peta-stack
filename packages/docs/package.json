@@ -1,6 +1,6 @@
 {
   "name": "peta-docs",
-  "version": "0.2.11",
+  "version": "0.3.0",
   "private": false,
   "type": "module",
   "description": "OpenAPI + Scalar docs for Hono (and more), powered by Standard Schema",
