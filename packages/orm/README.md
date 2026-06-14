@@ -1,13 +1,15 @@
-# Peta ORM
+# peta-orm
 
-**Typed ORM for Bun, built on [Kysely](https://github.com/kysely-org/kysely)** with [ArkType](https://arktype.io) validation.
+[![npm version](https://img.shields.io/npm/v/peta-orm?style=flat-square)](https://www.npmjs.com/package/peta-orm)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6.0-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org)
+[![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 
-Column types, relations with eager loading, lifecycle hooks, timestamps, soft deletes, casting, serialization control, global scopes, polymorphic relations, and more — all fully typed end-to-end.
+A feature-rich ORM for Bun, built on [Kysely](https://kysely.dev) with [ArkType](https://arktype.io) validation. ActiveRecord-style models, typed relations, lazy/eager loading, lifecycle hooks, soft deletes, timestamps, casting, serialization control, global scopes, polymorphic relations, pagination, collections, and more — all fully typed end-to-end.
 
 ```ts
 const user = await User.insert({ name: "Alice", email: "a@b.com" })
-const posts = await user.$relatedQuery("posts").where("published", true).execute()
-const page = await Post.query().with("author").paginate(1, 20)
+const posts = await User.relations.posts.query(user).where("published", true).execute()
+const page = await Post.query().with("author").orderBy("id", "asc").paginate(1, 20)
 ```
 
 ---
@@ -20,70 +22,45 @@ bun add -d kysely-bun-sqlite
 ```
 
 ```ts
-// db.ts
 import { Database } from "bun:sqlite"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
-import type { ColumnShape } from "peta-orm"
-import { Peta, $t, ArkTypeSchemaConfig, Model, HasMany } from "peta-orm"
+import { createORM, defineModel, t } from "peta-orm"
 
-const t = $t({ schema: new ArkTypeSchemaConfig() })
+const orm = createORM({
+  dialect: new BunSqliteDialect({ database: new Database("my-app.db") }),
+})
 
-class User extends Model {
-  static override table = "users"
-  static override columns = {
-    id: t.integer().primaryKey(),
-    name: t.string(255).min(2),
-    email: t.text().email().unique(),
-  } satisfies ColumnShape
-  static override relations = {
-    posts: new HasMany(() => Post),
-  }
-}
+const User = defineModel("users", {
+  columns: { id: t.integer().primaryKey(), name: t.string(255), email: t.text().unique() },
+})
 
-class Post extends Model {
-  static override table = "posts"
-  static override columns = {
-    id: t.integer().primaryKey(),
-    userId: t.integer().references(() => User, ["id"]),
-    title: t.string(255),
-  } satisfies ColumnShape
-}
+orm.registerAll(User)
 
-const database = new Database("my-app.db")
-database.run(`CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL)`)
-database.run(`CREATE TABLE IF NOT EXISTS posts (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, title TEXT NOT NULL)`)
-
-const peta = new Peta({ dialect: new BunSqliteDialect({ database }) })
-
-// Explicit registration (rest params, no array wrapper)
-peta.registerAll(User, Post)
-
-// Or auto-discover from directory (Bun only):
-// await peta.discover("./src/**/*.model.ts")
-
-export { peta, User, Post }
+const user = await User.insert({ name: "Alice", email: "alice@test.com" })
 ```
+
+> [!TIP]
+> See the 32 [runnable examples](./examples) for every feature. Run them with `bun run examples/XX-*.ts`.
 
 ---
 
-## Why Peta ORM?
+## Why peta-orm?
 
-| Feature | Raw Kysely | Peta ORM |
+| Feature | Raw Kysely | peta-orm |
 |---------|-----------|----------|
 | **Validation** | Manual | Automatic from column definitions via ArkType |
 | **Models** | Row types only | Class instances with `$save()`, `$delete()`, `$reload()` |
-| **Relations** | Manual JOINs | Declarative `HasMany`, `BelongsTo`, `HasOne`, `ManyToMany` |
+| **Relations** | Manual JOINs | Declarative `hasMany`, `belongsTo`, `hasOne`, `manyToMany` |
 | **Eager loading** | Manual batch | `.with("posts.author")` — one line, batched queries |
 | **Hooks** | — | `beforeCreate`, `afterUpdate`, `beforeDelete`, etc. |
 | **Soft deletes** | — | `withTrashed()`, `onlyTrashed()`, `$restore()`, `$forceDelete()` |
 | **Casting** | — | `$casts: { meta: "json", flags: "boolean" }` |
 | **Serialization** | — | `$hidden`, `$visible`, `$appends`, accessors |
 | **Pagination** | Manual offset/limit | `.paginate(1, 20)` — returns `{ data, total, perPage, ... }` |
-| **Transactions** | Manual | `Model.transaction(fn)` |
-| **Error handling** | Raw driver codes | `DatabaseError` with `UNIQUE_CONSTRAINT` / `FOREIGN_KEY_CONSTRAINT` |
+| **Error handling** | Raw driver codes | `DatabaseError` with `UNIQUE_CONSTRAINT` across dialects |
 | **Conditional queries** | Manual if/else | `.when(condition, qb => ...)`, `.unless(condition, qb => ...)` |
-| **Migrations** | — | Auto-generate from models, CLI, `MigrationRunner` |
 | **Global scopes** | — | `addGlobalScope("active", qb => ...)` |
+| **Polymorphic relations** | — | `morphTo`, `morphMany`, `morphOne` |
 
 ---
 
@@ -91,91 +68,76 @@ export { peta, User, Post }
 
 ### Column Types & Validation
 
+Column definitions double as validation schemas — no separate validation step needed.
+
 ```ts
-import type { ColumnShape } from "peta-orm"
+const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
-const t = $t({ schema: new ArkTypeSchemaConfig() })
-
-class User extends Model {
-  static override columns = {
+const User = defineModel("users", {
+  columns: {
     id: t.integer().primaryKey(),
-    name: t.string(255).min(2),          // min length
-    email: t.text().email().unique(),    // email format + unique constraint
+    name: t.string(255).min(2),                                     // min length
+    email: t.text().email().unique(),                               // email format + unique
     age: t.integer().nullable().min(0).max(150).default(0),
     role: t.enum("admin", "user").default("user"),
     score: t.double().nullable(),
-    ...t.timestamps(),                   // createdAt, updatedAt
-  } satisfies ColumnShape
-}
+    ...t.timestamps(),                                              // createdAt, updatedAt
+  },
+})
 
-class Post extends Model {
-  static override columns = {
+const Post = defineModel("posts", {
+  columns: {
     id: t.integer().primaryKey(),
-    userId: t.integer().references(() => User, ["id"]),  // foreign key
+    userId: t.integer(),
     title: t.string(255),
     slug: t.string().unique(),
     published: t.boolean().default(false),
-  } satisfies ColumnShape
-}
+  },
+})
 ```
 
 ### Relations & Eager Loading
 
 ```ts
-class User extends Model {
-  static override relations = {
-    posts: new HasMany(() => Post, { foreignKey: "userId" }),
-    profile: new HasOne(() => Profile, { foreignKey: "userId" }),
-  }
-}
+const User = defineModel("users", {
+  columns: { id: t.integer().primaryKey(), name: t.string(255) },
+  relations: {
+    posts: hasMany(() => Post, { foreignKey: "userId" }),
+    profile: hasOne(() => Profile, { foreignKey: "userId" }),
+  },
+})
 
 // Eager load with dot notation
-const users = await User.query()
-  .with("posts")
-  .with("posts.author")
-  .with({ posts: (q) => q.where("published", true) })
-  .execute()
+const users = await User.query().with("posts.author").execute()
 
 // Lazy load after fetch
 await user.$load("posts")
-await collection.load("posts.author")
 
 // Relation query
-const posts = await user.$relatedQuery("posts").where("published", true).execute()
+const posts = await User.relations.posts.query(user).where("published", true).execute()
 
 // Existence filters
 const authors = await User.query().has("posts").execute()
 const active = await User.query().whereHas("posts", (q) => q.where("published", true)).execute()
 ```
 
-### ManyToMany
+### Polymorphic Relations
 
 ```ts
-class Post extends Model {
-  static override columns = { id: t.integer().primaryKey(), title: t.string(255) } satisfies ColumnShape
-  static override relations = {
-    tags: new ManyToMany(() => Tag, {
-      through: "post_tags",
-      foreignPivotKey: "postId",
-      relatedPivotKey: "tagId",
-    }),
-  }
-}
+const Comment = defineModel("comments", {
+  columns: { id: t.integer().primaryKey(), body: t.text() },
+  relations: {
+    subject: morphTo(() => ({
+      Post: { foreignKey: "postId" },
+      Article: { foreignKey: "articleId" },
+    })),
+  },
+})
 
-class Tag extends Model {
-  static override columns = { id: t.integer().primaryKey(), name: t.string(255) } satisfies ColumnShape
-}
-
-// Pivot tables are regular Models — register them so the migration
-// generator includes the pivot table automatically.
-class PostTag extends Model {
-  static override table = "post_tags"
-  static override columns = {
-    id: t.integer().primaryKey(),
-    postId: t.integer().references(() => Post, ["id"]),
-    tagId: t.integer().references(() => Tag, ["id"]),
-  } satisfies ColumnShape
-}
+const Post = defineModel("posts", {
+  columns: { id: t.integer().primaryKey(), title: t.string(255) },
+  relations: { comments: morphMany(() => Comment, { morphType: "post" }) },
+})
 ```
 
 ### CRUD & Pagination
@@ -199,137 +161,133 @@ await User.delete(1)
 
 // Paginate
 const page = await Post.query().orderBy("id", "asc").paginate(1, 20)
-// → { data: Post[], total, perPage, currentPage, lastPage, hasMorePages }
-
-// Query results are plain T[] — standard, zero overhead
-const posts = await Post.query().where("published", true).execute()
-// posts: Post[]
-posts[0] // direct index access
+// → { data: Post[], total: 30, perPage: 20, currentPage: 1, lastPage: 2, hasMorePages: true }
 ```
 
 ### Hooks & Timestamps
 
 ```ts
-class User extends Model {
-  static {
-    this.on("beforeCreate", (user) => { user.email = user.email.toLowerCase() })
-    this.on("afterCreate", (user) => { console.log("Created:", user.get("id")) })
-  }
-}
+User.on("beforeCreate", (user) => { user.email = user.email.toLowerCase() })
+User.on("afterCreate", (user) => { console.log("Created:", user.get("id")) })
 
-User.registerTimestamps()  // auto-set createdAt/updatedAt
+// Timestamps plugin sets createdAt/updatedAt automatically
+const Timestamped = defineModel("ts", {
+  columns: { ...t.timestamps(), ...t.integer().primaryKey(), name: t.string(255) },
+}).use(timestamps())
 ```
 
 ### Soft Deletes
 
 ```ts
-User.registerSoftDeletes()
+const SoftModel = defineModel("items", {
+  columns: { id: t.integer().primaryKey(), name: t.string(255), ...t.timestamps() },
+}).use(softDeletes())
 
-await user.$delete()         // sets deletedAt timestamp
-await user.$restore()        // clears deletedAt
-await user.$forceDelete()    // actually deletes
+await item.$delete()              // sets deletedAt
+await item.$restore()             // clears deletedAt
+await item.$forceDelete()         // actually deletes
 
-const active = await User.query().execute()                  // excludes deleted
-const all = await User.query().withTrashed().execute()       // includes deleted
-const trashed = await User.query().onlyTrashed().execute()   // only deleted
+const active = await SoftModel.query().execute()               // excludes deleted
+const all = await SoftModel.query().withTrashed().execute()    // includes deleted
+const trashed = await SoftModel.query().onlyTrashed().execute() // only deleted
 ```
 
-### Attribute Casting & Serialization
+### Graph Operations
+
+Insert or upsert nested models in a single call:
 
 ```ts
-class User extends Model {
-  static override $casts = {
-    meta: "json",
-    flags: "boolean",
-    createdAt: "date",
-  }
-  static override $hidden = ["password"]
-  static override $visible = ["id", "name", "email"]  // whitelist
-  static override $appends = ["fullName"]
+const user = await User.insertGraph({
+  name: "Alice",
+  posts: [{ title: "Post 1" }, { title: "Post 2" }],
+})
 
-  getFullNameAttribute() { return `${this.get("first")} ${this.get("last")}` }
-}
-
-const json = user.$toJSON()  // password excluded, fullName appended, meta parsed
-```
-
-### Global Scopes & Transactions
-
-```ts
-User.addGlobalScope("active", (qb) => qb.where("active", "=", 1))
-
-// Query without the scope
-await User.query().withoutGlobalScope("active").execute()
-
-// Transactions
-await User.transaction(async (trx) => {
-  await trx.insertInto("users").values({ name: "A" }).execute()
-  await trx.insertInto("posts").values({ userId: 1, title: "B" }).execute()
+const updated = await User.upsertGraph({
+  id: user.get("id"),
+  name: "Alice Updated",
+  posts: [{ id: 1, title: "Post 1 Updated" }, { title: "New Post" }],
 })
 ```
 
-### Conditional Chaining
+### Casting & Serialization
 
 ```ts
-const posts = await Post.query()
-  .where("published", "=", published ?? 1)
-  .when(sort?.length, (q) => {
-    for (const s of sort) {
-      q.orderBy(s.replace(/^-/, ""), s.startsWith("-") ? "desc" : "asc")
-    }
-    return q
-  })
-  .unless(sort?.length, (q) => q.orderBy("createdAt", "desc"))
-  .execute()
-```
+const User = defineModel("users", {
+  columns: {
+    id: t.integer().primaryKey(), name: t.string(255),
+    meta: t.json(), flags: t.boolean(), password: t.string(255),
+  },
+  $casts: { meta: "json", flags: "boolean" },
+  $hidden: ["password"],
+})
 
-Both `.when(condition, fn)` and `.unless(condition, fn)` return the query builder, keeping the chain intact. If the condition is truthy, `.when()` applies the callback; `.unless()` does the opposite.
+const json = user.$toJSON()  // password excluded, meta parsed from JSON
+```
 
 ### Error Handling
 
-Database constraint violations (unique, foreign key) are normalized into a `DatabaseError` across SQLite, PostgreSQL, and MySQL:
-
 ```ts
-import { DatabaseError } from "peta-orm"
-
 try {
-  const post = await Post.insert({ slug: "my-post", title: "..." })
+  await Post.insert({ slug: "my-post" })
 } catch (e) {
   if (e instanceof DatabaseError && e.code === "UNIQUE_CONSTRAINT") {
-    // slug already taken — return 400
-    return c.json({ error: "Slug already taken" }, 400)
+    return c.json({ error: "Slug taken" }, 400)
   }
   throw e
 }
 ```
 
-| `DatabaseError.code` | Meaning | Triggered by |
-|---|---|---|
-| `UNIQUE_CONSTRAINT` | Duplicate value on a unique column | `SQLITE_CONSTRAINT_UNIQUE`, PostgreSQL `23505`, MySQL `ER_DUP_ENTRY` |
-| `FOREIGN_KEY_CONSTRAINT` | Referenced row doesn't exist | `SQLITE_CONSTRAINT_FOREIGNKEY`, PostgreSQL `23503`, MySQL `ER_NO_REFERENCED_ROW_2` |
+| Code | Meaning | Driver errors |
+|------|---------|--------------|
+| `UNIQUE_CONSTRAINT` | Duplicate value | `SQLITE_CONSTRAINT_UNIQUE`, PG `23505`, MySQL `ER_DUP_ENTRY` |
+| `FOREIGN_KEY_CONSTRAINT` | Missing referenced row | `SQLITE_CONSTRAINT_FOREIGNKEY`, PG `23503`, MySQL `ER_NO_REFERENCED_ROW_2` |
 
-The error also carries the `table` name and the original driver error via `cause`.
-
-### Collection Utilities
+### Collections
 
 ```ts
-// .execute() returns a plain array — lightweight, direct index access
-const users = await User.query().execute()
-users[0]    // direct access
-
-// .collect() returns a Collection with convenience methods
 const col = await User.query().orderBy("id", "asc").collect()
-col.toJSON()            // all items serialized in one call
 col.pluck("name")       // ["Alice", "Bob"]
 col.groupBy("role")     // { admin: [...], user: [...] }
 col.load("posts")       // eager load relations
-col.sum("score")        // aggregate helpers
-col.avg("age")
-col.unique("role")
-col.sortBy("name")
+col.sum("score")
 col.chunk(10)           // split into batches
-col.first()             // first element
-col.at(0)               // same as [0] on plain arrays
+```
+
+### Global Scopes & Conditional Chaining
+
+```ts
+User.addGlobalScope("active", (qb) => qb.where("active", "=", 1))
+await User.query().withoutGlobalScope("active").execute()
+
+const posts = await Post.query()
+  .when(sort?.length, (q) => q.orderBy(sort[0]!, "asc"))
+  .unless(sort?.length, (q) => q.orderBy("createdAt", "desc"))
+  .execute()
+```
+
+---
+
+## Migrations
+
+Generate and run migrations from model definitions:
+
+```ts
+import { createMigrationRunner, createMigrationGenerator } from "peta-orm/migrator"
+
+const runner = createMigrationRunner(kysely)
+const gen = createMigrationGenerator()
+
+const code = gen.generateInitialMigration(models)
+await runner.up(migrationFiles)
+```
+
+Or via the CLI:
+
+```bash
+bun run bin/peta migrate:init
+bun run bin/peta migrate:generate
+bun run bin/peta migrate:up
+bun run bin/peta migrate:status
 ```
 
 ---
@@ -342,69 +300,65 @@ All self-contained (inline SQLite, run directly):
 bun run examples/01-basic-setup.ts
 bun run examples/04-relations.ts
 bun run examples/07-soft-deletes.ts
-
-# CLI — manage migrations
-bun run bin/peta --help
-bun run bin/peta migrate:init
-bun run bin/peta migrate:generate CreateUsers
-bun run bin/peta migrate:up
-bun run bin/peta migrate:status
 ```
 
 | # | Example | Topic |
 |---|---------|-------|
-| 01 | [basic-setup](./examples/01-basic-setup.ts) | Peta init + SQLite setup |
+| 01 | [basic-setup](./examples/01-basic-setup.ts) | ORM init + SQLite setup |
 | 02 | [model-definition](./examples/02-model-definition.ts) | Columns, types, modifiers, timestamps |
 | 03 | [crud](./examples/03-crud.ts) | insert, find, update, delete, paginate |
-| 04 | [relations](./examples/04-relations.ts) | HasMany, BelongsTo, HasOne, eager loading |
-| 05 | [query-builder](./examples/05-query-builder.ts) | where, orderBy, join, has, whereHas, whereDoesntHave, count |
-| 06 | [hooks-timestamps](./examples/06-hooks-timestamps.ts) | beforeCreate, afterCreate, registerTimestamps |
+| 04 | [relations](./examples/04-relations.ts) | hasMany, belongsTo, hasOne, eager loading |
+| 05 | [query-builder](./examples/05-query-builder.ts) | where, orderBy, join, has, whereHas |
+| 06 | [hooks-timestamps](./examples/06-hooks-timestamps.ts) | beforeCreate, afterCreate, timestamps |
 | 07 | [soft-deletes](./examples/07-soft-deletes.ts) | $delete, $restore, $forceDelete, withTrashed |
 | 08 | [collection-paginator](./examples/08-collection-paginator.ts) | Collection, Paginator, `.collect()` |
-| 09 | [hono-integration](./examples/09-hono-integration.ts) | Hono app + error handling with `DatabaseError` |
+| 09 | [hono-integration](./examples/09-hono-integration.ts) | Hono app + DatabaseError handling |
 | 10 | [elysia-integration](./examples/10-elysia-integration.ts) | Elysia app stub |
 | 11 | [many-to-many](./examples/11-many-to-many.ts) | ManyToMany via pivot table |
 | 12 | [transactions](./examples/12-transactions.ts) | Model.transaction(), rollback |
 | 13 | [casting](./examples/13-casting.ts) | $casts, $hidden, $appends, accessors |
 | 14 | [global-scopes](./examples/14-global-scopes.ts) | addGlobalScope(), withoutGlobalScope() |
-| 15 | [batch](./examples/15-batch.ts) | insertMany, insertMany() |
+| 15 | [batch](./examples/15-batch.ts) | insertMany |
 | 16 | [discover](./examples/16-discover.ts) | peta.discover(), rest params |
-| 17 | [instance-methods](./examples/17-instance-methods.ts) | fill, dirty, reset, $reload, $load, $relatedQuery |
-| 18 | [advanced-queries](./examples/18-advanced-queries.ts) | groupBy/having, sum/avg/min/max, chunk, toSQL, updateMany |
-| 19 | [collections-deep](./examples/19-collections-deep.ts) | full Collection + Paginator API |
-| 20 | [advanced-relations](./examples/20-advanced-relations.ts) | HasManyThrough, polymorphic morphs, pivot extras |
-| 21 | [migrations](./examples/21-migrations.ts) | MigrationRunner, MigrationGenerator, CLI |
-| 22 | [related-query-builder](./examples/22-related-query-builder.ts) | `$related()` — scoped query builder for relations |
-| 23 | [attach-detach-sync](./examples/23-attach-detach-sync.ts) | Many-to-many pivot management via `$related()` |
+| 17 | [instance-methods](./examples/17-instance-methods.ts) | fill, dirty, reset, $reload, $load |
+| 18 | [advanced-queries](./examples/18-advanced-queries.ts) | groupBy/having, aggregate helpers, chunk |
+| 19 | [collections-deep](./examples/19-collections-deep.ts) | Full Collection + Paginator API |
+| 20 | [advanced-relations](./examples/20-advanced-relations.ts) | HasManyThrough, polymorphic morphs |
+| 21 | [migrations](./examples/21-migrations.ts) | MigrationRunner, MigrationGenerator |
+| 22 | [related-query-builder](./examples/22-related-query-builder.ts) | `$related()` — scoped relation queries |
+| 23 | [attach-detach-sync](./examples/23-attach-detach-sync.ts) | Many-to-many pivot management |
 | 24 | [computed-columns](./examples/24-computed-columns.ts) | Runtime + batch async computed columns |
-| 25 | [static-hooks](./examples/25-static-hooks.ts) | `asFindQuery()` preview + `cancelQuery()` abort |
-| 26 | [repository-pattern](./examples/26-repository-pattern.ts) | `createRepo()` — chainable custom query methods |
-| 27 | [plugins-and-helpers](./examples/27-plugins-and-helpers.ts) | `.use()` plugin system + `makeHelper()` |
-| 28 | [nested-create-update](./examples/28-nested-create-update.ts) | Create and update models with related data in a single call |
-| 29 | [allow-graph](./examples/29-allow-graph.ts) | `allowGraph()` — recursive whitelist for eager loading |
-| 30 | [polymorphic-relations](./examples/30-polymorphic-relations.ts) | Polymorphic MorphMany/MorphOne/MorphTo with runtime resolution |
+| 25 | [static-hooks](./examples/25-static-hooks.ts) | `asFindQuery()` + `cancelQuery()` |
+| 26 | [repository-pattern](./examples/26-repository-pattern.ts) | `createRepo()` — custom query methods |
+| 27 | [plugins-and-helpers](./examples/27-plugins-and-helpers.ts) | `.use()` plugin system + makeHelper() |
+| 28 | [nested-create-update](./examples/28-nested-create-update.ts) | Create/update with related data in one call |
+| 29 | [allow-graph](./examples/29-allow-graph.ts) | `allowGraph()` — recursive eager load whitelist |
+| 30 | [polymorphic-relations](./examples/30-polymorphic-relations.ts) | MorphMany/MorphOne/MorphTo |
 | 31 | [graph-operations](./examples/31-graph-operations.ts) | `insertGraph()`/`upsertGraph()` with `#id`/`#ref` |
-| 32 | [accessors-mutators](./examples/32-accessors-mutators.ts) | `Attribute.make({ get, set })` — accessors and mutators |
+| 32 | [accessors-mutators](./examples/32-accessors-mutators.ts) | `Attribute.make({ get, set })` |
 
 ---
 
-## API Overview
+## Database Support
 
-| Module | Key exports | File |
-|--------|-------------|------|
-| **Core** | `Peta`, `Model`, `$t`, `Collection` | `src/index.ts` |
-| **Discovery** | `peta.discover(glob)`, `peta.registerAll(...models)` | `src/peta.ts` |
-| **Columns** | `t.integer()`, `t.string()`, `t.email()`, `.min()`, `.max()`, `.nullable()`, `.default()` | `src/columns/column-types.ts` |
-| **Builders** | `.where()`, `.with()`, `.paginate()`, `.chunk()`, `.sum()`, `.toSQL()`, `.when()`, `.unless()`, `.collect()` | `src/builder/query-builder.ts` |
-| **Relations** | `HasMany`, `BelongsTo`, `HasOne`, `ManyToMany`, `HasManyThrough` | `src/relations/Relation.ts` |
-| **Polymorphic** | `MorphTo`, `MorphMany`, `MorphOne` | `src/relations/Morph.ts` |
-| **Hooks** | `HookManager`, `on()`, `off()`, `trigger()` | `src/hooks/lifecycle.ts` |
-| **Paginator** | `Paginator`, `.paginate()` | `src/pagination/Paginator.ts` |
-| **Errors** | `ModelNotFoundError`, `RelationNotFoundError`, `ValidationError`, `DatabaseError` | `src/errors/errors.ts` |
-| **Migrations** | `MigrationRunner`, `MigrationGenerator`, `defineConfig`, CLI (`peta migrate:*`) | `src/migrations/index.ts` (import from `peta-orm/migrator`) |
+| Database | Dialect package | Status |
+|----------|----------------|--------|
+| SQLite | `kysely-bun-sqlite` | ✅ Tested |
+| PostgreSQL | `pg` | ✅ Tested via Docker |
+| MySQL | `mysql2` | ✅ Tested via Docker |
+
+```bash
+docker compose up -d     # PostgreSQL 16 + MySQL 8.0
+cd packages/orm
+bun test test/integration/
+```
+
+Set `INTEGRATION_SKIP_PG=1` or `INTEGRATION_SKIP_MYSQL=1` to skip specific databases.
 
 ---
 
-## License
+## Related packages
 
-MIT
+- [peta-auth](../auth) — Encrypted cookie sessions, JWT, OAuth
+- [peta-docs](../docs) — OpenAPI 3.1 spec generation + Scalar UI
+- [peta-migrate](../migrate) — Standalone migration runner and generator
