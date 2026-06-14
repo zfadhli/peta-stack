@@ -3,7 +3,14 @@
   "compilerOptions": {
     "lib": ["ESNext"],
     "types": ["bun"],
-    "noUncheckedIndexedAccess": true
+    "noUncheckedIndexedAccess": true,
+    "paths": {
+      "peta-orm": ["../../packages/orm/src/index.ts"],
+      "peta-auth": ["../../packages/auth/dist/index.d.mts"],
+      "peta-auth/*": ["../../packages/auth/dist/*.d.mts"],
+      "peta-docs": ["../../packages/docs/src/index.ts"],
+      "peta-docs/*": ["../../packages/docs/src/*"]
+    }
   },
   "include": ["src"]
 }

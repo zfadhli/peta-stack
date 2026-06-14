@@ -12,7 +12,10 @@
     "noImplicitOverride": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "noPropertyAccessFromIndexSignature": false
+    "noPropertyAccessFromIndexSignature": false,
+    "paths": {
+      "peta-orm": ["../../packages/orm/src/index.ts"]
+    }
   },
   "include": ["src/**/*.ts"]
 }
