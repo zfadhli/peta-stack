@@ -99,7 +99,22 @@ export function createQueryBuilder(
   }
   async function runExecute(): Promise<ModelInstance[]> {
     applyScopes()
-    const queryBuilder = selectedColumns ? qb.select(selectedColumns.map(validateColumn)) : qb.selectAll()
+
+    // Filter out computed-column names so they don't leak into SQL
+    // (PostgreSQL rejects non-existent columns in SELECT)
+    const { getComputedConfig, applyComputedColumnsAsync } = await import("../model/computed.js")
+    const computedConfig = getComputedConfig(def)
+    const sqlColumns = selectedColumns?.filter((col) => !computedConfig?.[col])
+    const allSelectedAreComputed =
+      selectedColumns !== null && sqlColumns !== undefined && sqlColumns.length === 0 && selectedColumns.length > 0
+    const queryBuilder =
+      sqlColumns && sqlColumns.length > 0
+        ? qb.select(sqlColumns.map(validateColumn))
+        : allSelectedAreComputed
+          ? qb.selectAll()
+          : selectedColumns
+            ? qb.select(selectedColumns.map(validateColumn))
+            : qb.selectAll()
 
     // Apply aggregate subqueries (additive selects)
     let currentQb = queryBuilder
@@ -112,10 +127,8 @@ export function createQueryBuilder(
     const rows = (await currentQb.execute()) as Record<string, unknown>[]
     const models = rows.map((row) => def.hydrate(row))
 
-    // Apply computed columns
+    // Apply computed columns (post-query — computed names never hit SQL)
     if (models.length > 0) {
-      const { getComputedConfig, applyComputedColumnsAsync } = await import("../model/computed.js")
-      const computedConfig = getComputedConfig(def)
       if (computedConfig) {
         await applyComputedColumnsAsync(models, computedConfig, selectedColumns)
       }
@@ -183,7 +196,10 @@ export function createQueryBuilder(
     // ─── Aggregates ───────────────────────────────────────
     async count() {
       applyScopes()
-      const result = await qb.select((eb: AggregateEB) => eb.fn.countAll().as("count")).executeTakeFirst()
+      const result = await qb
+        .clearOrderBy()
+        .select((eb: AggregateEB) => eb.fn.countAll().as("count"))
+        .executeTakeFirst()
       return Number((result as { count: number })?.count ?? 0)
     },
 
@@ -328,8 +344,11 @@ export function createQueryBuilder(
 
       applyScopes()
 
-      // Count total
-      const countResult = await qb.select((eb: AggregateEB) => eb.fn.countAll().as("total")).executeTakeFirst()
+      // Count total (strip ORDER BY — PostgreSQL rejects it in aggregate queries)
+      const countResult = await qb
+        .clearOrderBy()
+        .select((eb: AggregateEB) => eb.fn.countAll().as("total"))
+        .executeTakeFirst()
       const total = Number((countResult as { total: number })?.total ?? 0)
 
       // Fetch page
