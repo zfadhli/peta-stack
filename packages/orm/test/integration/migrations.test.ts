@@ -7,7 +7,7 @@
 import { t as columnTypes, createArkTypeSchemaConfig } from "../../src/columns/index.js"
 import { createMigrationRunner } from "../../src/migrations/index.js"
 import type { DialectContext } from "./setup.js"
-import { afterAll, beforeAll, describe, expect, getAvailableDialects, it } from "./setup.js"
+import { afterAll, beforeAll, describe, expect, getAvailableDialects, idColumn, it } from "./setup.js"
 
 const _t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
@@ -53,7 +53,7 @@ for (const dialect of await getAvailableDialects()) {
             up: async (k: any) => {
               await k.schema
                 .createTable(tableName)
-                .addColumn("id", "integer", (c: any) => c.autoIncrement().primaryKey())
+                .addColumn("id", "integer", idColumn(dialect.name))
                 .addColumn("name", "varchar(255)", (c: any) => c.notNull())
                 .execute()
             },
@@ -80,7 +80,7 @@ for (const dialect of await getAvailableDialects()) {
             up: async (k: any) => {
               await k.schema
                 .createTable("test_marked")
-                .addColumn("id", "integer", (c: any) => c.autoIncrement().primaryKey())
+                .addColumn("id", "integer", idColumn(dialect.name))
                 .addColumn("value", "varchar(100)")
                 .execute()
             },

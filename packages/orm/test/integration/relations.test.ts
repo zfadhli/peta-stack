@@ -9,18 +9,28 @@ import { t as columnTypes, createArkTypeSchemaConfig } from "../../src/columns/i
 import { belongsTo, defineModel, hasMany, hasOne, manyToMany } from "../../src/index.js"
 import type { ModelInstance } from "../../src/model/types.js"
 import type { DialectContext, SchemaDef } from "./setup.js"
-import { afterAll, applySchemas, beforeAll, describe, dropSchemas, expect, getAvailableDialects, it } from "./setup.js"
+import {
+  afterAll,
+  applySchemas,
+  beforeAll,
+  describe,
+  dropSchemas,
+  expect,
+  getAvailableDialects,
+  idColumn,
+  it,
+} from "./setup.js"
 
 const _t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
 // ─── Schema builders ────────────────────────────────────────────────
 
-const userTable = (name: string): SchemaDef => ({
+const userTable = (name: string, dialectName?: string): SchemaDef => ({
   name,
   up: async (k) => {
     await k.schema
       .createTable(name)
-      .addColumn("id", "integer", (c) => c.autoIncrement().primaryKey())
+      .addColumn("id", "integer", idColumn(dialectName))
       .addColumn("name", "varchar(255)", (c) => c.notNull())
       .execute()
   },
@@ -29,12 +39,12 @@ const userTable = (name: string): SchemaDef => ({
   },
 })
 
-const postTable = (name: string): SchemaDef => ({
+const postTable = (name: string, dialectName?: string): SchemaDef => ({
   name,
   up: async (k) => {
     await k.schema
       .createTable(name)
-      .addColumn("id", "integer", (c) => c.autoIncrement().primaryKey())
+      .addColumn("id", "integer", idColumn(dialectName))
       .addColumn("userId", "integer", (c) => c.notNull())
       .addColumn("title", "varchar(255)", (c) => c.notNull())
       .execute()
@@ -44,12 +54,12 @@ const postTable = (name: string): SchemaDef => ({
   },
 })
 
-const profileTable = (name: string): SchemaDef => ({
+const profileTable = (name: string, dialectName?: string): SchemaDef => ({
   name,
   up: async (k) => {
     await k.schema
       .createTable(name)
-      .addColumn("id", "integer", (c) => c.autoIncrement().primaryKey())
+      .addColumn("id", "integer", idColumn(dialectName))
       .addColumn("userId", "integer", (c) => c.notNull())
       .addColumn("bio", "text")
       .execute()
@@ -59,12 +69,12 @@ const profileTable = (name: string): SchemaDef => ({
   },
 })
 
-const tagTable = (name: string): SchemaDef => ({
+const tagTable = (name: string, dialectName?: string): SchemaDef => ({
   name,
   up: async (k) => {
     await k.schema
       .createTable(name)
-      .addColumn("id", "integer", (c) => c.autoIncrement().primaryKey())
+      .addColumn("id", "integer", idColumn(dialectName))
       .addColumn("name", "varchar(255)", (c) => c.notNull())
       .execute()
   },
@@ -94,7 +104,11 @@ for (const dialect of await getAvailableDialects()) {
     // ─── HasMany + BelongsTo + HasOne ────────────────────────────
 
     describe("HasMany / BelongsTo / HasOne", () => {
-      const schemas = [userTable("rel_users"), postTable("rel_posts"), profileTable("rel_profiles")]
+      const schemas = [
+        userTable("rel_users", dialect.name),
+        postTable("rel_posts", dialect.name),
+        profileTable("rel_profiles", dialect.name),
+      ]
       let ctx: DialectContext
 
       const User = defineModel("rel_users", {
@@ -182,7 +196,11 @@ for (const dialect of await getAvailableDialects()) {
     // ─── ManyToMany (basic) ──────────────────────────────────────
 
     describe("ManyToMany", () => {
-      const schemas = [postTable("mtm_posts"), tagTable("mtm_tags"), pivotTable("mtm_post_tags")]
+      const schemas = [
+        postTable("mtm_posts", dialect.name),
+        tagTable("mtm_tags", dialect.name),
+        pivotTable("mtm_post_tags"),
+      ]
       let ctx: DialectContext
 
       const Post = defineModel("mtm_posts", {
@@ -310,9 +328,9 @@ for (const dialect of await getAvailableDialects()) {
       let ctx: DialectContext
 
       const schemas = [
-        userTable("graph_users"),
-        postTable("graph_posts"),
-        tagTable("graph_tags"),
+        userTable("graph_users", dialect.name),
+        postTable("graph_posts", dialect.name),
+        tagTable("graph_tags", dialect.name),
         pivotTable("graph_post_tags"),
       ]
 

@@ -8,18 +8,28 @@ import { t as columnTypes, createArkTypeSchemaConfig } from "../../src/columns/i
 import { createHookManager, defineModel, softDeletes, timestamps } from "../../src/index.js"
 import type { Plugin } from "../../src/plugins/index.js"
 import type { DialectContext, SchemaDef } from "./setup.js"
-import { afterAll, applySchemas, beforeAll, describe, dropSchemas, expect, getAvailableDialects, it } from "./setup.js"
+import {
+  afterAll,
+  applySchemas,
+  beforeAll,
+  describe,
+  dropSchemas,
+  expect,
+  getAvailableDialects,
+  idColumn,
+  it,
+} from "./setup.js"
 
 const _t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
 // ─── Schema builders ────────────────────────────────────────────────
 
-const simpleTable = (name: string): SchemaDef => ({
+const simpleTable = (name: string, dialectName?: string): SchemaDef => ({
   name,
   up: async (k) => {
     await k.schema
       .createTable(name)
-      .addColumn("id", "integer", (c) => c.autoIncrement().primaryKey())
+      .addColumn("id", "integer", idColumn(dialectName))
       .addColumn("name", "varchar(255)", (c) => c.notNull())
       .addColumn("counter", "integer", (c) => c.defaultTo(0))
       .execute()
@@ -29,12 +39,12 @@ const simpleTable = (name: string): SchemaDef => ({
   },
 })
 
-const timestampTable = (name: string): SchemaDef => ({
+const timestampTable = (name: string, dialectName?: string): SchemaDef => ({
   name,
   up: async (k) => {
     await k.schema
       .createTable(name)
-      .addColumn("id", "integer", (c) => c.autoIncrement().primaryKey())
+      .addColumn("id", "integer", idColumn(dialectName))
       .addColumn("name", "varchar(255)", (c) => c.notNull())
       .addColumn("createdAt", "text")
       .addColumn("updatedAt", "text")
@@ -45,12 +55,12 @@ const timestampTable = (name: string): SchemaDef => ({
   },
 })
 
-const softDeleteTable = (name: string): SchemaDef => ({
+const softDeleteTable = (name: string, dialectName?: string): SchemaDef => ({
   name,
   up: async (k) => {
     await k.schema
       .createTable(name)
-      .addColumn("id", "integer", (c) => c.autoIncrement().primaryKey())
+      .addColumn("id", "integer", idColumn(dialectName))
       .addColumn("name", "varchar(255)", (c) => c.notNull())
       .addColumn("deletedAt", "text")
       .execute()
@@ -89,7 +99,7 @@ for (const dialect of await getAvailableDialects()) {
     // ─── Lifecycle Hooks ────────────────────────────────────────
 
     describe("Model lifecycle hooks", () => {
-      const schemas = [simpleTable("hooks_test")]
+      const schemas = [simpleTable("hooks_test", dialect.name)]
       let ctx: DialectContext
 
       const HooksTest = defineModel("hooks_test", {
@@ -162,7 +172,7 @@ for (const dialect of await getAvailableDialects()) {
     // ─── Timestamps Plugin ──────────────────────────────────────
 
     describe("Timestamps plugin", () => {
-      const schemas = [timestampTable("ts_plugin")]
+      const schemas = [timestampTable("ts_plugin", dialect.name)]
       let ctx: DialectContext
 
       beforeAll(async () => {
@@ -217,7 +227,7 @@ for (const dialect of await getAvailableDialects()) {
     // ─── Soft Deletes Plugin ────────────────────────────────────
 
     describe("Soft deletes plugin", () => {
-      const schemas = [softDeleteTable("sd_plugin")]
+      const schemas = [softDeleteTable("sd_plugin", dialect.name)]
       let ctx: DialectContext
 
       beforeAll(async () => {

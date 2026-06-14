@@ -8,18 +8,28 @@ import { t as columnTypes, createArkTypeSchemaConfig } from "../../src/columns/i
 import { DatabaseError } from "../../src/errors.js"
 import { defineModel } from "../../src/index.js"
 import type { DialectContext, SchemaDef } from "./setup.js"
-import { afterAll, applySchemas, beforeAll, describe, dropSchemas, expect, getAvailableDialects, it } from "./setup.js"
+import {
+  afterAll,
+  applySchemas,
+  beforeAll,
+  describe,
+  dropSchemas,
+  expect,
+  getAvailableDialects,
+  idColumn,
+  it,
+} from "./setup.js"
 
 const _t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
 // ─── Schema builders ────────────────────────────────────────────────
 
-const userTable = (name: string): SchemaDef => ({
+const userTable = (name: string, dialectName?: string): SchemaDef => ({
   name,
   up: async (k) => {
     await k.schema
       .createTable(name)
-      .addColumn("id", "integer", (c) => c.autoIncrement().primaryKey())
+      .addColumn("id", "integer", idColumn(dialectName))
       .addColumn("name", "varchar(255)", (c) => c.notNull())
       .addColumn("email", "varchar(255)", (c) => c.notNull().unique())
       .execute()
@@ -45,7 +55,7 @@ for (const dialect of await getAvailableDialects()) {
     })
 
     describe("Unique constraint violation", () => {
-      const schemas = [userTable("err_users")]
+      const schemas = [userTable("err_users", dialect.name)]
       let ctx: DialectContext
 
       const User = defineModel("err_users", {

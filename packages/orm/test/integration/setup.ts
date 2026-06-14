@@ -40,6 +40,23 @@ import { Kysely, MysqlDialect, PostgresDialect, sql } from "kysely"
 import { BunSqliteDialect } from "kysely-bun-sqlite"
 import { createORM } from "../../src/index.js"
 
+// ─── Helpers ────────────────────────────────────────────────────────
+
+/**
+ * Returns a column builder callback for an auto-incrementing primary key.
+ *
+ * - PostgreSQL: uses `generatedByDefaultAsIdentity()` (SERIAL-compatible)
+ * - SQLite/MySQL: uses `autoIncrement()`
+ */
+export function idColumn(dialectName?: string) {
+  return (cb: any) => {
+    if (dialectName === "postgres") {
+      return cb.generatedByDefaultAsIdentity().primaryKey()
+    }
+    return cb.autoIncrement().primaryKey()
+  }
+}
+
 // ─── Re-exports ─────────────────────────────────────────────────────
 
 export { afterAll, beforeAll, describe, expect, it, sql }
@@ -231,103 +248,118 @@ export async function dropSchemas(kysely: Kysely<any>, schemas: SchemaDef[]): Pr
 
 // ─── Default Schemas ────────────────────────────────────────────────
 
-export const userSchema: SchemaDef = {
-  name: "users",
-  up: async (k) => {
-    await k.schema
-      .createTable("users")
-      .addColumn("id", "integer", (c) => c.autoIncrement().primaryKey())
-      .addColumn("name", "varchar(255)", (c) => c.notNull())
-      .addColumn("email", "varchar(255)", (c) => c.notNull().unique())
-      .addColumn("age", "integer", (c) => c.defaultTo(0))
-      .execute()
-  },
-  down: async (k) => {
-    await k.schema.dropTable("users").ifExists().execute()
-  },
+function userSchema(dialectName?: string): SchemaDef {
+  return {
+    name: "users",
+    up: async (k) => {
+      await k.schema
+        .createTable("users")
+        .addColumn("id", "integer", idColumn(dialectName))
+        .addColumn("name", "varchar(255)", (c) => c.notNull())
+        .addColumn("email", "varchar(255)", (c) => c.notNull().unique())
+        .addColumn("age", "integer", (c) => c.defaultTo(0))
+        .execute()
+    },
+    down: async (k) => {
+      await k.schema.dropTable("users").ifExists().execute()
+    },
+  }
 }
 
-export const profileSchema: SchemaDef = {
-  name: "profiles",
-  up: async (k) => {
-    await k.schema
-      .createTable("profiles")
-      .addColumn("id", "integer", (c) => c.autoIncrement().primaryKey())
-      .addColumn("userId", "integer", (c) => c.notNull())
-      .addColumn("bio", "text")
-      .execute()
-  },
-  down: async (k) => {
-    await k.schema.dropTable("profiles").ifExists().execute()
-  },
+function profileSchema(dialectName?: string): SchemaDef {
+  return {
+    name: "profiles",
+    up: async (k) => {
+      await k.schema
+        .createTable("profiles")
+        .addColumn("id", "integer", idColumn(dialectName))
+        .addColumn("userId", "integer", (c) => c.notNull())
+        .addColumn("bio", "text")
+        .execute()
+    },
+    down: async (k) => {
+      await k.schema.dropTable("profiles").ifExists().execute()
+    },
+  }
 }
 
-export const postSchema: SchemaDef = {
-  name: "posts",
-  up: async (k) => {
-    await k.schema
-      .createTable("posts")
-      .addColumn("id", "integer", (c) => c.autoIncrement().primaryKey())
-      .addColumn("userId", "integer", (c) => c.notNull())
-      .addColumn("title", "varchar(255)", (c) => c.notNull())
-      .addColumn("body", "text")
-      .execute()
-  },
-  down: async (k) => {
-    await k.schema.dropTable("posts").ifExists().execute()
-  },
+function postSchema(dialectName?: string): SchemaDef {
+  return {
+    name: "posts",
+    up: async (k) => {
+      await k.schema
+        .createTable("posts")
+        .addColumn("id", "integer", idColumn(dialectName))
+        .addColumn("userId", "integer", (c) => c.notNull())
+        .addColumn("title", "varchar(255)", (c) => c.notNull())
+        .addColumn("body", "text")
+        .execute()
+    },
+    down: async (k) => {
+      await k.schema.dropTable("posts").ifExists().execute()
+    },
+  }
 }
 
-export const commentSchema: SchemaDef = {
-  name: "comments",
-  up: async (k) => {
-    await k.schema
-      .createTable("comments")
-      .addColumn("id", "integer", (c) => c.autoIncrement().primaryKey())
-      .addColumn("postId", "integer", (c) => c.notNull())
-      .addColumn("userId", "integer", (c) => c.notNull())
-      .addColumn("body", "text", (c) => c.notNull())
-      .execute()
-  },
-  down: async (k) => {
-    await k.schema.dropTable("comments").ifExists().execute()
-  },
+function commentSchema(dialectName?: string): SchemaDef {
+  return {
+    name: "comments",
+    up: async (k) => {
+      await k.schema
+        .createTable("comments")
+        .addColumn("id", "integer", idColumn(dialectName))
+        .addColumn("postId", "integer", (c) => c.notNull())
+        .addColumn("userId", "integer", (c) => c.notNull())
+        .addColumn("body", "text", (c) => c.notNull())
+        .execute()
+    },
+    down: async (k) => {
+      await k.schema.dropTable("comments").ifExists().execute()
+    },
+  }
 }
 
-export const tagSchema: SchemaDef = {
-  name: "tags",
-  up: async (k) => {
-    await k.schema
-      .createTable("tags")
-      .addColumn("id", "integer", (c) => c.autoIncrement().primaryKey())
-      .addColumn("name", "varchar(255)", (c) => c.notNull())
-      .execute()
-  },
-  down: async (k) => {
-    await k.schema.dropTable("tags").ifExists().execute()
-  },
+function tagSchema(dialectName?: string): SchemaDef {
+  return {
+    name: "tags",
+    up: async (k) => {
+      await k.schema
+        .createTable("tags")
+        .addColumn("id", "integer", idColumn(dialectName))
+        .addColumn("name", "varchar(255)", (c) => c.notNull())
+        .execute()
+    },
+    down: async (k) => {
+      await k.schema.dropTable("tags").ifExists().execute()
+    },
+  }
 }
 
-export const postTagSchema: SchemaDef = {
-  name: "post_tags",
-  up: async (k) => {
-    await k.schema
-      .createTable("post_tags")
-      .addColumn("id", "integer", (c) => c.autoIncrement().primaryKey())
-      .addColumn("postId", "integer", (c) => c.notNull())
-      .addColumn("tagId", "integer", (c) => c.notNull())
-      .execute()
-  },
-  down: async (k) => {
-    await k.schema.dropTable("post_tags").ifExists().execute()
-  },
+function postTagSchema(dialectName?: string): SchemaDef {
+  return {
+    name: "post_tags",
+    up: async (k) => {
+      await k.schema
+        .createTable("post_tags")
+        .addColumn("id", "integer", idColumn(dialectName))
+        .addColumn("postId", "integer", (c) => c.notNull())
+        .addColumn("tagId", "integer", (c) => c.notNull())
+        .execute()
+    },
+    down: async (k) => {
+      await k.schema.dropTable("post_tags").ifExists().execute()
+    },
+  }
 }
 
-export const defaultSchemas: SchemaDef[] = [
-  userSchema,
-  profileSchema,
-  postSchema,
-  commentSchema,
-  tagSchema,
-  postTagSchema,
-]
+/** Create the standard set of test schemas, dialect-aware. */
+export function createDefaultSchemas(dialectName?: string): SchemaDef[] {
+  return [
+    userSchema(dialectName),
+    profileSchema(dialectName),
+    postSchema(dialectName),
+    commentSchema(dialectName),
+    tagSchema(dialectName),
+    postTagSchema(dialectName),
+  ]
+}

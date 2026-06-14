@@ -12,11 +12,12 @@ import {
   afterAll,
   applySchemas,
   beforeAll,
-  defaultSchemas,
+  createDefaultSchemas,
   describe,
   dropSchemas,
   expect,
   getAvailableDialects,
+  idColumn,
   it,
 } from "./setup.js"
 
@@ -30,11 +31,11 @@ for (const dialect of await getAvailableDialects()) {
 
     beforeAll(async () => {
       ctx = await dialect.create()
-      await applySchemas(ctx.kysely, defaultSchemas)
+      await applySchemas(ctx.kysely, createDefaultSchemas(dialect.name))
     })
 
     afterAll(async () => {
-      await dropSchemas(ctx.kysely, defaultSchemas)
+      await dropSchemas(ctx.kysely, createDefaultSchemas(dialect.name))
       await ctx.destroy()
     })
 
@@ -303,7 +304,7 @@ for (const dialect of await getAvailableDialects()) {
       beforeAll(async () => {
         await ctx.kysely.schema
           .createTable("attr_users")
-          .addColumn("id", "integer", (c) => c.autoIncrement().primaryKey())
+          .addColumn("id", "integer", idColumn(dialect.name))
           .addColumn("name", "varchar(255)", (c) => c.notNull())
           .addColumn("email", "varchar(255)")
           .addColumn("password", "varchar(255)")
@@ -381,7 +382,7 @@ for (const dialect of await getAvailableDialects()) {
       beforeAll(async () => {
         await ctx.kysely.schema
           .createTable("computed_users")
-          .addColumn("id", "integer", (c) => c.autoIncrement().primaryKey())
+          .addColumn("id", "integer", idColumn(dialect.name))
           .addColumn("firstName", "varchar(100)", (c) => c.notNull())
           .addColumn("lastName", "varchar(100)", (c) => c.notNull())
           .execute()
