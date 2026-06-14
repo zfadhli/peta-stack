@@ -5,6 +5,10 @@
   "version": "0.3.0",
   "description": "ORM for Bun, built on Kysely",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zfadhli/peta-stack.git"
+  },
   "module": "src/index.ts",
   "main": "./dist/index.mjs",
   "types": "./dist/index.d.mts",

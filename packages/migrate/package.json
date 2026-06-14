@@ -4,6 +4,10 @@
   "version": "0.1.0",
   "description": "Migration tools for peta-orm",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zfadhli/peta-stack.git"
+  },
   "module": "src/index.ts",
   "main": "./dist/index.mjs",
   "types": "./dist/index.d.mts",

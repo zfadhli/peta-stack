@@ -5,6 +5,10 @@
   "type": "module",
   "description": "OpenAPI + Scalar docs for Hono (and more), powered by Standard Schema",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zfadhli/peta-stack.git"
+  },
   "files": [
     "dist/",
     "README.md"
