@@ -13,12 +13,12 @@ import {
 // ---------------------------------------------------------------------------
 // loadRoutes
 // ---------------------------------------------------------------------------
-const cwd = process.cwd()
+const docsDir = import.meta.dirname + "/../.."
 
 describe("loadRoutes", () => {
   it("loads and mounts route modules under default /api basePath", async () => {
     const app = new Hono()
-    await loadRoutes(app, "examples/structured/routes")
+    await loadRoutes(app, `${docsDir}/examples/structured/routes`)
     const spec = getOpenAPISpec(app, { title: "T", version: "1.0.0" })
     expect(spec.paths!["/api/pets"]?.get?.summary).toBe("List all pets")
   })
@@ -32,7 +32,7 @@ describe("loadRoutes", () => {
 
   it("mounts under custom basePath when provided", async () => {
     const app = new Hono()
-    await loadRoutes(app, "examples/structured/routes", {
+    await loadRoutes(app, `${docsDir}/examples/structured/routes`, {
       basePath: "/v2",
     })
     const spec = getOpenAPISpec(app, { title: "T", version: "1.0.0" }, undefined, { basePath: "/v2" })
@@ -53,7 +53,7 @@ describe("loadRoutes", () => {
       `${postsDir}/index.ts`,
       `
 import { Hono } from "hono";
-import { route } from "${cwd}/src/hono/index.ts";
+import { route } from "${docsDir}/src/hono/index.ts";
 const app = new Hono();
 app.get("/", route()
   .summary("List posts")
@@ -67,7 +67,7 @@ export default app;
       `
 import { type } from "arktype";
 import { Hono } from "hono";
-import { route } from "${cwd}/src/hono/index.ts";
+import { route } from "${docsDir}/src/hono/index.ts";
 const app = new Hono();
 app.get("/", route()
   .summary("Get post by ID")
@@ -95,15 +95,15 @@ export default app;
 
     writeFileSync(
       `${petsDir}/index.ts`,
-      `import { Hono } from "hono";\nimport { route } from "${cwd}/src/hono/index.ts";\nconst app = new Hono();\napp.get("/", route().summary("List pets").response(200, { description: "OK" }).handle(() => new Response()));\nexport default app;\n`,
+      `import { Hono } from "hono";\nimport { route } from "${docsDir}/src/hono/index.ts";\nconst app = new Hono();\napp.get("/", route().summary("List pets").response(200, { description: "OK" }).handle(() => new Response()));\nexport default app;\n`,
     )
     writeFileSync(
       `${idDir}/index.ts`,
-      `import { Hono } from "hono";\nimport { route } from "${cwd}/src/hono/index.ts";\nconst app = new Hono();\napp.get("/", route().summary("Get pet").response(200, { description: "OK" }).handle(() => new Response()));\nexport default app;\n`,
+      `import { Hono } from "hono";\nimport { route } from "${docsDir}/src/hono/index.ts";\nconst app = new Hono();\napp.get("/", route().summary("Get pet").response(200, { description: "OK" }).handle(() => new Response()));\nexport default app;\n`,
     )
     writeFileSync(
       `${commentsDir}/index.ts`,
-      `import { Hono } from "hono";\nimport { route } from "${cwd}/src/hono/index.ts";\nconst app = new Hono();\napp.get("/", route().summary("List comments").response(200, { description: "OK" }).handle(() => new Response()));\nexport default app;\n`,
+      `import { Hono } from "hono";\nimport { route } from "${docsDir}/src/hono/index.ts";\nconst app = new Hono();\napp.get("/", route().summary("List comments").response(200, { description: "OK" }).handle(() => new Response()));\nexport default app;\n`,
     )
 
     const app = new Hono()
@@ -122,7 +122,7 @@ export default app;
 
     writeFileSync(
       `${settingsDir}/index.ts`,
-      `import { Hono } from "hono";\nimport { route } from "${cwd}/src/hono/index.ts";\nconst app = new Hono();\napp.get("/", route().summary("Get settings").response(200, { description: "OK" }).handle(() => new Response()));\nexport default app;\n`,
+      `import { Hono } from "hono";\nimport { route } from "${docsDir}/src/hono/index.ts";\nconst app = new Hono();\napp.get("/", route().summary("Get settings").response(200, { description: "OK" }).handle(() => new Response()));\nexport default app;\n`,
     )
 
     const app = new Hono()
