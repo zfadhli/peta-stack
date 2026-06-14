@@ -1,41 +1,60 @@
 name: Publish
-
 on:
   push:
-    branches: [main]
+    tags:
+      - 'peta-orm@*'
+      - 'peta-auth@*'
+      - 'peta-docs@*'
+      - 'peta-migrate@*'
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
+
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-      - run: bun install --frozen-lockfile
-      - run: bun run typecheck
-      - run: bun test
-      - run: bun run build
 
-      - name: Read version
-        id: version
-        run: echo "version=$(jq -r .version package.json)" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
 
-      - name: Tag if new version
+      - name: Parse tag
+        id: tag
         run: |
-          TAG="v${{ steps.version.outputs.version }}"
-          if ! git rev-parse "$TAG" >/dev/null 2>&1; then
-            git config user.name "github-actions"
-            git config user.email "actions@github.com"
-            git tag "$TAG"
-            git push origin "$TAG"
-          fi
+          TAG=${GITHUB_REF#refs/tags/}
+          PACKAGE=${TAG%@*}
+          VERSION=${TAG#*@}
+          echo "package=$PACKAGE" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          # Map npm package name to directory
+          case "$PACKAGE" in
+            peta-orm) DIR="orm" ;;
+            peta-auth) DIR="auth" ;;
+            peta-docs) DIR="docs" ;;
+            peta-migrate) DIR="migrate" ;;
+          esac
+          echo "dir=$DIR" >> "$GITHUB_OUTPUT"
 
-      - name: Publish to npm
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build all packages
+        run: bun run build
+
+      - name: Publish ${{ steps.tag.outputs.package }}
+        run: npm publish -w packages/${{ steps.tag.outputs.dir }} --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          npm config set //registry.npmjs.org/:_authToken=$NODE_AUTH_TOKEN
-          npm publish
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ steps.tag.outputs.package }} v${{ steps.tag.outputs.version }}
+          generate_release_notes: true
