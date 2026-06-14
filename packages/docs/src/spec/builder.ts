@@ -22,9 +22,10 @@ function honoPathToOpenAPI(path: string): string {
 function parsePathParams(path: string): string[] {
   const params: string[] = []
   const regex = /{(\w+)}/g
-  let match: RegExpExecArray | null
-  while ((match = regex.exec(path)) !== null) {
+  let match: RegExpExecArray | null = regex.exec(path)
+  while (match !== null) {
     params.push(match[1]!)
+    match = regex.exec(path)
   }
   return params
 }
@@ -93,7 +94,8 @@ export function buildOpenAPISpec(
 
   for (const { path: rawPath, method, config } of tagged) {
     const path = honoPathToOpenAPI(rawPath)
-    const pathItem = (paths[path] ??= {})
+    paths[path] ??= {}
+    const pathItem = paths[path]
 
     const parameters: ParameterObject[] = []
 
