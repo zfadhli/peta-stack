@@ -1,7 +1,6 @@
 import { sql } from "kysely"
 import type { Column } from "../columns/column.js"
 import { RelationNotFoundError } from "../errors.js"
-import type { Database } from "../lib/kysely.js"
 import type { ModelDefinition, ModelInstance } from "../model/types.js"
 import type { QueryBuilder } from "../query/index.js"
 import { createQueryBuilder } from "../query/index.js"

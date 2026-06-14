@@ -5,7 +5,6 @@ import {
   expect,
   getOpenAPISpec,
   Hono,
-  honoScanner,
   it,
   type RouteScanner,
   route,
@@ -101,9 +100,9 @@ describe("buildOpenAPISpec", () => {
     )
 
     const spec = getOpenAPISpec(app, { title: "Test", version: "1.0.0" })
-    const resp = spec.paths!["/pets"]?.get?.responses["200"]
+    const resp = spec.paths!["/pets"]?.get?.responses?.["200"]
     expect(resp).toBeDefined()
-    expect(resp!.content["application/json"]).toBeDefined()
+    expect(resp!.content?.["application/json"]).toBeDefined()
   })
 
   it("uses explicit tags when provided", () => {
@@ -188,7 +187,7 @@ describe("buildOpenAPISpec", () => {
         .handle(() => new Response()),
     )
     const spec = getOpenAPISpec(app, { title: "Test", version: "1.0.0" })
-    expect(spec.paths!["/pets"]?.get?.responses["200"]?.description).toBe("All good")
+    expect(spec.paths!["/pets"]?.get?.responses?.["200"]?.description).toBe("All good")
   })
 
   it("auto-describes standard status codes", () => {
@@ -203,8 +202,8 @@ describe("buildOpenAPISpec", () => {
         .handle(() => new Response()),
     )
     const spec = getOpenAPISpec(app, { title: "Test", version: "1.0.0" })
-    expect(spec.paths!["/pets"]?.get?.responses["200"]?.description).toBe("OK")
-    expect(spec.paths!["/pets"]?.get?.responses["404"]?.description).toBe("Not Found")
+    expect(spec.paths!["/pets"]?.get?.responses?.["200"]?.description).toBe("OK")
+    expect(spec.paths!["/pets"]?.get?.responses?.["404"]?.description).toBe("Not Found")
   })
 
   it("builds pagination parameters", () => {
@@ -304,11 +303,11 @@ describe("getOpenAPISpec", () => {
         {
           path: "/custom",
           method: "GET",
-          config: { responses: { "200": { description: "OK" } } },
+          config: { responses: { "200": { description: "OK" } }, handler: () => new Response() },
         },
       ],
     }
     const spec = getOpenAPISpec(null, { title: "Test", version: "1.0.0" }, customScanner)
-    expect(spec.paths!["/custom"]?.get?.responses["200"]?.description).toBe("OK")
+    expect(spec.paths!["/custom"]?.get?.responses?.["200"]?.description).toBe("OK")
   })
 })

@@ -1,4 +1,3 @@
-import { DatabaseError } from "../../errors.js"
 import type { ModelDefinition, ModelInstance } from "../../model/types.js"
 import type { Relation } from "../base.js"
 import type { GraphContext, RefEntry } from "./types.js"
