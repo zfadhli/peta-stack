@@ -5,6 +5,7 @@
 [![npm version](https://img.shields.io/badge/peta--docs-0.3.0-blue?style=flat-square)](https://www.npmjs.com/package/peta-docs)
 [![npm version](https://img.shields.io/badge/peta--migrate-0.1.0-blue?style=flat-square)](https://www.npmjs.com/package/peta-migrate)
 [![CI](https://img.shields.io/github/actions/workflow/status/zfadhli/peta-stack/ci.yml?style=flat-square&label=CI)](https://github.com/zfadhli/peta-stack/actions)
+[![Docs](https://img.shields.io/badge/docs-peta--stack-blue?style=flat-square)](https://zfadhli.github.io/peta-stack/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org)
 [![Bun](https://img.shields.io/badge/Bun-1.3-black?style=flat-square&logo=bun)](https://bun.sh)
 [![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
