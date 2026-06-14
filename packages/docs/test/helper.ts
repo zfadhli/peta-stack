@@ -24,7 +24,7 @@ export {
 }
 
 /** Create a symlink to node_modules for filesystem test fixtures. */
-const _nodeModules = import.meta.dirname + "/../node_modules"
+const _nodeModules = `${import.meta.dirname}/../node_modules`
 export function linkNodeModules(dir: string) {
   try {
     symlinkSync(_nodeModules, `${dir}/node_modules`)

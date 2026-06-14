@@ -36,21 +36,15 @@ export default defineConfig({
           },
           {
             text: "peta-auth",
-            items: [
-              { text: "Security & Operations", link: "/packages/auth/security" },
-            ],
+            items: [{ text: "Security & Operations", link: "/packages/auth/security" }],
           },
           {
             text: "peta-docs",
-            items: [
-              { text: "Customization", link: "/packages/docs/customization" },
-            ],
+            items: [{ text: "Customization", link: "/packages/docs/customization" }],
           },
           {
             text: "peta-migrate",
-            items: [
-              { text: "Advanced Usage", link: "/packages/migrate/advanced" },
-            ],
+            items: [{ text: "Advanced Usage", link: "/packages/migrate/advanced" }],
           },
         ],
       },
@@ -64,9 +58,7 @@ export default defineConfig({
       },
     ],
 
-    socialLinks: [
-      { icon: "github", link: "https://github.com/zfadhli/peta-stack" },
-    ],
+    socialLinks: [{ icon: "github", link: "https://github.com/zfadhli/peta-stack" }],
 
     footer: {
       message: "MIT Licensed",

@@ -13,7 +13,7 @@ import {
 // ---------------------------------------------------------------------------
 // loadRoutes
 // ---------------------------------------------------------------------------
-const docsDir = import.meta.dirname + "/../.."
+const docsDir = `${import.meta.dirname}/../..`
 
 describe("loadRoutes", () => {
   it("loads and mounts route modules under default /api basePath", async () => {

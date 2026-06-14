@@ -1,8 +1,7 @@
 import { describe, expect, it } from "bun:test"
-import { mkdirSync, symlinkSync, writeFileSync } from "node:fs"
+import { symlinkSync } from "node:fs"
 import { type } from "arktype"
 import { Hono } from "hono"
-import { loadRoutes } from "../src/hono/index.js"
 import { getRouteMeta, route, setOnValidationError } from "../src/hono/route.js"
 import { honoScanner } from "../src/hono/scanner.js"
 
@@ -10,7 +9,7 @@ import { serveScalarUI } from "../src/scalar.js"
 import type { RouteScanner } from "../src/scanner.js"
 import { buildOpenAPISpec, getOpenAPISpec } from "../src/spec.js"
 
-function linkNodeModules(dir: string) {
+function _linkNodeModules(dir: string) {
   try {
     symlinkSync(`${process.cwd()}/node_modules`, `${dir}/node_modules`)
   } catch {}
