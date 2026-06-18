@@ -5,19 +5,19 @@
 //   createORM({ dialect, models: { User } })
 //
 // Or registerAfter with registerAll:
-//   const db = createORM({ dialect })
+//   const client = createORM({ dialect })
 //   db.registerAll(User)
 //
 // Both approaches are equivalent.
 
-import { Database } from "bun:sqlite"
-import { BunSqliteDialect } from "kysely-bun-sqlite"
+import { createClient } from "@libsql/client"
+import { LibsqlDialect } from "@libsql/kysely-libsql"
 import { t as columnTypes, createArkTypeSchemaConfig, createORM, defineModel } from "../src/index.js"
 
 const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
-const database = new Database(":memory:")
-database.run("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
+const client = createClient({ url: "file::memory:?cache=shared" })
+await client.execute("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
 
 // Models can be defined anywhere and registered explicitly
 const User = defineModel("users", {
@@ -25,8 +25,8 @@ const User = defineModel("users", {
 })
 
 // createORM with models in config (recommended)
-const db = createORM({
-  dialect: new BunSqliteDialect({ database }),
+const client = createORM({
+  dialect: new LibsqlDialect({ client }),
   models: { User },
 })
 

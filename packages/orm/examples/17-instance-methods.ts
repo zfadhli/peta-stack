@@ -1,8 +1,8 @@
 // Peta ORM — 17-instance-methods
 // fill, dirty, reset, $reload, $load, $related
 
-import { Database } from "bun:sqlite"
-import { BunSqliteDialect } from "kysely-bun-sqlite"
+import { createClient } from "@libsql/client"
+import { LibsqlDialect } from "@libsql/kysely-libsql"
 import { t as columnTypes, createArkTypeSchemaConfig, createORM, defineModel, hasMany } from "../src/index.js"
 
 const t = columnTypes({ schema: createArkTypeSchemaConfig() })
@@ -20,12 +20,12 @@ const Post = defineModel("posts", {
 // Wire up after all models exist
 User.relations.posts = hasMany(() => Post, { foreignKey: "userId" })
 
-const database = new Database(":memory:")
-database.run("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT)")
-database.run("CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, title TEXT NOT NULL)")
+const client = createClient({ url: "file::memory:?cache=shared" })
+await client.execute("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT)")
+await client.execute("CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, title TEXT NOT NULL)")
 
-const db = createORM({
-  dialect: new BunSqliteDialect({ database }),
+const client = createORM({
+  dialect: new LibsqlDialect({ client }),
   models: { User, Post },
 })
 

@@ -1,8 +1,8 @@
 // Peta ORM — 28-nested-create-update
 // Create and update models with related data in a single call
 
-import { Database } from "bun:sqlite"
-import { BunSqliteDialect } from "kysely-bun-sqlite"
+import { createClient } from "@libsql/client"
+import { LibsqlDialect } from "@libsql/kysely-libsql"
 import {
   belongsTo,
   t as columnTypes,
@@ -32,16 +32,16 @@ const Post = defineModel("posts", {
 
 User.relations.posts = hasMany(() => Post, { foreignKey: "userId" })
 
-const database = new Database(":memory:")
-database.run(
+const client = createClient({ url: "file::memory:?cache=shared" })
+await client.execute(
   "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE)",
 )
-database.run("CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, title TEXT NOT NULL)")
-database.run("CREATE TABLE tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
-database.run("CREATE TABLE post_tags (postId INTEGER NOT NULL, tagId INTEGER NOT NULL, PRIMARY KEY (postId, tagId))")
+await client.execute("CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, title TEXT NOT NULL)")
+await client.execute("CREATE TABLE tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
+await client.execute("CREATE TABLE post_tags (postId INTEGER NOT NULL, tagId INTEGER NOT NULL, PRIMARY KEY (postId, tagId))")
 
-const db = createORM({
-  dialect: new BunSqliteDialect({ database }),
+const client = createORM({
+  dialect: new LibsqlDialect({ client }),
   models: { User, Post, Tag },
 })
 

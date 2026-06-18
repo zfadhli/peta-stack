@@ -1,8 +1,8 @@
 // Peta ORM — 22-related-query-builder
 // $related() — scoped query builder for relations
 
-import { Database } from "bun:sqlite"
-import { BunSqliteDialect } from "kysely-bun-sqlite"
+import { createClient } from "@libsql/client"
+import { LibsqlDialect } from "@libsql/kysely-libsql"
 import {
   belongsTo,
   t as columnTypes,
@@ -31,14 +31,14 @@ const Post = defineModel("posts", {
 
 User.relations.posts = hasMany(() => Post, { foreignKey: "userId" })
 
-const database = new Database(":memory:")
-database.run("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
-database.run(
+const client = createClient({ url: "file::memory:?cache=shared" })
+await client.execute("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
+await client.execute(
   "CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, title TEXT NOT NULL, published INTEGER DEFAULT 1)",
 )
 
-const db = createORM({
-  dialect: new BunSqliteDialect({ database }),
+const client = createORM({
+  dialect: new LibsqlDialect({ client }),
   models: { User, Post },
 })
 

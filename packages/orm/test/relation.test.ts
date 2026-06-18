@@ -1,6 +1,6 @@
-import { Database } from "bun:sqlite"
 import { afterAll, beforeAll, describe, expect, it } from "bun:test"
-import { BunSqliteDialect } from "kysely-bun-sqlite"
+import { createClient } from "@libsql/client"
+import { LibsqlDialect } from "@libsql/kysely-libsql"
 import { t as columnTypes, createArkTypeSchemaConfig } from "../src/columns/index.js"
 import { belongsTo, createPeta, defineModel, hasMany, hasManyThrough, hasOne, manyToMany } from "../src/index.js"
 import type { ModelInstance } from "../src/model/types.js"
@@ -82,22 +82,20 @@ Tag.relations.posts = manyToMany(() => Post, {
 let peta: ReturnType<typeof createPeta>
 
 beforeAll(async () => {
-  const database = new Database(":memory:")
-  database.run("PRAGMA journal_mode = WAL")
+  const client = createClient({ url: ":memory:" })
+  await client.execute("PRAGMA journal_mode = WAL")
   peta = createPeta({
-    dialect: new BunSqliteDialect({ database }),
+    dialect: new LibsqlDialect({ client }),
   })
   peta.registerAll(User, Profile, Post, Tag, Category, CategoryPost)
 
-  database.run(`
-    CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL);
-    CREATE TABLE profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, bio TEXT);
-    CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, title TEXT NOT NULL);
-    CREATE TABLE tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL);
-    CREATE TABLE post_tags (id INTEGER PRIMARY KEY AUTOINCREMENT, postId INTEGER NOT NULL, tagId INTEGER NOT NULL);
-    CREATE TABLE categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL);
-    CREATE TABLE category_posts (id INTEGER PRIMARY KEY AUTOINCREMENT, categoryId INTEGER NOT NULL, postId INTEGER NOT NULL);
-  `)
+  await client.execute("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
+  await client.execute("CREATE TABLE profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, bio TEXT)")
+  await client.execute("CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, title TEXT NOT NULL)")
+  await client.execute("CREATE TABLE tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
+  await client.execute("CREATE TABLE post_tags (id INTEGER PRIMARY KEY AUTOINCREMENT, postId INTEGER NOT NULL, tagId INTEGER NOT NULL)")
+  await client.execute("CREATE TABLE categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
+  await client.execute("CREATE TABLE category_posts (id INTEGER PRIMARY KEY AUTOINCREMENT, categoryId INTEGER NOT NULL, postId INTEGER NOT NULL)")
 
   const alice = await User.insert({ name: "Alice" })
   const bob = await User.insert({ name: "Bob" })

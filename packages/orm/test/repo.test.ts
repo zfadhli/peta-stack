@@ -1,6 +1,6 @@
-import { Database } from "bun:sqlite"
 import { afterAll, beforeAll, describe, expect, it } from "bun:test"
-import { BunSqliteDialect } from "kysely-bun-sqlite"
+import { createClient } from "@libsql/client"
+import { LibsqlDialect } from "@libsql/kysely-libsql"
 import { t as columnTypes, createArkTypeSchemaConfig } from "../src/columns/index.js"
 import { createPeta, defineModel } from "../src/index.js"
 import { createRepo } from "../src/repo/index.js"
@@ -20,12 +20,12 @@ const RepoUser = defineModel("repo_users", {
 let peta: ReturnType<typeof createPeta>
 
 beforeAll(async () => {
-  const database = new Database(":memory:")
-  database.run("PRAGMA journal_mode = WAL")
-  database.run(
+  const client = createClient({ url: ":memory:" })
+  await client.execute("PRAGMA journal_mode = WAL")
+  await client.execute(
     "CREATE TABLE repo_users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL, role TEXT DEFAULT 'user', active INTEGER DEFAULT 1)",
   )
-  peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
+  peta = createPeta({ dialect: new LibsqlDialect({ client }) })
   peta.registerAll(RepoUser)
 
   await RepoUser.insert({ name: "Alice", email: "alice@test.com", role: "admin" })

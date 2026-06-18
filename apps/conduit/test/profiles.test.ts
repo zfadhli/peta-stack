@@ -5,7 +5,7 @@ const uniqueId = () => Date.now().toString(36) + Math.random().toString(36).slic
 
 describe("Profiles", () => {
   it("should get a profile", async () => {
-    const { app } = createTestApp()
+    const { app } = await createTestApp()
     const uid = uniqueId()
     await signupUser(app, {
       username: `pro_${uid}`,
@@ -21,13 +21,13 @@ describe("Profiles", () => {
   })
 
   it("should return 404 for non-existent profile", async () => {
-    const { app } = createTestApp()
+    const { app } = await createTestApp()
     const res = await app.fetch(new Request("http://localhost/api/profiles/nobody"))
     expect(res.status).toBe(404)
   })
 
   it("should follow a user", async () => {
-    const { app } = createTestApp()
+    const { app } = await createTestApp()
     const uid = uniqueId()
     await signupUser(app, {
       username: `target_${uid}`,
@@ -52,7 +52,7 @@ describe("Profiles", () => {
   })
 
   it("should unfollow a user", async () => {
-    const { app } = createTestApp()
+    const { app } = await createTestApp()
     const uid = uniqueId()
     await signupUser(app, {
       username: `untarget_${uid}`,
@@ -86,7 +86,7 @@ describe("Profiles", () => {
   })
 
   it("should require auth to follow", async () => {
-    const { app } = createTestApp()
+    const { app } = await createTestApp()
     const res = await app.fetch(
       new Request("http://localhost/api/profiles/someone/follow", {
         method: "POST",

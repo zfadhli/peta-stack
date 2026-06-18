@@ -1,6 +1,6 @@
-import { Database } from "bun:sqlite"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "bun:test"
-import { BunSqliteDialect } from "kysely-bun-sqlite"
+import { createClient } from "@libsql/client"
+import { LibsqlDialect } from "@libsql/kysely-libsql"
 import { t as columnTypes, createArkTypeSchemaConfig } from "../src/columns/index.js"
 import { createPeta, defineModel, defineMorphMany, defineMorphTo } from "../src/index.js"
 import { resolveMorphRelation } from "../src/relations/morph.js"
@@ -113,25 +113,25 @@ Orphan.relations.commentable = defineMorphTo({
 
 // ─── Setup ─────────────────────────────────────────────────────
 
-let db: Database
+let db: ReturnType<typeof createClient>
 let peta: ReturnType<typeof createPeta>
 
 beforeAll(async () => {
-  db = new Database(":memory:")
-  db.run("PRAGMA journal_mode = WAL")
-  db.run("CREATE TABLE morph_posts (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL)")
-  db.run("CREATE TABLE morph_videos (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL)")
-  db.run(
+  db = createClient({ url: ":memory:" })
+  await db.execute("PRAGMA journal_mode = WAL")
+  await db.execute("CREATE TABLE morph_posts (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL)")
+  await db.execute("CREATE TABLE morph_videos (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL)")
+  await db.execute(
     "CREATE TABLE morph_likes (id INTEGER PRIMARY KEY AUTOINCREMENT, likeableType TEXT NOT NULL, likeableId INTEGER NOT NULL, userId TEXT)",
   )
-  db.run(
+  await db.execute(
     "CREATE TABLE morph_comments (id INTEGER PRIMARY KEY AUTOINCREMENT, body TEXT NOT NULL, commentableType TEXT NOT NULL, commentableId INTEGER NOT NULL)",
   )
-  db.run(
+  await db.execute(
     "CREATE TABLE morph_orphans (id INTEGER PRIMARY KEY AUTOINCREMENT, commentableType TEXT, commentableId INTEGER, label TEXT)",
   )
 
-  peta = createPeta({ dialect: new BunSqliteDialect({ database: db }) })
+  peta = createPeta({ dialect: new LibsqlDialect({ client: db }) })
   peta.registerAll(Post, Video, Like, Comment, Orphan)
 })
 
@@ -141,12 +141,12 @@ afterAll(async () => {
 })
 
 // Clean all tables between tests for isolation
-beforeEach(() => {
-  db.run("DELETE FROM morph_likes")
-  db.run("DELETE FROM morph_comments")
-  db.run("DELETE FROM morph_orphans")
-  db.run("DELETE FROM morph_posts")
-  db.run("DELETE FROM morph_videos")
+beforeEach(async () => {
+  await db.execute("DELETE FROM morph_likes")
+  await db.execute("DELETE FROM morph_comments")
+  await db.execute("DELETE FROM morph_orphans")
+  await db.execute("DELETE FROM morph_posts")
+  await db.execute("DELETE FROM morph_videos")
 })
 
 // ─── Tests ─────────────────────────────────────────────────────

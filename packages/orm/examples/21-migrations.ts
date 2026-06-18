@@ -1,9 +1,9 @@
 // Peta ORM — 21-migrations
 // MigrationRunner, MigrationGenerator
 
-import { Database } from "bun:sqlite"
 import { Kysely } from "kysely"
-import { BunSqliteDialect } from "kysely-bun-sqlite"
+import { createClient } from "@libsql/client"
+import { LibsqlDialect } from "@libsql/kysely-libsql"
 import { t as columnTypes, createArkTypeSchemaConfig, defineModel } from "../src/index.js"
 import { createMigrationGenerator, createMigrationRunner } from "../src/migrations/index.js"
 
@@ -18,9 +18,9 @@ const Post = defineModel("posts", {
 })
 
 // Migration Runner
-const db = new Database(":memory:")
+const client = createClient({ url: "file::memory:?cache=shared" })
 const kysely = new Kysely<Record<string, never>>({
-  dialect: new BunSqliteDialect({ database: db }),
+  dialect: new LibsqlDialect({ client }),
 })
 
 const runner = createMigrationRunner(kysely)
@@ -60,4 +60,4 @@ console.log("Generated migration:")
 console.log(code)
 
 await kysely.destroy()
-db.close()
+client.close()

@@ -4,8 +4,8 @@
 // Insert or upsert an entire object graph (model + nested relations of any depth)
 // in a single call, with support for shared references via #id/#ref.
 
-import { Database } from "bun:sqlite"
-import { BunSqliteDialect } from "kysely-bun-sqlite"
+import { createClient } from "@libsql/client"
+import { LibsqlDialect } from "@libsql/kysely-libsql"
 import {
   belongsTo,
   t as columnTypes,
@@ -53,17 +53,17 @@ Post.relations.tags = manyToMany(() => Tag, {
 
 // ─── Setup ─────────────────────────────────────────────────────
 
-const database = new Database(":memory:")
-database.run("CREATE TABLE users_30 (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
-database.run("CREATE TABLE profiles_30 (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER, bio TEXT)")
-database.run(
+const client = createClient({ url: "file::memory:?cache=shared" })
+await client.execute("CREATE TABLE users_30 (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
+await client.execute("CREATE TABLE profiles_30 (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER, bio TEXT)")
+await client.execute(
   "CREATE TABLE posts_30 (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, title TEXT NOT NULL)",
 )
-database.run("CREATE TABLE tags_30 (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
-database.run("CREATE TABLE post_tags_30 (postId INTEGER NOT NULL, tagId INTEGER NOT NULL)")
+await client.execute("CREATE TABLE tags_30 (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
+await client.execute("CREATE TABLE post_tags_30 (postId INTEGER NOT NULL, tagId INTEGER NOT NULL)")
 
-const db = createORM({
-  dialect: new BunSqliteDialect({ database }),
+const client = createORM({
+  dialect: new LibsqlDialect({ client }),
   models: { User, Profile, Post, Tag },
 })
 

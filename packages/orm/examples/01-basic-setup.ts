@@ -5,8 +5,8 @@
 //   createORM()  — recommended (new)
 //   createPeta() — backward compat alias (identical)
 
-import { Database } from "bun:sqlite"
-import { BunSqliteDialect } from "kysely-bun-sqlite"
+import { createClient } from "@libsql/client"
+import { LibsqlDialect } from "@libsql/kysely-libsql"
 import { t as columnTypes, createArkTypeSchemaConfig, createORM, defineModel } from "../src/index.js"
 
 const t = columnTypes({ schema: createArkTypeSchemaConfig() })
@@ -19,15 +19,15 @@ const User = defineModel("users", {
   },
 })
 
-const database = new Database(":memory:")
-database.run(
+const client = createClient({ url: "file::memory:?cache=shared" })
+await client.execute(
   "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE)",
 )
 
 // createORM accepts models in config (one-step registration)
 // Equivalent to: createPeta({ dialect }).registerAll(User)
-const db = createORM({
-  dialect: new BunSqliteDialect({ database }),
+const client = createORM({
+  dialect: new LibsqlDialect({ client }),
   models: { User },
 })
 
@@ -41,6 +41,6 @@ await db.destroy()
 
 // Backward compat:
 // import { createPeta } from "peta-orm"
-// const db = createPeta({ dialect })  // identical to createORM
+// const client = createPeta({ dialect })  // identical to createORM
 // db.registerAll(User)               // or pass models via config
 // await db.destroy()

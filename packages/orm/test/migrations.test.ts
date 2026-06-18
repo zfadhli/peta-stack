@@ -1,7 +1,7 @@
-import { Database } from "bun:sqlite"
 import { afterAll, describe, expect, it } from "bun:test"
 import { Kysely } from "kysely"
-import { BunSqliteDialect } from "kysely-bun-sqlite"
+import { createClient } from "@libsql/client"
+import { LibsqlDialect } from "@libsql/kysely-libsql"
 import { t as columnTypes, createArkTypeSchemaConfig } from "../src/columns/index.js"
 import { createPeta, defineModel } from "../src/index.js"
 import { createMigrationGenerator, createMigrationRunner } from "../src/migrations/index.js"
@@ -27,12 +27,14 @@ const Post = defineModel("posts", {
   },
 })
 
-let db: Database
+const _migDir = new URL("../../../.tmp/", import.meta.url).pathname
+let db: ReturnType<typeof createClient>
+let _counter = 0
 
 function createKysely(): Kysely<any> {
-  db = new Database(":memory:")
-  db.run("PRAGMA journal_mode = WAL")
-  return new Kysely<any>({ dialect: new BunSqliteDialect({ database: db }) })
+  const url = `file:${_migDir}migrate-${++_counter}-${Date.now()}.db`
+  db = createClient({ url })
+  return new Kysely<any>({ dialect: new LibsqlDialect({ client: db }) })
 }
 
 afterAll(() => {
@@ -45,7 +47,7 @@ describe("MigrationRunner", () => {
     const runner = createMigrationRunner(kysely)
     await runner.ensureTable()
 
-    const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='_peta_migrations'").all()
+    const tables = (await db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='_peta_migrations'")).rows
     expect(tables).toHaveLength(1)
 
     await kysely.destroy()
@@ -83,7 +85,7 @@ describe("MigrationRunner", () => {
     expect(completed).toHaveLength(1)
     expect(completed[0]!.name).toBe("001_create_users")
 
-    const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='users'").all()
+    const tables = (await db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")).rows
     expect(tables).toHaveLength(1)
 
     await kysely.destroy()
@@ -109,12 +111,12 @@ describe("MigrationRunner", () => {
 
     await runner.up([migrate])
 
-    let tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='users'").all()
+    let tables = (await db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")).rows
     expect(tables).toHaveLength(1)
 
     await runner.down([migrate])
 
-    tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='users'").all()
+    tables = (await db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")).rows
     expect(tables).toHaveLength(0)
 
     const completed = await runner.getCompleted()
@@ -160,7 +162,7 @@ describe("MigrationGenerator", () => {
       },
     })
 
-    const peta = createPeta({ dialect: new BunSqliteDialect({ database: new Database(":memory:") }) })
+    const peta = createPeta({ dialect: new LibsqlDialect({ url: ":memory:" }) })
     peta.registerAll(User, Post, Comment)
     const gen = createMigrationGenerator()
     const code = gen.generateInitialMigration(peta.models)
@@ -188,7 +190,7 @@ describe("MigrationGenerator", () => {
   })
 
   it("generates ifNotExists on createTable", () => {
-    const peta = createPeta({ dialect: new BunSqliteDialect({ database: new Database(":memory:") }) })
+    const peta = createPeta({ dialect: new LibsqlDialect({ url: ":memory:" }) })
     peta.registerAll(User, Post)
     const gen = createMigrationGenerator()
     const code = gen.generateInitialMigration(peta.models)
@@ -210,7 +212,7 @@ describe("MigrationGenerator", () => {
       },
     })
 
-    const peta = createPeta({ dialect: new BunSqliteDialect({ database: new Database(":memory:") }) })
+    const peta = createPeta({ dialect: new LibsqlDialect({ url: ":memory:" }) })
     peta.registerAll(PostWithTags, Tag)
     const gen = createMigrationGenerator()
     const code = gen.generateInitialMigration(peta.models)
@@ -239,7 +241,7 @@ describe("MigrationGenerator", () => {
       },
     })
 
-    const peta = createPeta({ dialect: new BunSqliteDialect({ database: new Database(":memory:") }) })
+    const peta = createPeta({ dialect: new LibsqlDialect({ url: ":memory:" }) })
     peta.registerAll(PostWithTags, Tag, PostTag)
     const gen = createMigrationGenerator()
     const code = gen.generateInitialMigration(peta.models)
@@ -249,7 +251,7 @@ describe("MigrationGenerator", () => {
   })
 
   it("generated migration is syntactically valid when run", async () => {
-    const peta = createPeta({ dialect: new BunSqliteDialect({ database: new Database(":memory:") }) })
+    const peta = createPeta({ dialect: new LibsqlDialect({ url: ":memory:" }) })
     peta.registerAll(User, Post)
     const gen = createMigrationGenerator()
     const code = gen.generateInitialMigration(peta.models)

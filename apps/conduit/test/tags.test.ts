@@ -5,7 +5,7 @@ const uniqueId = () => Date.now().toString(36) + Math.random().toString(36).slic
 
 describe("Tags", () => {
   it("should return empty tags list when no articles exist", async () => {
-    const { app } = createTestApp()
+    const { app } = await createTestApp()
     const res = await app.fetch(new Request("http://localhost/api/tags"))
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -13,7 +13,7 @@ describe("Tags", () => {
   })
 
   it("should return tags from existing articles", async () => {
-    const { app } = createTestApp()
+    const { app } = await createTestApp()
     const uid = uniqueId()
     const { token } = await signupUser(app, {
       username: `tags_${uid}`,

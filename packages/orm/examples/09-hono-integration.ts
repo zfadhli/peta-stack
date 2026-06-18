@@ -2,9 +2,9 @@
 // Hono app + error handling with DatabaseError
 // Runs as a self-contained test using Hono's app.fetch()
 
-import { Database } from "bun:sqlite"
 import { Hono } from "hono"
-import { BunSqliteDialect } from "kysely-bun-sqlite"
+import { createClient } from "@libsql/client"
+import { LibsqlDialect } from "@libsql/kysely-libsql"
 import { t as columnTypes, createArkTypeSchemaConfig, createORM, DatabaseError, defineModel } from "../src/index.js"
 import { petaMiddleware } from "../src/integrations/hono.js"
 
@@ -14,11 +14,11 @@ const User = defineModel("users", {
   columns: { id: t.integer().primaryKey(), name: t.string(255) },
 })
 
-const database = new Database(":memory:")
-database.run("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
+const client = createClient({ url: "file::memory:?cache=shared" })
+await client.execute("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
 
-const db = createORM({
-  dialect: new BunSqliteDialect({ database }),
+const client = createORM({
+  dialect: new LibsqlDialect({ client }),
   models: { User },
 })
 

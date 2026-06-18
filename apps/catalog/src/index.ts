@@ -3,7 +3,7 @@ import { cors } from "hono/cors"
 import { HTTPException } from "hono/http-exception"
 import { session } from "peta-auth/hono"
 import { getOpenAPISpec, serveScalarUI } from "peta-docs"
-import { DatabaseError, normalizeError } from "peta-orm"
+import { createORM, DatabaseError, normalizeError } from "peta-orm"
 import { getORM } from "./db/schema.js"
 
 import auth from "./routes/auth.js"
@@ -34,9 +34,9 @@ const API_COMPONENTS = {
  *
  * @param orm - Optional ORM instance (for tests). Defaults to the singleton.
  */
-export function createApp(orm?: ReturnType<typeof getORM>): Hono {
+export async function createApp(orm?: ReturnType<typeof createORM>): Promise<Hono> {
   // Ensure the ORM is initialized
-  orm ??= getORM()
+  if (!orm) orm = await getORM()
 
   const app = new Hono()
 
@@ -101,8 +101,8 @@ export function createApp(orm?: ReturnType<typeof getORM>): Hono {
 // Only start the server when this file is the entry point (not when imported
 // by tests).
 if (import.meta.main) {
-  const orm = getORM()
-  const app = createApp(orm)
+  const orm = await getORM()
+  const app = await createApp(orm)
 
   const port = Number(process.env.PORT ?? 3000)
   console.log(`📚 Books Catalog API running at http://localhost:${port}`)

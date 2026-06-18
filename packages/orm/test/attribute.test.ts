@@ -1,6 +1,6 @@
-import { Database } from "bun:sqlite"
 import { afterAll, beforeAll, describe, expect, it } from "bun:test"
-import { BunSqliteDialect } from "kysely-bun-sqlite"
+import { createClient } from "@libsql/client"
+import { LibsqlDialect } from "@libsql/kysely-libsql"
 import { t as columnTypes, createArkTypeSchemaConfig } from "../src/columns/index.js"
 import { Attribute, createPeta, defineModel } from "../src/index.js"
 
@@ -51,7 +51,7 @@ describe("Attribute.make()", () => {
 // ─── Integration tests (with DB) ──────────────────────────────────
 
 describe("Attribute accessors & mutators", () => {
-  const db = new Database(":memory:")
+  const db = createClient({ url: ":memory:" })
   let peta: ReturnType<typeof createPeta>
 
   // Model with attribute transformations
@@ -93,12 +93,12 @@ describe("Attribute accessors & mutators", () => {
   })
 
   beforeAll(async () => {
-    db.run("PRAGMA journal_mode = WAL")
-    db.run(
+    await db.execute("PRAGMA journal_mode = WAL")
+    await db.execute(
       "CREATE TABLE attr_users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT, password TEXT, role TEXT DEFAULT 'user')",
     )
-    db.run("CREATE TABLE no_accessors (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
-    peta = createPeta({ dialect: new BunSqliteDialect({ database: db }) })
+    await db.execute("CREATE TABLE no_accessors (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
+    peta = createPeta({ dialect: new LibsqlDialect({ client: db }) })
     peta.registerAll(User, NoAccessors)
   })
 
@@ -200,7 +200,7 @@ describe("Attribute accessors & mutators", () => {
       },
     })
 
-    db.run(
+    await db.execute(
       "CREATE TABLE IF NOT EXISTS with_casts (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, metadata TEXT)",
     )
     peta.registerAll(WithCast)
@@ -355,7 +355,7 @@ describe("Attribute accessors & mutators", () => {
       },
     })
 
-    db.run(
+    await db.execute(
       "CREATE TABLE IF NOT EXISTS fullname_users (id INTEGER PRIMARY KEY AUTOINCREMENT, firstName TEXT NOT NULL, lastName TEXT NOT NULL)",
     )
     peta.registerAll(FullNameModel)
@@ -380,7 +380,7 @@ describe("Attribute accessors & mutators", () => {
       },
     })
 
-    db.run(
+    await db.execute(
       "CREATE TABLE IF NOT EXISTS counter_users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, version INTEGER DEFAULT 1)",
     )
     peta.registerAll(CounterModel)
@@ -405,7 +405,7 @@ describe("Attribute accessors & mutators", () => {
       appends: ["fullName"],
     })
 
-    db.run(
+    await db.execute(
       "CREATE TABLE IF NOT EXISTS append_models (id INTEGER PRIMARY KEY AUTOINCREMENT, firstName TEXT NOT NULL, lastName TEXT NOT NULL)",
     )
     peta.registerAll(AppendModel)

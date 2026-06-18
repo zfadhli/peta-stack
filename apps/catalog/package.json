@@ -6,7 +6,7 @@
     "dev": "bun run src/index.ts",
     "seed": "bun run src/db/seed.ts",
     "typecheck": "tsc --noEmit",
-    "test": "bun test",
+    "test": "NODE_ENV=test bun test",
     "test:hurl": "bash test/hurl/run.sh"
   },
   "dependencies": {
@@ -16,7 +16,8 @@
     "hono": "^4.7.7",
     "arktype": "^2.1.8",
     "kysely": "^0.28.17",
-    "kysely-bun-sqlite": "^0.4.0",
+    "@libsql/kysely-libsql": "^0.4.1",
+    "@libsql/client": "^0.8.0",
     "bcryptjs": "^2.4.3"
   },
   "devDependencies": {

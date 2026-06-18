@@ -1,6 +1,7 @@
-import { Database } from "bun:sqlite"
+import type { Client } from "@libsql/client"
+import { createClient } from "@libsql/client"
+import { LibsqlDialect } from "@libsql/kysely-libsql"
 import type { Hono } from "hono"
-import { BunSqliteDialect } from "kysely-bun-sqlite"
 import { hashPassword } from "peta-auth"
 import { createTables, getORM } from "../src/db/schema.js"
 
@@ -11,12 +12,12 @@ import { createTables, getORM } from "../src/db/schema.js"
  * Tables are created automatically. Returns both the ORM and the raw DB
  * reference (for direct queries in test assertions).
  */
-export function createTestORM(): { orm: ReturnType<typeof getORM>; db: Database } {
-  const db = new Database(":memory:")
-  db.run("PRAGMA foreign_keys = ON")
-  createTables(db)
-  const orm = getORM(new BunSqliteDialect({ database: db }))
-  return { orm, db }
+export async function createTestORM(): Promise<{ orm: Awaited<ReturnType<typeof getORM>>; client: Client }> {
+  const client = createClient({ url: ":memory:" })
+  await client.execute("PRAGMA foreign_keys = ON")
+  await createTables(client)
+  const orm = await getORM(new LibsqlDialect({ client }))
+  return { orm, client }
 }
 
 // ─── Session Helpers ──────────────────────────────────────────────────────

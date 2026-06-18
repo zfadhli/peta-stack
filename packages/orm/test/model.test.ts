@@ -1,6 +1,6 @@
-import { Database } from "bun:sqlite"
 import { afterAll, beforeAll, describe, expect, it } from "bun:test"
-import { BunSqliteDialect } from "kysely-bun-sqlite"
+import { createClient } from "@libsql/client"
+import { LibsqlDialect } from "@libsql/kysely-libsql"
 import { t as columnTypes, createArkTypeSchemaConfig } from "../src/columns/index.js"
 import { createPeta, defineModel } from "../src/index.js"
 import { computeAtRuntime, computeBatchAtRuntime } from "../src/model/computed.js"
@@ -28,14 +28,14 @@ const Post = defineModel("posts", {
 let peta: ReturnType<typeof createPeta>
 
 beforeAll(async () => {
-  const database = new Database(":memory:")
-  database.run("PRAGMA journal_mode = WAL")
+  const client = createClient({ url: ":memory:" })
+  await client.execute("PRAGMA journal_mode = WAL")
   peta = createPeta({
-    dialect: new BunSqliteDialect({ database }),
+    dialect: new LibsqlDialect({ client }),
   })
   peta.registerAll(User, Post)
 
-  database.run(`
+  await client.execute(`
     CREATE TABLE users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
@@ -43,7 +43,7 @@ beforeAll(async () => {
       age INTEGER
     )
   `)
-  database.run(`
+  await client.execute(`
     CREATE TABLE posts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       userId INTEGER NOT NULL,
@@ -286,7 +286,7 @@ describe("Thenable query builder", () => {
 })
 
 describe("Computed columns", () => {
-  const db = new Database(":memory:")
+  const db = createClient({ url: ":memory:" })
   let peta: ReturnType<typeof createPeta>
 
   const ComputedUser = defineModel("computed_users", {
@@ -298,11 +298,11 @@ describe("Computed columns", () => {
   })
 
   beforeAll(async () => {
-    db.run("PRAGMA journal_mode = WAL")
-    db.run(
+    await db.execute("PRAGMA journal_mode = WAL")
+    await db.execute(
       "CREATE TABLE computed_users (id INTEGER PRIMARY KEY AUTOINCREMENT, firstName TEXT NOT NULL, lastName TEXT NOT NULL)",
     )
-    peta = createPeta({ dialect: new BunSqliteDialect({ database: db }) })
+    peta = createPeta({ dialect: new LibsqlDialect({ client: db }) })
     peta.registerAll(ComputedUser)
     await ComputedUser.insert({ firstName: "John", lastName: "Doe" })
     await ComputedUser.insert({ firstName: "Jane", lastName: "Smith" })

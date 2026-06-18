@@ -1,5 +1,6 @@
-import { Database } from "bun:sqlite"
-import { BunSqliteDialect } from "kysely-bun-sqlite"
+import type { Client } from "@libsql/client"
+import { createClient } from "@libsql/client"
+import { LibsqlDialect } from "@libsql/kysely-libsql"
 import type { ModelDefinition } from "peta-orm"
 import {
   belongsTo,
@@ -127,8 +128,8 @@ export const Follow = defineModel("follows", {
 // Database setup
 // ---------------------------------------------------------------------------
 
-export function createTables(database: Database): void {
-  database.run(`
+export async function createTables(client: Client): Promise<void> {
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       email TEXT NOT NULL UNIQUE,
@@ -141,7 +142,7 @@ export function createTables(database: Database): void {
     )
   `)
 
-  database.run(`
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS articles (
       id TEXT PRIMARY KEY,
       slug TEXT NOT NULL UNIQUE,
@@ -154,14 +155,14 @@ export function createTables(database: Database): void {
     )
   `)
 
-  database.run(`
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS tags (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL UNIQUE
     )
   `)
 
-  database.run(`
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS article_tags (
       articleId TEXT NOT NULL REFERENCES articles(id),
       tagId TEXT NOT NULL REFERENCES tags(id),
@@ -169,7 +170,7 @@ export function createTables(database: Database): void {
     )
   `)
 
-  database.run(`
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS comments (
       id TEXT PRIMARY KEY,
       articleId TEXT NOT NULL REFERENCES articles(id),
@@ -180,7 +181,7 @@ export function createTables(database: Database): void {
     )
   `)
 
-  database.run(`
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS favorites (
       userId TEXT NOT NULL REFERENCES users(id),
       articleId TEXT NOT NULL REFERENCES articles(id),
@@ -188,7 +189,7 @@ export function createTables(database: Database): void {
     )
   `)
 
-  database.run(`
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS follows (
       followerId TEXT NOT NULL REFERENCES users(id),
       followeeId TEXT NOT NULL REFERENCES users(id),
@@ -209,17 +210,17 @@ let _orm: ReturnType<typeof createORM> | null = null
  * singleton). This lets tests inject an in-memory database without affecting
  * the production singleton.
  */
-export function getORM(dialect?: any): ReturnType<typeof createORM> {
+export async function getORM(dialect?: LibsqlDialect): Promise<ReturnType<typeof createORM>> {
   if (dialect) {
     const orm = createORM({ dialect })
     orm.registerAll(User, Article, Tag, ArticleTag, Comment, Favorite, Follow)
     return orm
   }
   if (!_orm) {
-    const database = new Database("conduit.db", { create: true })
-    database.run("PRAGMA foreign_keys = ON")
-    createTables(database)
-    _orm = createORM({ dialect: new BunSqliteDialect({ database }) })
+    const client = createClient({ url: "file:conduit.db" })
+    await client.execute("PRAGMA foreign_keys = ON")
+    await createTables(client)
+    _orm = createORM({ dialect: new LibsqlDialect({ client }) })
     _orm.registerAll(User, Article, Tag, ArticleTag, Comment, Favorite, Follow)
   }
   return _orm
@@ -227,5 +228,5 @@ export function getORM(dialect?: any): ReturnType<typeof createORM> {
 
 // Lazily initialize on first import in development
 if (process.env.NODE_ENV !== "test") {
-  getORM()
+  await getORM()
 }

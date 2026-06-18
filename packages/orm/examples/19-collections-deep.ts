@@ -1,8 +1,8 @@
 // Peta ORM — 19-collections-deep
 // Full Collection + Paginator API
 
-import { Database } from "bun:sqlite"
-import { BunSqliteDialect } from "kysely-bun-sqlite"
+import { createClient } from "@libsql/client"
+import { LibsqlDialect } from "@libsql/kysely-libsql"
 import { t as columnTypes, createArkTypeSchemaConfig, createORM, createPaginator, defineModel } from "../src/index.js"
 
 const t = columnTypes({ schema: createArkTypeSchemaConfig() })
@@ -11,11 +11,11 @@ const User = defineModel("users", {
   columns: { id: t.integer().primaryKey(), name: t.string(255), score: t.float().default(0) },
 })
 
-const database = new Database(":memory:")
-database.run("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, score REAL DEFAULT 0)")
+const client = createClient({ url: "file::memory:?cache=shared" })
+await client.execute("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, score REAL DEFAULT 0)")
 
-const db = createORM({
-  dialect: new BunSqliteDialect({ database }),
+const client = createORM({
+  dialect: new LibsqlDialect({ client }),
   models: { User },
 })
 
