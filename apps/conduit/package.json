@@ -15,7 +15,7 @@
     "peta-docs": "workspace:*",
     "hono": "^4.7.7",
     "arktype": "^2.1.8",
-    "kysely": "^0.28.17",
+    "kysely": "^0.29.2",
     "@libsql/kysely-libsql": "^0.4.1",
     "@libsql/client": "^0.8.0"
   },
