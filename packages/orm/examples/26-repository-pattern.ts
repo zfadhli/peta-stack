@@ -4,7 +4,7 @@
 import { createClient } from "@libsql/client"
 import { LibsqlDialect } from "@libsql/kysely-libsql"
 import { t as columnTypes, createArkTypeSchemaConfig, createORM, defineModel } from "../src/index.js"
-import { createRepo } from "../src/repo/index.js"
+import { createRepo } from "../src/index.js"
 
 const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
@@ -23,7 +23,7 @@ await client.execute(
   "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL, role TEXT DEFAULT 'user', active INTEGER DEFAULT 1)",
 )
 
-const client = createORM({
+const peta = createORM({
   dialect: new LibsqlDialect({ client }),
   models: { User },
 })
@@ -66,4 +66,4 @@ console.log(
 const page = await userRepo.search("a").paginate(1, 10)
 console.log("Search results (page 1):", page.total, "total")
 
-await db.destroy()
+await peta.destroy()

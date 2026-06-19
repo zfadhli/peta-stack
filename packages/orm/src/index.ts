@@ -30,6 +30,9 @@ export { createORM, createORM as createPeta } from "./orm/index.js"
 // ─── Pagination ───────────────────────────────────────────
 export type { PaginatedResult, Paginator, PaginatorJson } from "./pagination/index.js"
 export { createPaginator } from "./pagination/index.js"
+// ─── Repository Pattern ───────────────────────────────────
+export { createRepo } from "./repo/index.js"
+export type { RepoMethods, QueryMethod } from "./repo/index.js"
 // ─── Plugins ────────────────────────────────────────────────
 export type { Plugin } from "./plugins/index.js"
 export { softDeletes } from "./plugins/soft-deletes.js"

@@ -59,7 +59,7 @@ const page = await Post.query().with("author").orderBy("id", "asc").paginate(1, 
 | **Pagination** | `.paginate(1, 20)` — returns `{ data, total, perPage, currentPage, lastPage, hasMorePages }` |
 | **Collections** | `.pluck("name")`, `.groupBy("role")`, `.load("posts")`, `.chunk(10)` |
 | **Error handling** | Normalized `DatabaseError` with dialect-aware codes (SQLite, PG, MySQL) |
-| **Repository pattern** | `Repo.makeHelper()`, query method wrappers |
+| **Repository pattern** | `createRepo()`, `Repo.makeHelper()` — custom query method wrappers |
 | **CLI** | `peta` binary with migration commands |
 | **Database support** | SQLite (via `@libsql/client`), PostgreSQL, MySQL |
 | **Examples** | 32 runnable TypeScript examples covering every feature |
