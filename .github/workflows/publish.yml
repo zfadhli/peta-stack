@@ -6,6 +6,12 @@ on:
       - 'peta-auth@*'
       - 'peta-docs@*'
       - 'peta-migrate@*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish (e.g. peta-orm@0.4.1)'
+        required: true
+        type: string
 
 jobs:
   publish:
@@ -28,7 +34,7 @@ jobs:
       - name: Parse tag
         id: tag
         run: |
-          TAG=${GITHUB_REF#refs/tags/}
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
           PACKAGE=${TAG%@*}
           VERSION=${TAG#*@}
           echo "package=$PACKAGE" >> "$GITHUB_OUTPUT"
