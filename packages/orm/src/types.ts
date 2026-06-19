@@ -42,10 +42,16 @@ export interface ModelDefinition<TColumns extends ColumnShape = ColumnShape> {
   create(data: Record<string, unknown>): Promise<import("./model/types.js").ModelInstance<TColumns>>
   insert(data: Record<string, unknown>): Promise<import("./model/types.js").ModelInstance<TColumns>>
   insertMany(dataArray: Record<string, unknown>[]): Promise<import("./model/types.js").ModelInstance<TColumns>[]>
-  update(id: number | string, data: Record<string, unknown>): Promise<import("./model/types.js").ModelInstance<TColumns>>
+  update(
+    id: number | string,
+    data: Record<string, unknown>,
+  ): Promise<import("./model/types.js").ModelInstance<TColumns>>
   delete(id: number | string): Promise<void>
   hydrate(row: Record<string, unknown>): import("./model/types.js").ModelInstance<TColumns>
-  on(event: string, callback: (model: import("./model/types.js").ModelInstance<TColumns>) => void | Promise<void>): () => void
+  on(
+    event: string,
+    callback: (model: import("./model/types.js").ModelInstance<TColumns>) => void | Promise<void>,
+  ): () => void
   getHooks(): import("./hooks/index.js").HookManager
   addGlobalScope(name: string, callback: (qb: import("./query/index.js").QueryBuilder) => void): void
   removeGlobalScope(name: string): void

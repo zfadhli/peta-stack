@@ -1,11 +1,10 @@
 import { sql as kyselySql } from "kysely"
-import type { Column } from "../columns/column.js"
+import type { Column, ColumnShape } from "../columns/column.js"
 import { ModelNotFoundError, RelationNotAllowedError, RelationNotFoundError } from "../errors.js"
 import type { ModelDefinition, ModelInstance } from "../model/types.js"
 import { type EagerLoad, EagerLoader } from "../relations/eager.js"
 import type { InsertGraphOptions, UpsertGraphOptions } from "../relations/graph/index.js"
 import { isRelationAllowed } from "../relations/graph/index.js"
-import type { ColumnShape } from "../columns/column.js"
 import type { QueryBuilder } from "./types.js"
 
 // Helper to create raw SQL expressions compatible with Kysely 0.27
@@ -39,7 +38,6 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
   def: ModelDefinition<TColumns>,
   peta?: { kysely: import("../lib/kysely.js").Database },
 ): QueryBuilder<TColumns> {
-
   const db: any = peta?.kysely ?? def._orm?.kysely
   if (!db) throw new Error("Model not registered with an ORM instance")
 
@@ -710,7 +708,10 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
       return self
     },
 
-    unless(condition: unknown, callback: (q: QueryBuilder<TColumns>) => QueryBuilder<TColumns>): QueryBuilder<TColumns> {
+    unless(
+      condition: unknown,
+      callback: (q: QueryBuilder<TColumns>) => QueryBuilder<TColumns>,
+    ): QueryBuilder<TColumns> {
       if (!condition) return callback(self)
       return self
     },

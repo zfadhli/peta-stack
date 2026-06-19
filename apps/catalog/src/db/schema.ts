@@ -4,13 +4,13 @@ import { LibsqlDialect } from "@libsql/kysely-libsql"
 import type { ModelDefinition } from "peta-orm"
 import {
   belongsTo,
-  t,
   createORM,
   defineModel,
   hasMany,
   hasOne,
   manyToMany,
   softDeletes,
+  t,
   timestamps,
   ulid,
 } from "peta-orm"

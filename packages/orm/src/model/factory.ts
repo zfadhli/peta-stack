@@ -1,3 +1,4 @@
+import type { ColumnShape } from "../columns/column.js"
 import { applyCastsToData, castForSet, castValue } from "./casts.js"
 import { getRuntime } from "./runtime.js"
 import {
@@ -13,7 +14,6 @@ import {
   setAttr,
   syncOriginal,
 } from "./state.js"
-import type { ColumnShape } from "../columns/column.js"
 import type { ModelConfig, ModelDefinition, ModelInstance, SerializedShape } from "./types.js"
 import { FORBIDDEN_KEYS } from "./types.js"
 

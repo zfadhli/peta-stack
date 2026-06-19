@@ -4,7 +4,8 @@ import type { InsertGraphOptions, UpsertGraphOptions } from "../relations/graph/
 
 // ─── QUERY BUILDER INTERFACE ──────────────────────────────
 
-export interface QueryBuilder<TColumns extends ColumnShape = ColumnShape> extends PromiseLike<ModelInstance<TColumns>[]> {
+export interface QueryBuilder<TColumns extends ColumnShape = ColumnShape>
+  extends PromiseLike<ModelInstance<TColumns>[]> {
   // Core execution
   execute(): Promise<ModelInstance<TColumns>[]>
   collect(): Promise<import("../collection/index.js").Collection<TColumns>>

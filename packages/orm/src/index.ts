@@ -1,5 +1,4 @@
 // ─── ORM Registry ──────────────────────────────────────────
-export { createDb } from "./init.js"
 
 // ─── Collection ────────────────────────────────────────────
 export type { Collection } from "./collection/index.js"
@@ -22,6 +21,7 @@ export {
 // ─── Hooks ─────────────────────────────────────────────────
 export type { HookCallback, HookManager, LifecycleEvent } from "./hooks/index.js"
 export { createHookManager } from "./hooks/index.js"
+export { createDb } from "./init.js"
 export { defineModel } from "./model/define.js"
 // ─── Model System ──────────────────────────────────────────
 export { Attribute } from "./model/index.js"
@@ -31,9 +31,6 @@ export { createORM, createORM as createPeta } from "./orm/index.js"
 // ─── Pagination ───────────────────────────────────────────
 export type { PaginatedResult, Paginator, PaginatorJson } from "./pagination/index.js"
 export { createPaginator } from "./pagination/index.js"
-// ─── Repository Pattern ───────────────────────────────────
-export { createRepo } from "./repo/index.js"
-export type { RepoMethods, QueryMethod } from "./repo/index.js"
 // ─── Plugins ────────────────────────────────────────────────
 export type { Plugin } from "./plugins/index.js"
 export { softDeletes } from "./plugins/soft-deletes.js"
@@ -57,6 +54,9 @@ export {
   resolveMorphRelation,
 } from "./relations/index.js"
 export type { MorphManyOptions, MorphOneOptions, MorphToOptions } from "./relations/morph.js"
+export type { QueryMethod, RepoMethods } from "./repo/index.js"
+// ─── Repository Pattern ───────────────────────────────────
+export { createRepo } from "./repo/index.js"
 
 // ─── Types ─────────────────────────────────────────────────
 export type { ModelId, ORMLike } from "./types.js"

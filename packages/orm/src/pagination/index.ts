@@ -1,6 +1,6 @@
-import type { ColumnShape } from "../columns/column.js"
 import type { Collection } from "../collection/index.js"
 import { createCollection } from "../collection/index.js"
+import type { ColumnShape } from "../columns/column.js"
 import type { ModelInstance, SerializedShape } from "../model/types.js"
 
 export interface Paginator<TColumns extends ColumnShape = ColumnShape> {

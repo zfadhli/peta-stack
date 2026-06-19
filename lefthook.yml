@@ -1,0 +1,11 @@
+pre-commit:
+  commands:
+    lint:
+      glob: "*.{ts,js,mjs,json}"
+      run: bunx biome check --write --unsafe --no-errors-on-unmatched {staged_files}
+      stage_fixed: true
+
+pre-push:
+  commands:
+    lint:
+      run: bunx biome ci packages/orm/src/ packages/auth/src packages/docs/src packages/migrate/src apps/

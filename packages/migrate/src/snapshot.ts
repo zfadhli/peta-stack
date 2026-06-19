@@ -1,4 +1,4 @@
-import type { Column, ColumnShape, ModelDefinition } from "peta-orm"
+import type { Column, ModelDefinition } from "peta-orm"
 import type { SchemaColumn, SchemaIndex, SchemaSnapshot, SchemaTable } from "./types.js"
 
 /**

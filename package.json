@@ -19,6 +19,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.0",
+    "lefthook": "^2.1.9",
     "typescript": "^6.0.0"
   },
   "dependencies": {

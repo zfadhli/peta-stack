@@ -25,14 +25,13 @@ export interface ORMConfig {
  */
 export function createORM(config: ORMConfig): ORMLike & { kysely: Database } {
   if (!config.dialect && !config.kysely) {
-    throw new Error(
-      "createORM: provide either `dialect` (to create a Kysely instance) or `kysely` (to reuse one)",
-    )
+    throw new Error("createORM: provide either `dialect` (to create a Kysely instance) or `kysely` (to reuse one)")
   }
 
-  const kysely = (config.kysely ?? new Kysely<Record<string, never>>({
-    dialect: config.dialect!,
-  })) as unknown as Database
+  const kysely = (config.kysely ??
+    new Kysely<Record<string, never>>({
+      dialect: config.dialect!,
+    })) as unknown as Database
 
   const modelMap = new Map<string, ModelDefinition>()
 

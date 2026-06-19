@@ -2,16 +2,7 @@ import type { Client } from "@libsql/client"
 import { createClient } from "@libsql/client"
 import { LibsqlDialect } from "@libsql/kysely-libsql"
 import type { ModelDefinition } from "peta-orm"
-import {
-  belongsTo,
-  t,
-  createORM,
-  defineModel,
-  hasMany,
-  manyToMany,
-  timestamps,
-  ulid,
-} from "peta-orm"
+import { belongsTo, createORM, defineModel, hasMany, manyToMany, t, timestamps, ulid } from "peta-orm"
 
 // ---------------------------------------------------------------------------
 // Lazy model references — break circular type inference with explicit casts

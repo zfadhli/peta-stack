@@ -238,8 +238,8 @@ app.get(
         if (!favUser) {
           return c.json({ articles: [], articlesCount: 0 })
         }
-        const favArticleIds = (await Favorite.query().where("userId", "=", favUser.get("id")).execute()).map(
-          (f) => f.get("articleId"),
+        const favArticleIds = (await Favorite.query().where("userId", "=", favUser.get("id")).execute()).map((f) =>
+          f.get("articleId"),
         )
         if (articleIds !== null) {
           articleIds = articleIds.filter((id) => favArticleIds.includes(id))

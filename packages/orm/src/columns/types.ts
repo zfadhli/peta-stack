@@ -1,7 +1,7 @@
+import { createArkTypeSchemaConfig } from "./arktype.js"
 import type { Column } from "./column.js"
 import { createColumn } from "./column.js"
 import type { SchemaConfig } from "./schema.js"
-import { createArkTypeSchemaConfig } from "./arktype.js"
 
 export interface ColumnTypes {
   integer: () => Column<number>
