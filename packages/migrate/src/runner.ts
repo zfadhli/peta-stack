@@ -67,17 +67,17 @@ export function createMigrationRunner(db: Kysely<Record<string, never>>, table =
   }
 
   async function ensureTable(): Promise<void> {
-    // Kysely's Migrator creates the tracking + lock tables automatically.
-    // Trigger a no-op migrateUp to ensure they exist.
-    const migrator = buildMigrator([])
-    const result = await migrator.migrateUp()
-    if (result.error) {
-      // If the only "error" is that there are no migrations, ignore it.
-      const msg = (result.error as Error).message ?? ""
-      if (!msg.includes("no migrations") && !msg.includes("no pending")) {
-        throw result.error
-      }
-    }
+    // Create the tracking table directly with .ifNotExists().
+    // Using buildMigrator([]).migrateUp() would crash on databases that
+    // already have migration entries — Kysely compares tracking table entries
+    // against the provided migration list and throws "corrupted migrations"
+    // when the (empty) list has no matching entries.
+    await db.schema
+      .createTable(table)
+      .addColumn("name", "varchar(255)", (cb) => cb.notNull().primaryKey())
+      .addColumn("timestamp", "varchar(255)", (cb) => cb.notNull())
+      .ifNotExists()
+      .execute()
   }
 
   async function getCompleted(): Promise<MigrationRecord[]> {

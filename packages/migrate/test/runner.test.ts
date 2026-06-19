@@ -1,12 +1,10 @@
 import { afterAll, describe, expect, it } from "bun:test"
-import { Kysely } from "kysely"
 import { createClient } from "@libsql/client"
 import { LibsqlDialect } from "@libsql/kysely-libsql"
-import { t, defineModel, createPeta } from "peta-orm"
+import { Kysely } from "kysely"
+import { createPeta, defineModel, manyToMany, t } from "peta-orm"
 import { createMigrationGenerator, createMigrationRunner, pushSchema } from "../src/index.js"
-import { manyToMany } from "peta-orm"
 import type { SchemaDiff } from "../src/types.js"
-
 
 const User = defineModel("users", {
   columns: {
@@ -46,7 +44,8 @@ describe("MigrationRunner", () => {
     const runner = createMigrationRunner(kysely)
     await runner.ensureTable()
 
-    const tables = (await db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='_peta_migrations'")).rows
+    const tables = (await db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='_peta_migrations'"))
+      .rows
     expect(tables).toHaveLength(1)
 
     await kysely.destroy()
@@ -155,8 +154,32 @@ describe("MigrationRunner", () => {
     const runner = createMigrationRunner(kysely)
     await runner.ensureTable()
     await runner.ensureTable() // should not throw
-    const tables = (await db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='_peta_migrations'")).rows
+    const tables = (await db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='_peta_migrations'"))
+      .rows
     expect(tables).toHaveLength(1)
+    await kysely.destroy()
+  })
+
+  it("ensureTable does not crash when tracking table has entries (regression #10)", async () => {
+    const kysely = createKysely()
+    const runner = createMigrationRunner(kysely)
+
+    // First, apply a migration so the tracking table has an entry
+    await runner.up([
+      {
+        name: "001_seeded",
+        up: async () => {},
+        down: async () => {},
+      },
+    ])
+
+    // ensureTable should be a no-op, not throw "corrupted migrations"
+    await runner.ensureTable()
+
+    const completed = await runner.getCompleted()
+    expect(completed).toHaveLength(1)
+    expect(completed[0]!.name).toBe("001_seeded")
+
     await kysely.destroy()
   })
 
@@ -195,7 +218,8 @@ describe("MigrationRunner", () => {
     const kysely = createKysely()
     const runner = createMigrationRunner(kysely, "_custom_migrations")
     await runner.ensureTable()
-    const tables = (await db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='_custom_migrations'")).rows
+    const tables = (await db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='_custom_migrations'"))
+      .rows
     expect(tables).toHaveLength(1)
     await kysely.destroy()
   })
@@ -310,7 +334,7 @@ describe("MigrationGenerator", () => {
   })
 
   describe("generateMigrationFromDiff", () => {
-    const diff = (partial: Partial<SchemaDiff>): SchemaDiff => ({
+    const _diff = (partial: Partial<SchemaDiff>): SchemaDiff => ({
       type: "createTable",
       table: "t",
       ...partial,
@@ -324,8 +348,22 @@ describe("MigrationGenerator", () => {
           table: "items",
           details: {
             columns: [
-              { name: "id", type: "integer", isNullable: false, isPrimaryKey: true, isUnique: false, defaultValue: undefined },
-              { name: "name", type: "varchar(255)", isNullable: false, isPrimaryKey: false, isUnique: false, defaultValue: undefined },
+              {
+                name: "id",
+                type: "integer",
+                isNullable: false,
+                isPrimaryKey: true,
+                isUnique: false,
+                defaultValue: undefined,
+              },
+              {
+                name: "name",
+                type: "varchar(255)",
+                isNullable: false,
+                isPrimaryKey: false,
+                isUnique: false,
+                defaultValue: undefined,
+              },
             ],
             indexes: [{ name: "items_name_index", columns: ["name"] }],
           },
@@ -348,7 +386,14 @@ describe("MigrationGenerator", () => {
           type: "addColumn",
           table: "users",
           column: "email",
-          details: { name: "email", type: "varchar(255)", isNullable: false, isPrimaryKey: false, isUnique: true, defaultValue: undefined },
+          details: {
+            name: "email",
+            type: "varchar(255)",
+            isNullable: false,
+            isPrimaryKey: false,
+            isUnique: true,
+            defaultValue: undefined,
+          },
         },
       ]
       const code = gen.generateMigrationFromDiff(diffs)
@@ -360,9 +405,7 @@ describe("MigrationGenerator", () => {
 
     it("generates dropColumn", () => {
       const gen = createMigrationGenerator()
-      const diffs: SchemaDiff[] = [
-        { type: "dropColumn", table: "users", column: "obsolete" },
-      ]
+      const diffs: SchemaDiff[] = [{ type: "dropColumn", table: "users", column: "obsolete" }]
       const code = gen.generateMigrationFromDiff(diffs)
       expect(code).toContain('dropColumn("obsolete")')
       expect(code).toContain("Cannot auto-restore dropped column")
@@ -370,9 +413,7 @@ describe("MigrationGenerator", () => {
 
     it("generates dropTable", () => {
       const gen = createMigrationGenerator()
-      const diffs: SchemaDiff[] = [
-        { type: "dropTable", table: "old_table" },
-      ]
+      const diffs: SchemaDiff[] = [{ type: "dropTable", table: "old_table" }]
       const code = gen.generateMigrationFromDiff(diffs)
       expect(code).toContain('dropTable("old_table")')
       expect(code).toContain("Cannot auto-restore dropped table")
@@ -406,8 +447,22 @@ describe("MigrationGenerator", () => {
           table: "users",
           column: "name",
           details: {
-            from: { name: "name", type: "varchar(255)", isNullable: false, isPrimaryKey: false, isUnique: false, defaultValue: undefined },
-            to: { name: "name", type: "text", isNullable: true, isPrimaryKey: false, isUnique: false, defaultValue: undefined },
+            from: {
+              name: "name",
+              type: "varchar(255)",
+              isNullable: false,
+              isPrimaryKey: false,
+              isUnique: false,
+              defaultValue: undefined,
+            },
+            to: {
+              name: "name",
+              type: "text",
+              isNullable: true,
+              isPrimaryKey: false,
+              isUnique: false,
+              defaultValue: undefined,
+            },
           },
         },
       ]
@@ -421,11 +476,61 @@ describe("MigrationGenerator", () => {
     it("generates all 7 diff types in a single migration", () => {
       const gen = createMigrationGenerator()
       const diffs: SchemaDiff[] = [
-        { type: "createTable", table: "new_table", details: { columns: [{ name: "id", type: "integer", isNullable: false, isPrimaryKey: true, isUnique: false, defaultValue: undefined }], indexes: [] } },
+        {
+          type: "createTable",
+          table: "new_table",
+          details: {
+            columns: [
+              {
+                name: "id",
+                type: "integer",
+                isNullable: false,
+                isPrimaryKey: true,
+                isUnique: false,
+                defaultValue: undefined,
+              },
+            ],
+            indexes: [],
+          },
+        },
         { type: "dropTable", table: "gone" },
-        { type: "addColumn", table: "users", column: "age", details: { name: "age", type: "integer", isNullable: true, isPrimaryKey: false, isUnique: false, defaultValue: undefined } },
+        {
+          type: "addColumn",
+          table: "users",
+          column: "age",
+          details: {
+            name: "age",
+            type: "integer",
+            isNullable: true,
+            isPrimaryKey: false,
+            isUnique: false,
+            defaultValue: undefined,
+          },
+        },
         { type: "dropColumn", table: "users", column: "legacy" },
-        { type: "alterColumn", table: "users", column: "name", details: { from: { name: "name", type: "varchar(255)", isNullable: false, isPrimaryKey: false, isUnique: false, defaultValue: undefined }, to: { name: "name", type: "text", isNullable: true, isPrimaryKey: false, isUnique: false, defaultValue: undefined } } },
+        {
+          type: "alterColumn",
+          table: "users",
+          column: "name",
+          details: {
+            from: {
+              name: "name",
+              type: "varchar(255)",
+              isNullable: false,
+              isPrimaryKey: false,
+              isUnique: false,
+              defaultValue: undefined,
+            },
+            to: {
+              name: "name",
+              type: "text",
+              isNullable: true,
+              isPrimaryKey: false,
+              isUnique: false,
+              defaultValue: undefined,
+            },
+          },
+        },
         { type: "addIndex", table: "users", details: { indexName: "users_email_index", columns: ["email"] } },
         { type: "dropIndex", table: "posts", details: { indexName: "posts_title_index" } },
       ]
@@ -483,7 +588,8 @@ describe("pushSchema", () => {
     const created = await pushSchema(kysely, peta.models)
     expect(created).toContain("push_users")
 
-    const tables = (await client.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='push_users'")).rows
+    const tables = (await client.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='push_users'"))
+      .rows
     expect(tables).toHaveLength(1)
     await kysely.destroy()
     client.close()
@@ -543,15 +649,14 @@ describe("pushSchema", () => {
 
     await pushSchema(kysely, peta.models)
 
-    const indexes = (await client.execute(
-      "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='idx_test'",
-    )).rows as Array<{ name: string }>
+    const indexes = (await client.execute("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='idx_test'"))
+      .rows as Array<{ name: string }>
 
     const indexNames = indexes.map((r) => r.name)
     // email has index() constraint -> should create index
     expect(indexNames).toContain("idx_test_email_index")
     // name is unique -> should NOT get a separate index (unique covers it)
-    const nameIndex = indexNames.find((n) => n.includes("name"))
+    const _nameIndex = indexNames.find((n) => n.includes("name"))
     // Note: sqlite may auto-create an index for unique constraint, that's fine
     // We just verify the custom index on email was created
     await kysely.destroy()
