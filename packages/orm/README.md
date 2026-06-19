@@ -20,26 +20,66 @@ const page = await Post.query().with("author").orderBy("id", "asc").paginate(1, 
 bun add peta-orm arktype kysely @libsql/kysely-libsql @libsql/client
 ```
 
+### Simple setup (examples, scripts)
+
 ```ts
 import { createClient } from "@libsql/client"
 import { LibsqlDialect } from "@libsql/kysely-libsql"
 import { createORM, defineModel, t } from "peta-orm"
 
-const orm = createORM({
-  dialect: new LibsqlDialect({ url: "file:my-app.db" }),
+const User = defineModel("users", {
+  columns: { id: t.integer().primaryKey(), name: t.string(255), email: t.text().unique() },
 })
 
-// Or reuse an existing Kysely instance (e.g. for migration runners):
-// const orm = createORM({ kysely: existingKyselyInstance })
+// Eager init — fine for scripts, one-off tasks
+const client = createClient({ url: "file::memory:?cache=shared" })
+await client.execute(
+  "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE)",
+)
+
+const orm = createORM({ dialect: new LibsqlDialect({ client }), models: { User } })
+
+const user = await User.insert({ name: "Alice", email: "alice@test.com" })
+```
+
+### Production setup (apps, servers) — no module-level side effects
+
+Module-level side effects (database connections, schema init, ORM setup at import time) cause problems with testing, HMR, and error recovery. Use `createDb()` for lazy, safe initialization:
+
+```ts
+import { createClient } from "@libsql/client"
+import { LibsqlDialect } from "@libsql/kysely-libsql"
+import { createDb, createORM, defineModel, t } from "peta-orm"
 
 const User = defineModel("users", {
   columns: { id: t.integer().primaryKey(), name: t.string(255), email: t.text().unique() },
 })
 
-orm.registerAll(User)
+async function setup() {
+  const client = createClient({ url: "file:my-app.db" })
+  await client.execute(
+    "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE)",
+  )
+  const orm = createORM({ dialect: new LibsqlDialect({ client }) })
+  orm.registerAll(User)
+  return orm
+}
 
-const user = await User.insert({ name: "Alice", email: "alice@test.com" })
+/** Lazy singleton — first call creates the connection, subsequent calls reuse it. */
+export const db = createDb(setup)
+
+// In route handlers:
+// const orm = await db()
+// const users = await User.query().execute()
 ```
+
+The factory function runs **once** on the first `await db()` call. Importing models has zero side effects — no connection, no schema init, no unhandled promises.
+
+> [!TIP]
+> For an existing Kysely instance (e.g. from a migration runner), pass it via the `kysely` config option:
+> ```ts
+> const orm = createORM({ kysely: existingKysely })
+> ```
 
 > [!TIP]
 > See the 32 [runnable examples](./examples) for every feature. Run them with `bun run examples/XX-*.ts`.

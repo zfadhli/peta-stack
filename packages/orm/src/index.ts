@@ -1,4 +1,5 @@
 // ─── ORM Registry ──────────────────────────────────────────
+export { createDb } from "./init.js"
 
 // ─── Collection ────────────────────────────────────────────
 export type { Collection } from "./collection/index.js"

@@ -6,23 +6,35 @@ The peta-stack packages are designed to work together without being coupled. Thi
 
 Combine `peta-orm` models with `peta-auth` session middleware for authenticated CRUD.
 
+### Safe lazy initialization (recommended)
+
+Use `createDb()` to avoid module-level side effects — importing models won't create a database connection:
+
 ```ts
 import { Hono } from "hono"
-import { createORM, defineModel, t } from "peta-orm"
+import { createDb, createORM, defineModel, t } from "peta-orm"
 import { session, requireSession } from "peta-auth/hono"
 
-// --- Setup ---
-const orm = createORM({ dialect })
+// --- Models (zero side effects at import time) ---
 const User = defineModel("users", {
   columns: { id: t.integer().primaryKey(), name: t.string(255), email: t.text().unique() },
 })
-orm.registerAll(User)
 
+// --- Lazy database singleton ---
+async function setup() {
+  const orm = createORM({ dialect })
+  orm.registerAll(User)
+  return orm
+}
+export const db = createDb(setup)
+
+// --- App ---
 const app = new Hono()
 app.use("*", session({ password: process.env.SECRET!, cookieName: "app" }))
 
 // --- Auth routes ---
 app.post("/login", async (c) => {
+  await db() // ensures ORM is initialized
   const { email } = await c.req.json()
   const user = await User.query().where("email", email).first()
   if (!user) return c.json({ error: "not found" }, 404)
@@ -33,6 +45,7 @@ app.post("/login", async (c) => {
 
 // --- Protected routes ---
 app.get("/me", requireSession(), async (c) => {
+  await db()
   const user = await User.find(c.var.session.userId)
   return c.json(user?.$toJSON())
 })

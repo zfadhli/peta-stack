@@ -248,7 +248,6 @@ export async function getORM(dialect?: LibsqlDialect): Promise<ReturnType<typeof
   return _orm
 }
 
-// Lazily initialize on first import in development
-if (process.env.NODE_ENV !== "test") {
-  await getORM()
-}
+// Note: No eager initialization at module scope.
+// getORM() is called explicitly in the entry point (index.ts) and in route handlers.
+// This avoids module-level side effects that break testing and HMR.
