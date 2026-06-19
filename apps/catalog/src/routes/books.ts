@@ -17,7 +17,7 @@ const app = new Hono()
 async function getOwnAuthorId(userId: string): Promise<string | null> {
   const { Author } = await import("../db/schema.js")
   const author = await Author.query().where("userId", "=", userId).first()
-  return author?.get<string>("id") ?? null
+  return author?.get("id") ?? null
 }
 
 // ---------------------------------------------------------------------------
@@ -230,7 +230,7 @@ app.patch(
       // Only admin or the book's author can update
       if (c.var.session.userRole !== "admin") {
         const ownAuthorId = await getOwnAuthorId(c.var.session.userId!)
-        if (book.get<string>("authorId") !== ownAuthorId) throw http.forbidden()
+        if (book.get("authorId") !== ownAuthorId) throw http.forbidden()
       }
 
       const categoryIds = body.categoryIds as string[] | undefined
@@ -273,7 +273,7 @@ app.delete(
       // Only admin or the book's author can delete
       if (c.var.session.userRole !== "admin") {
         const ownAuthorId = await getOwnAuthorId(c.var.session.userId!)
-        if (book.get<string>("authorId") !== ownAuthorId) throw http.forbidden()
+        if (book.get("authorId") !== ownAuthorId) throw http.forbidden()
       }
 
       await book.$delete()

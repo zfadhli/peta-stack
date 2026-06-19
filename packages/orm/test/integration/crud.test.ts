@@ -113,7 +113,7 @@ for (const dialect of await getAvailableDialects()) {
 
       it("deletes a record via $delete", async () => {
         const newUser = await User.insert({ name: "Temp", email: "tempdel@example.com" })
-        const id = newUser.get("id") as number
+        const id = newUser.get("id")
         await newUser.$delete()
         const found = await User.find(id)
         expect(found).toBeUndefined()
@@ -121,7 +121,7 @@ for (const dialect of await getAvailableDialects()) {
 
       it("deletes via static delete", async () => {
         const u = await User.insert({ name: "Delete Me", email: "deletestatic@example.com" })
-        const id = u.get("id") as number
+        const id = u.get("id")
         await User.delete(id)
         const found = await User.find(id)
         expect(found).toBeUndefined()
@@ -132,7 +132,7 @@ for (const dialect of await getAvailableDialects()) {
         await ctx.kysely
           .updateTable("users")
           .set({ age: 26 })
-          .where("id", "=", user.get("id") as number)
+          .where("id", "=", user.get("id"))
           .execute()
         expect(user.get("age")).toBe(25)
         await user.$reload()

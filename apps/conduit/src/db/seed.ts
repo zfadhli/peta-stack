@@ -37,8 +37,8 @@ console.log(`Users: ${jake.get("username")}, ${alice.get("username")}, ${bob.get
 // Follows
 // ---------------------------------------------------------------------------
 
-await Follow.insert({ followerId: alice.get<string>("id"), followeeId: jake.get<string>("id") })
-await Follow.insert({ followerId: bob.get<string>("id"), followeeId: jake.get<string>("id") })
+await Follow.insert({ followerId: alice.get("id"), followeeId: jake.get("id") })
+await Follow.insert({ followerId: bob.get("id"), followeeId: jake.get("id") })
 console.log("Follows: Alice and Bob follow Jake")
 
 // ---------------------------------------------------------------------------
@@ -62,7 +62,7 @@ const article1 = await Article.insert({
   title: "How to train your dragon",
   description: "Ever wonder how?",
   body: "It takes a Jacobian",
-  authorId: jake.get<string>("id"),
+  authorId: jake.get("id"),
 })
 
 const article2 = await Article.insert({
@@ -70,7 +70,7 @@ const article2 = await Article.insert({
   title: "The Art of Writing Clean Code",
   description: "Tips and tricks for better code",
   body: "Clean code is not just about making the computer happy...",
-  authorId: alice.get<string>("id"),
+  authorId: alice.get("id"),
 })
 
 const article3 = await Article.insert({
@@ -78,7 +78,7 @@ const article3 = await Article.insert({
   title: "Understanding TypeScript Generics",
   description: "A deep dive into generic types",
   body: "Generics are one of the most powerful features of TypeScript...",
-  authorId: bob.get<string>("id"),
+  authorId: bob.get("id"),
 })
 
 const article4 = await Article.insert({
@@ -86,7 +86,7 @@ const article4 = await Article.insert({
   title: "Getting Started with Bun",
   description: "A modern JavaScript runtime",
   body: "Bun is a fast, all-in-one JavaScript runtime...",
-  authorId: jake.get<string>("id"),
+  authorId: jake.get("id"),
 })
 
 console.log(`Articles: ${article1.get("title")}, ${article2.get("title")}, ...`)
@@ -95,19 +95,19 @@ console.log(`Articles: ${article1.get("title")}, ${article2.get("title")}, ...`)
 // Article-Tag pivot
 // ---------------------------------------------------------------------------
 
-const a1Id = article1.get<string>("id")
-const a2Id = article2.get<string>("id")
-const a3Id = article3.get<string>("id")
-const a4Id = article4.get<string>("id")
+const a1Id = article1.get("id")
+const a2Id = article2.get("id")
+const a3Id = article3.get("id")
+const a4Id = article4.get("id")
 
 await ArticleTag.insertMany([
-  { articleId: a1Id, tagId: tagReact.get<string>("id") },
-  { articleId: a1Id, tagId: tagAngular.get<string>("id") },
-  { articleId: a1Id, tagId: tagDragons.get<string>("id") },
-  { articleId: a1Id, tagId: tagTraining.get<string>("id") },
-  { articleId: a2Id, tagId: tagReact.get<string>("id") },
-  { articleId: a3Id, tagId: tagAngular.get<string>("id") },
-  { articleId: a4Id, tagId: tagReact.get<string>("id") },
+  { articleId: a1Id, tagId: tagReact.get("id") },
+  { articleId: a1Id, tagId: tagAngular.get("id") },
+  { articleId: a1Id, tagId: tagDragons.get("id") },
+  { articleId: a1Id, tagId: tagTraining.get("id") },
+  { articleId: a2Id, tagId: tagReact.get("id") },
+  { articleId: a3Id, tagId: tagAngular.get("id") },
+  { articleId: a4Id, tagId: tagReact.get("id") },
 ])
 
 console.log("Article-tag pivot rows inserted")
@@ -118,19 +118,19 @@ console.log("Article-tag pivot rows inserted")
 
 await Comment.insert({
   articleId: a1Id,
-  authorId: alice.get<string>("id"),
+  authorId: alice.get("id"),
   body: "Great article! I learned a lot.",
 })
 
 await Comment.insert({
   articleId: a1Id,
-  authorId: bob.get<string>("id"),
+  authorId: bob.get("id"),
   body: "Nice work! I've been using this technique for years.",
 })
 
 await Comment.insert({
   articleId: a2Id,
-  authorId: jake.get<string>("id"),
+  authorId: jake.get("id"),
   body: "Well written! Thanks for sharing.",
 })
 
@@ -140,9 +140,9 @@ console.log("Comments inserted")
 // Favorites
 // ---------------------------------------------------------------------------
 
-await Favorite.insert({ userId: alice.get<string>("id"), articleId: a1Id })
-await Favorite.insert({ userId: bob.get<string>("id"), articleId: a1Id })
-await Favorite.insert({ userId: jake.get<string>("id"), articleId: a2Id })
+await Favorite.insert({ userId: alice.get("id"), articleId: a1Id })
+await Favorite.insert({ userId: bob.get("id"), articleId: a1Id })
+await Favorite.insert({ userId: jake.get("id"), articleId: a2Id })
 
 console.log("Favorites inserted")
 

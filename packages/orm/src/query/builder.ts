@@ -5,6 +5,7 @@ import type { ModelDefinition, ModelInstance } from "../model/types.js"
 import { type EagerLoad, EagerLoader } from "../relations/eager.js"
 import type { InsertGraphOptions, UpsertGraphOptions } from "../relations/graph/index.js"
 import { isRelationAllowed } from "../relations/graph/index.js"
+import type { ColumnShape } from "../columns/column.js"
 import type { QueryBuilder } from "./types.js"
 
 // Helper to create raw SQL expressions compatible with Kysely 0.27
@@ -34,10 +35,10 @@ type DeletedRows = ModelInstance[]
 const SAFE_COLUMN = /^[a-zA-Z_*][a-zA-Z0-9_.*]*$/
 
 // ─── CREATE QUERY BUILDER ────────────────────────────────
-export function createQueryBuilder(
-  def: ModelDefinition,
+export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
+  def: ModelDefinition<TColumns>,
   peta?: { kysely: import("../lib/kysely.js").Database },
-): QueryBuilder {
+): QueryBuilder<TColumns> {
   const db: any = peta?.kysely ?? def._orm?.kysely
   if (!db) throw new Error("Model not registered with an ORM instance")
 
@@ -143,7 +144,7 @@ export function createQueryBuilder(
 
     return models
   }
-  const self: QueryBuilder = {
+  const self: QueryBuilder<TColumns> = {
     // ─── PromiseLike ──────────────────────────────────────
     // biome-ignore lint/suspicious/noThenProperty: Intentional thenable for await support
     then<TResult1 = ModelInstance[], TResult2 = never>(

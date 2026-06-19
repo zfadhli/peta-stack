@@ -73,7 +73,7 @@ describe("Model lifecycle hooks", () => {
     const log: string[] = []
     HooksTest.on("beforeUpdate", (m: any) => {
       log.push("beforeUpdate")
-      m.set("counter", (m.get("counter") as number) + 1)
+      m.set("counter", (m.get("counter")) + 1)
     })
     HooksTest.on("afterUpdate", (_m: any) => {
       log.push("afterUpdate")
@@ -139,7 +139,7 @@ describe("Timestamps", () => {
 
   it("updates updatedAt on update, leaves createdAt", async () => {
     const record = await Timestamped.insert({ name: "Test2" })
-    const createdAt1 = record.get("createdAt") as string
+    const createdAt1 = record.get("createdAt")
     await new Promise((r) => setTimeout(r, 10))
     record.set("name", "Updated")
     await record.$save()

@@ -102,7 +102,7 @@ async function findOrCreateTags(names: string[]): Promise<string[]> {
   const existing = await Tag.query().whereIn("name", cleaned).execute()
   const nameToId = new Map<string, string>()
   for (const tag of existing) {
-    nameToId.set(tag.get<string>("name"), tag.get<string>("id"))
+    nameToId.set(tag.get("name"), tag.get("id"))
   }
 
   // 2. Bulk insert — only the tags that don't exist yet.
@@ -110,7 +110,7 @@ async function findOrCreateTags(names: string[]): Promise<string[]> {
   if (missing.length > 0) {
     const newTags = await Tag.insertMany(missing.map((name) => ({ name })))
     for (const tag of newTags) {
-      nameToId.set(tag.get<string>("name"), tag.get<string>("id"))
+      nameToId.set(tag.get("name"), tag.get("id"))
     }
   }
 
@@ -124,7 +124,7 @@ async function getTagListForArticle(articleId: string): Promise<string[]> {
     .innerJoin("article_tags", "article_tags.tagId", "tags.id")
     .where("article_tags.articleId", "=", articleId)
     .execute()
-  return tags.map((t) => t.get<string>("name"))
+  return tags.map((t) => t.get("name"))
 }
 
 async function getFavoritesCount(articleId: string): Promise<number> {
@@ -148,34 +148,34 @@ async function getAuthorProfile(authorId: string, currentUserId?: string) {
   const author = await User.find(authorId)
   if (!author) throw http.notFound("Author not found")
   return {
-    username: author.get<string>("username"),
-    bio: author.get<string | null>("bio"),
-    image: author.get<string | null>("image"),
+    username: author.get("username"),
+    bio: author.get("bio"),
+    image: author.get("image"),
     following: await isFollowing(authorId, currentUserId),
   }
 }
 
 async function buildArticleResponse(article: ModelInstance, currentUserId?: string, includeBody = true) {
-  const articleId = article.get<string>("id")
+  const articleId = article.get("id") as string
   const tagList = await getTagListForArticle(articleId)
-  const authorProfile = await getAuthorProfile(article.get<string>("authorId"), currentUserId)
+  const authorProfile = await getAuthorProfile(article.get("authorId") as string, currentUserId)
   const faveCount = await getFavoritesCount(articleId)
   const favorited = await isFavorited(articleId, currentUserId)
 
   const result: Record<string, unknown> = {
-    slug: article.get<string>("slug"),
-    title: article.get<string>("title"),
-    description: article.get<string>("description"),
+    slug: article.get("slug") as string,
+    title: article.get("title") as string,
+    description: article.get("description") as string,
     tagList,
-    createdAt: article.get<string>("createdAt"),
-    updatedAt: article.get<string>("updatedAt"),
+    createdAt: article.get("createdAt"),
+    updatedAt: article.get("updatedAt"),
     favorited,
     favoritesCount: faveCount,
     author: authorProfile,
   }
 
   if (includeBody) {
-    result.body = article.get<string>("body")
+    result.body = article.get("body")
   }
 
   return result
@@ -214,7 +214,7 @@ app.get(
           .innerJoin("tags", "tags.id", "article_tags.tagId")
           .where("tags.name", "=", qTag)
           .execute()
-        articleIds = tagged.map((t) => t.get<string>("articleId"))
+        articleIds = tagged.map((t) => t.get("articleId"))
       }
 
       // Filter by author username
@@ -223,8 +223,8 @@ app.get(
         if (!author) {
           return c.json({ articles: [], articlesCount: 0 })
         }
-        const authorId = author.get<string>("id")
-        const ids = (await Article.query().where("authorId", "=", authorId).execute()).map((a) => a.get<string>("id"))
+        const authorId = author.get("id")
+        const ids = (await Article.query().where("authorId", "=", authorId).execute()).map((a) => a.get("id"))
         if (articleIds !== null) {
           articleIds = articleIds.filter((id) => ids.includes(id))
         } else {
@@ -238,8 +238,8 @@ app.get(
         if (!favUser) {
           return c.json({ articles: [], articlesCount: 0 })
         }
-        const favArticleIds = (await Favorite.query().where("userId", "=", favUser.get<string>("id")).execute()).map(
-          (f) => f.get<string>("articleId"),
+        const favArticleIds = (await Favorite.query().where("userId", "=", favUser.get("id")).execute()).map(
+          (f) => f.get("articleId"),
         )
         if (articleIds !== null) {
           articleIds = articleIds.filter((id) => favArticleIds.includes(id))
@@ -294,7 +294,7 @@ app.get(
 
       // Get IDs of followed users
       const follows = await Follow.query().where("followerId", "=", currentUserId).execute()
-      const followeeIds = follows.map((f) => f.get<string>("followeeId"))
+      const followeeIds = follows.map((f) => f.get("followeeId"))
 
       if (followeeIds.length === 0) {
         return c.json({ articles: [], articlesCount: 0 })
@@ -366,7 +366,7 @@ app.post(
         authorId: currentUserId,
       })
 
-      const articleId = article.get<string>("id")
+      const articleId = article.get("id")
 
       // Handle tags
       if (body.tagList?.length) {
@@ -406,12 +406,12 @@ app.put(
       if (!article) throw http.notFound("article: not found")
 
       // Only author can update
-      if (article.get<string>("authorId") !== currentUserId) {
+      if (article.get("authorId") !== currentUserId) {
         throw http.forbidden("article: forbidden")
       }
 
       const updates: Record<string, unknown> = {}
-      const articleId = article.get<string>("id")
+      const articleId = article.get("id")
 
       if (body.title !== undefined) {
         updates.title = body.title
@@ -470,11 +470,11 @@ app.delete(
       if (!article) throw http.notFound("article: not found")
 
       // Only author can delete
-      if (article.get<string>("authorId") !== currentUserId) {
+      if (article.get("authorId") !== currentUserId) {
         throw http.forbidden("article: forbidden")
       }
 
-      const articleId = article.get<string>("id")
+      const articleId = article.get("id")
 
       // Clean up related records
       await ArticleTag.query().where("articleId", "=", articleId).deleteMany()

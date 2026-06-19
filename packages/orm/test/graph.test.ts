@@ -114,7 +114,7 @@ describe("insertGraph", () => {
     expect(user.get("id")).toBeGreaterThan(0)
 
     // Children should be in DB with FK set
-    const posts = await Post.query().where("userId", "=", user.get("id") as number)
+    const posts = await Post.query().where("userId", "=", user.get("id"))
     expect(posts).toHaveLength(2)
     expect(posts.map((p: any) => p.get("title")).sort()).toEqual(["Post 1", "Post 2"])
   })
@@ -126,7 +126,7 @@ describe("insertGraph", () => {
     })
 
     expect(post.get("title")).toBe("Belongs To Post")
-    const authorId = post.get("userId") as number
+    const authorId = post.get("userId")
     expect(authorId).toBeGreaterThan(0)
 
     const author = await User.find(authorId)
@@ -139,7 +139,7 @@ describe("insertGraph", () => {
 
     const post = await Post.insertGraph({
       title: "Connected Post",
-      author: { connect: { id: existing.get("id") as number } },
+      author: { connect: { id: existing.get("id") } },
     })
 
     expect(post.get("userId")).toBe(existing.get("id"))
@@ -155,12 +155,12 @@ describe("insertGraph", () => {
     expect(user.get("name")).toBe("Mixed Graph")
 
     const profile = await Profile.query()
-      .where("userId", "=", user.get("id") as number)
+      .where("userId", "=", user.get("id"))
       .executeTakeFirst()
     expect(profile).toBeDefined()
     expect(profile!.get("bio")).toBe("My bio")
 
-    const posts = await Post.query().where("userId", "=", user.get("id") as number)
+    const posts = await Post.query().where("userId", "=", user.get("id"))
     expect(posts).toHaveLength(1)
   })
 
@@ -173,14 +173,14 @@ describe("insertGraph", () => {
       title: "ManyToMany Post",
       userId: 1, // FK to existing user
       tags: {
-        connect: [tag1.get("id") as number, tag2.get("id") as number],
+        connect: [tag1.get("id"), tag2.get("id")],
       },
     })
 
     expect(post.get("title")).toBe("ManyToMany Post")
 
     // Check pivot rows
-    const pivots = (await db.execute({ sql: "SELECT * FROM graph_post_tags WHERE postId = ?", args: [post.get("id") as number] })).rows
+    const pivots = (await db.execute({ sql: "SELECT * FROM graph_post_tags WHERE postId = ?", args: [post.get("id")] })).rows
     expect(pivots).toHaveLength(2)
   })
 
@@ -193,7 +193,7 @@ describe("insertGraph", () => {
       },
     })
 
-    const pivots = (await db.execute({ sql: "SELECT * FROM graph_post_tags WHERE postId = ?", args: [post.get("id") as number] })).rows
+    const pivots = (await db.execute({ sql: "SELECT * FROM graph_post_tags WHERE postId = ?", args: [post.get("id")] })).rows
     expect(pivots).toHaveLength(2)
   })
 
@@ -259,11 +259,11 @@ describe("insertGraph", () => {
       title: "DbRef Post",
       userId: 1,
       tags: {
-        create: [{ "#dbRef": tag.get("id") as number }],
+        create: [{ "#dbRef": tag.get("id") }],
       },
     })
 
-    const pivots = (await db.execute({ sql: "SELECT * FROM graph_post_tags WHERE postId = ?", args: [post.get("id") as number] })).rows
+    const pivots = (await db.execute({ sql: "SELECT * FROM graph_post_tags WHERE postId = ?", args: [post.get("id")] })).rows
     expect(pivots).toHaveLength(1)
     expect(pivots[0] as any).toMatchObject({ tagId: tag.get("id") })
   })
@@ -279,10 +279,10 @@ describe("insertGraph", () => {
       ],
     })
 
-    const posts = await Post.query().where("userId", "=", user.get("id") as number)
+    const posts = await Post.query().where("userId", "=", user.get("id"))
     expect(posts).toHaveLength(1)
 
-    const comments = await Comment.query().where("postId", "=", posts[0]!.get("id") as number)
+    const comments = await Comment.query().where("postId", "=", posts[0]!.get("id"))
     expect(comments).toHaveLength(2)
   })
 })
@@ -294,14 +294,14 @@ describe("upsertGraph", () => {
     const user = await User.insert({ name: "Before Update" })
 
     const updated = await User.upsertGraph({
-      id: user.get("id") as number,
+      id: user.get("id"),
       name: "After Update",
     })
 
     expect(updated.get("name")).toBe("After Update")
 
     // Verify in DB
-    const fetched = await User.find(user.get("id") as number)
+    const fetched = await User.find(user.get("id"))
     expect(fetched!.get("name")).toBe("After Update")
   })
 
@@ -313,7 +313,7 @@ describe("upsertGraph", () => {
 
   it("15. creates new children and updates existing in hasMany", async () => {
     const user = await User.insert({ name: "Upsert User" })
-    const userId = user.get("id") as number
+    const userId = user.get("id")
 
     // Create some initial posts
     const post1 = await Post.insert({ title: "Keep Me", userId })
@@ -323,7 +323,7 @@ describe("upsertGraph", () => {
       id: userId,
       name: "Upsert User",
       posts: [
-        { id: post1.get("id") as number, title: "Keep Me Updated" },
+        { id: post1.get("id"), title: "Keep Me Updated" },
         { title: "New Post" },
         // post2 is missing — should be deleted
       ],
@@ -337,7 +337,7 @@ describe("upsertGraph", () => {
 
   it("16. unrelates instead of deleting with unrelate option", async () => {
     const user = await User.insert({ name: "Unrelate Test" })
-    const userId = user.get("id") as number
+    const userId = user.get("id")
 
     // Profile uses a nullable FK — ideal for unrelate testing
     const profile = await Profile.insert({ bio: "Will be unrelated", userId })
@@ -352,14 +352,14 @@ describe("upsertGraph", () => {
       { unrelate: true },
     )
 
-    const unrelated = await Profile.find(profile.get("id") as number)
+    const unrelated = await Profile.find(profile.get("id"))
     expect(unrelated).toBeDefined()
     expect(unrelated!.get("userId")).toBeNull()
   })
 
   it("17. does not delete with noDelete option", async () => {
     const user = await User.insert({ name: "NoDelete Test" })
-    const userId = user.get("id") as number
+    const userId = user.get("id")
 
     const post1 = await Post.insert({ title: "Should Remain", userId })
 
@@ -374,35 +374,35 @@ describe("upsertGraph", () => {
       { noDelete: ["posts"] },
     )
 
-    const remaining = await Post.find(post1.get("id") as number)
+    const remaining = await Post.find(post1.get("id"))
     expect(remaining).toBeDefined()
     expect(remaining!.get("title")).toBe("Should Remain")
   })
 
   it("18. updates nested hasMany children via upsertGraph", async () => {
     const user = await User.insert({ name: "Nested Upsert" })
-    const userId = user.get("id") as number
+    const userId = user.get("id")
 
     const post = await Post.insert({ title: "Nested Parent", userId })
-    const comment1 = await Comment.insert({ body: "Old Comment", postId: post.get("id") as number })
+    const comment1 = await Comment.insert({ body: "Old Comment", postId: post.get("id") })
 
     await User.upsertGraph({
       id: userId,
       name: "Nested Upsert",
       posts: [
         {
-          id: post.get("id") as number,
+          id: post.get("id"),
           title: "Nested Parent Updated",
-          comments: [{ id: comment1.get("id") as number, body: "Updated Comment" }, { body: "New Comment" }],
+          comments: [{ id: comment1.get("id"), body: "Updated Comment" }, { body: "New Comment" }],
         },
       ],
     })
 
-    const updatedPost = await Post.find(post.get("id") as number)
+    const updatedPost = await Post.find(post.get("id"))
     expect(updatedPost!.get("title")).toBe("Nested Parent Updated")
 
     const comments = await Comment.query()
-      .where("postId", "=", post.get("id") as number)
+      .where("postId", "=", post.get("id"))
       .orderBy("id", "asc")
     expect(comments).toHaveLength(2)
     expect(comments[0]!.get("body")).toBe("Updated Comment")
@@ -419,27 +419,27 @@ describe("upsertGraph", () => {
     // Create post with tags
     const post = await Post.insertGraph({
       title: "M2M Upsert Post",
-      userId: user.get("id") as number,
-      tags: { connect: [tag1.get("id") as number, tag2.get("id") as number] },
+      userId: user.get("id"),
+      tags: { connect: [tag1.get("id"), tag2.get("id")] },
     })
 
     // Now upsert: keep tag1, remove tag2, add tag3
     await Post.upsertGraph({
-      id: post.get("id") as number,
+      id: post.get("id"),
       title: "M2M Upsert Post",
       tags: {
-        connect: [tag1.get("id") as number, tag3.get("id") as number],
+        connect: [tag1.get("id"), tag3.get("id")],
       },
     })
 
-    const pivots = (await db.execute({ sql: "SELECT tagId FROM graph_post_tags WHERE postId = ?", args: [post.get("id") as number] })).rows as {
+    const pivots = (await db.execute({ sql: "SELECT tagId FROM graph_post_tags WHERE postId = ?", args: [post.get("id")] })).rows as {
       tagId: number
     }[]
     const pivotTagIds = pivots.map((p) => p.tagId)
 
-    expect(pivotTagIds).toContain(tag1.get("id") as number)
-    expect(pivotTagIds).toContain(tag3.get("id") as number)
-    expect(pivotTagIds).not.toContain(tag2.get("id") as number)
+    expect(pivotTagIds).toContain(tag1.get("id"))
+    expect(pivotTagIds).toContain(tag3.get("id"))
+    expect(pivotTagIds).not.toContain(tag2.get("id"))
   })
 })
 
@@ -452,7 +452,7 @@ describe("allowGraph with insertGraph/upsertGraph", () => {
       .insertGraph({ name: "AG User 1", posts: [{ title: "AG Post 1" }] })
 
     expect(user.get("name")).toBe("AG User 1")
-    const posts = await Post.query().where("userId", "=", user.get("id") as number)
+    const posts = await Post.query().where("userId", "=", user.get("id"))
     expect(posts).toHaveLength(1)
   })
 
@@ -472,9 +472,9 @@ describe("allowGraph with insertGraph/upsertGraph", () => {
         posts: [{ title: "Parent", comments: [{ body: "Nested allowed" }] }],
       })
 
-    const posts = await Post.query().where("userId", "=", user.get("id") as number)
+    const posts = await Post.query().where("userId", "=", user.get("id"))
     expect(posts).toHaveLength(1)
-    const comments = await Comment.query().where("postId", "=", posts[0]!.get("id") as number)
+    const comments = await Comment.query().where("postId", "=", posts[0]!.get("id"))
     expect(comments).toHaveLength(1)
   })
 
@@ -496,13 +496,13 @@ describe("allowGraph with insertGraph/upsertGraph", () => {
     )
 
     expect(user.get("name")).toBe("AG User 5")
-    const posts = await Post.query().where("userId", "=", user.get("id") as number)
+    const posts = await Post.query().where("userId", "=", user.get("id"))
     expect(posts).toHaveLength(1)
   })
 
   it("25. passes when whitelisted relation is used in upsertGraph via QB", async () => {
     const user = await User.insert({ name: "AG Upsert" })
-    const userId = user.get("id") as number
+    const userId = user.get("id")
 
     const updated = await User.query()
       .allowGraph("posts")
@@ -519,7 +519,7 @@ describe("allowGraph with insertGraph/upsertGraph", () => {
 
   it("26. throws when non-whitelisted relation is used in upsertGraph via QB", async () => {
     const user = await User.insert({ name: "AG Upsert Block" })
-    const userId = user.get("id") as number
+    const userId = user.get("id")
 
     await expect(
       User.query()

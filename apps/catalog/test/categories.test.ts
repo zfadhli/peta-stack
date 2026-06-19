@@ -158,13 +158,13 @@ describe("Categories API", () => {
       title: "Linked Book",
       isbn: "9780000000098",
       price: 10,
-      authorId: author.get<string>("id"),
+      authorId: author.get("id"),
       inStock: true,
     })
 
     // Link book to category directly
     await BookCategory.insert({
-      bookId: book.get<string>("id"),
+      bookId: book.get("id"),
       categoryId: cat.id,
     })
 

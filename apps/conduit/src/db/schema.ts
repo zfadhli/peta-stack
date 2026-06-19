@@ -22,8 +22,8 @@ const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 // ---------------------------------------------------------------------------
 // Lazy model references — break circular type inference with explicit casts
 // ---------------------------------------------------------------------------
-let _User: ModelDefinition
-let _Article: ModelDefinition
+let _User: ModelDefinition<any>
+let _Article: ModelDefinition<any>
 
 // ---------------------------------------------------------------------------
 // Models
@@ -56,7 +56,7 @@ export const Tag = defineModel("tags", {
   },
 }).use(ulid())
 
-export const Article: ModelDefinition = defineModel("articles", {
+export const Article = defineModel("articles", {
   columns: {
     id: t.string(26).primaryKey(),
     slug: t.string(255).unique(),

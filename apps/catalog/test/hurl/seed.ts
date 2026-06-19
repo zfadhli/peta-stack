@@ -27,7 +27,7 @@ const _user = await User.insert({ email: "user@hurl.test", passwordHash: ph, nam
 const linkedAuthor = await Author.insert({
   name: "Hurl Author",
   bio: "Hurl test author",
-  userId: authorUser.get<string>("id"),
+  userId: authorUser.get("id"),
 })
 // Unlinked author (used for non-owner tests)
 const unlinkedAuthor = await Author.insert({ name: "Other Author", bio: "No user link" })

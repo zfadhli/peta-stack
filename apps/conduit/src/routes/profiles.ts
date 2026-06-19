@@ -33,16 +33,16 @@ async function buildProfile(username: string, currentUserId?: string) {
   if (currentUserId) {
     const follow = await Follow.query()
       .where("followerId", "=", currentUserId)
-      .where("followeeId", "=", user.get<string>("id"))
+      .where("followeeId", "=", user.get("id"))
       .first()
     following = !!follow
   }
 
   return {
     profile: {
-      username: user.get<string>("username"),
-      bio: user.get<string | null>("bio"),
-      image: user.get<string | null>("image"),
+      username: user.get("username"),
+      bio: user.get("bio"),
+      image: user.get("image"),
       following,
     },
   }
@@ -91,7 +91,7 @@ app.post(
       const target = await User.query().where("username", "=", username).first()
       if (!target) throw http.notFound("profile: not found")
 
-      const targetId = target.get<string>("id")
+      const targetId = target.get("id")
 
       // Don't allow following yourself
       if (targetId === currentUserId) {
@@ -135,7 +135,7 @@ app.delete(
       const target = await User.query().where("username", "=", username).first()
       if (!target) throw http.notFound("profile: not found")
 
-      const targetId = target.get<string>("id")
+      const targetId = target.get("id")
 
       await Follow.query().where("followerId", "=", currentUserId).where("followeeId", "=", targetId).deleteMany()
 

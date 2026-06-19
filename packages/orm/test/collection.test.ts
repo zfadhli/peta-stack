@@ -42,9 +42,9 @@ beforeAll(async () => {
   await CollUser.insert({ name: "Charlie", role: "user" })
   await CollUser.insert({ name: "Diana", role: "admin" })
   const users = await CollUser.query().orderBy("id", "asc")
-  await CollItem.insert({ userId: users[0]!.get("id") as number, label: "Item 1" })
-  await CollItem.insert({ userId: users[0]!.get("id") as number, label: "Item 2" })
-  await CollItem.insert({ userId: users[1]!.get("id") as number, label: "Item 3" })
+  await CollItem.insert({ userId: users[0]!.get("id"), label: "Item 1" })
+  await CollItem.insert({ userId: users[0]!.get("id"), label: "Item 2" })
+  await CollItem.insert({ userId: users[1]!.get("id"), label: "Item 3" })
 })
 
 afterAll(async () => {

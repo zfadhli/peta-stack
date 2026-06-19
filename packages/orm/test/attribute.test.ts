@@ -293,7 +293,7 @@ describe("Attribute accessors & mutators", () => {
       email: "raw@test.com",
       role: "user",
     })
-    const id = raw.get("id") as number
+    const id = raw.get("id")
 
     // Fetch from DB — should go through DB read path
     const fetched = await User.find(id)
@@ -373,7 +373,7 @@ describe("Attribute accessors & mutators", () => {
       attributes: {
         name: Attribute.make({
           set: (v: string, instance) => {
-            instance.set("version", (instance.get("version") as number) + 1)
+            instance.set("version", (instance.get("version")) + 1)
             return v.trim()
           },
         }),

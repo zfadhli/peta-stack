@@ -51,7 +51,7 @@ export async function createUser(
     name: props.name,
     role: props.role,
   })
-  const userId = user.get<string>("id")
+  const userId = user.get("id")
 
   // Log in to get a session cookie with the correct role
   const res = await app.fetch(

@@ -46,21 +46,21 @@ async function getTagListForArticle(articleId: string): Promise<string[]> {
     .innerJoin("article_tags", "article_tags.tagId", "tags.id")
     .where("article_tags.articleId", "=", articleId)
     .execute()
-  return tags.map((t) => t.get<string>("name"))
+  return tags.map((t) => t.get("name"))
 }
 
 async function buildArticleResponse(article: ModelInstance, currentUserId?: string) {
-  const articleId = article.get<string>("id")
+  const articleId = article.get("id") as string
   const tagList = await getTagListForArticle(articleId)
 
-  const author = await User.find(article.get<string>("authorId"))
+  const author = await User.find(article.get("authorId") as string)
   if (!author) throw http.notFound("Author not found")
 
   let following = false
   if (currentUserId) {
     const follow = await Follow.query()
       .where("followerId", "=", currentUserId)
-      .where("followeeId", "=", author.get<string>("id"))
+      .where("followeeId", "=", author.get("id"))
       .first()
     following = !!follow
   }
@@ -75,19 +75,19 @@ async function buildArticleResponse(article: ModelInstance, currentUserId?: stri
 
   return {
     article: {
-      slug: article.get<string>("slug"),
-      title: article.get<string>("title"),
-      description: article.get<string>("description"),
-      body: article.get<string>("body"),
+      slug: article.get("slug"),
+      title: article.get("title"),
+      description: article.get("description"),
+      body: article.get("body"),
       tagList,
-      createdAt: article.get<string>("createdAt"),
-      updatedAt: article.get<string>("updatedAt"),
+      createdAt: article.get("createdAt"),
+      updatedAt: article.get("updatedAt"),
       favorited,
       favoritesCount,
       author: {
-        username: author.get<string>("username"),
-        bio: author.get<string | null>("bio"),
-        image: author.get<string | null>("image"),
+        username: author.get("username"),
+        bio: author.get("bio"),
+        image: author.get("image"),
         following,
       },
     },
@@ -117,7 +117,7 @@ app.post(
       const article = await Article.query().where("slug", "=", slug).first()
       if (!article) throw http.notFound("article: not found")
 
-      const articleId = article.get<string>("id")
+      const articleId = article.get("id")
 
       // Check if already favorited
       const existing = await Favorite.query()
@@ -156,7 +156,7 @@ app.delete(
       const article = await Article.query().where("slug", "=", slug).first()
       if (!article) throw http.notFound("article: not found")
 
-      const articleId = article.get<string>("id")
+      const articleId = article.get("id")
 
       await Favorite.query().where("userId", "=", currentUserId).where("articleId", "=", articleId).deleteMany()
 

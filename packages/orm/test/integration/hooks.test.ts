@@ -141,7 +141,7 @@ for (const dialect of await getAvailableDialects()) {
         const log: string[] = []
         HooksTest.on("beforeUpdate", (m: any) => {
           log.push("beforeUpdate")
-          m.set("counter", (m.get("counter") as number) + 1)
+          m.set("counter", (m.get("counter")) + 1)
         })
         HooksTest.on("afterUpdate", () => {
           log.push("afterUpdate")
@@ -214,7 +214,7 @@ for (const dialect of await getAvailableDialects()) {
 
         ctx.registerAll(Model)
         const record = await Model.insert({ name: "Before" })
-        const createdAt = record.get("createdAt") as string
+        const createdAt = record.get("createdAt")
         await new Promise((r) => setTimeout(r, 10))
         record.set("name", "After")
         await record.$save()

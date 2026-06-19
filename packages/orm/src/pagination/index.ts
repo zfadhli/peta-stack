@@ -1,9 +1,10 @@
+import type { ColumnShape } from "../columns/column.js"
 import type { Collection } from "../collection/index.js"
 import { createCollection } from "../collection/index.js"
 import type { ModelInstance } from "../model/types.js"
 
-export interface Paginator {
-  readonly data: Collection
+export interface Paginator<TColumns extends ColumnShape = ColumnShape> {
+  readonly data: Collection<TColumns>
   readonly total: number
   readonly perPage: number
   readonly currentPage: number
@@ -15,7 +16,7 @@ export interface Paginator {
   readonly onFirstPage: boolean
   readonly onLastPage: boolean
   readonly count: number
-  map<T>(fn: (item: ModelInstance) => T): T[]
+  map<T>(fn: (item: ModelInstance<TColumns>) => T): T[]
   toJSON(): PaginatorJson
 }
 
@@ -35,13 +36,13 @@ export interface PaginatorJson {
 
 export type PaginatedResult = PaginatorJson
 
-export function createPaginator(
-  items: ModelInstance[],
+export function createPaginator<TColumns extends ColumnShape = ColumnShape>(
+  items: ModelInstance<TColumns>[],
   total: number,
   perPage: number,
   currentPage: number,
-): Paginator {
-  const collection = createCollection(items)
+): Paginator<TColumns> {
+  const collection = createCollection<TColumns>(items)
   const lastPage = Math.max(1, Math.ceil(total / perPage))
 
   return {
@@ -82,7 +83,7 @@ export function createPaginator(
       return items.length
     },
 
-    map<T>(fn: (item: ModelInstance) => T): T[] {
+    map<T>(fn: (item: ModelInstance<TColumns>) => T): T[] {
       return items.map(fn)
     },
 

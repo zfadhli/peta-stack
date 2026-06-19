@@ -61,18 +61,18 @@ async function isFollowing(authorId: string, currentUserId?: string): Promise<bo
 }
 
 async function buildCommentResponse(comment: ModelInstance, currentUserId?: string) {
-  const author = await User.find(comment.get<string>("authorId"))
+  const author = await User.find(comment.get("authorId") as string)
   if (!author) throw http.notFound("Author not found")
   return {
-    id: comment.get<string>("id"),
-    createdAt: comment.get<string>("createdAt"),
-    updatedAt: comment.get<string>("updatedAt"),
-    body: comment.get<string>("body"),
+    id: comment.get("id"),
+    createdAt: comment.get("createdAt"),
+    updatedAt: comment.get("updatedAt"),
+    body: comment.get("body"),
     author: {
-      username: author.get<string>("username"),
-      bio: author.get<string | null>("bio"),
-      image: author.get<string | null>("image"),
-      following: await isFollowing(author.get<string>("id"), currentUserId),
+      username: author.get("username"),
+      bio: author.get("bio"),
+      image: author.get("image"),
+      following: await isFollowing(author.get("id"), currentUserId),
     },
   }
 }
@@ -96,7 +96,7 @@ app.get(
       if (!article) throw http.notFound("article: not found")
 
       const comments = await Comment.query()
-        .where("articleId", "=", article.get<string>("id"))
+        .where("articleId", "=", article.get("id"))
         .orderBy("createdAt", "asc")
         .execute()
 
@@ -133,7 +133,7 @@ app.post(
       if (!article) throw http.notFound("article: not found")
 
       const comment = await Comment.insert({
-        articleId: article.get<string>("id"),
+        articleId: article.get("id"),
         authorId: currentUserId,
         body: body.body,
       })
@@ -170,7 +170,7 @@ app.delete(
       if (!comment) throw http.notFound("comment: not found")
 
       // Only comment author can delete
-      if (comment.get<string>("authorId") !== currentUserId) {
+      if (comment.get("authorId") !== currentUserId) {
         throw http.forbidden("comment: forbidden")
       }
 

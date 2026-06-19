@@ -100,31 +100,31 @@ beforeAll(async () => {
   const alice = await User.insert({ name: "Alice" })
   const bob = await User.insert({ name: "Bob" })
 
-  await Profile.insert({ userId: alice.get("id") as number, bio: "Alice's bio" })
-  await Profile.insert({ userId: bob.get("id") as number, bio: "Bob's bio" })
+  await Profile.insert({ userId: alice.get("id"), bio: "Alice's bio" })
+  await Profile.insert({ userId: bob.get("id"), bio: "Bob's bio" })
 
-  const p1 = await Post.insert({ userId: alice.get("id") as number, title: "Alice Post 1" })
-  const p2 = await Post.insert({ userId: alice.get("id") as number, title: "Alice Post 2" })
-  const p3 = await Post.insert({ userId: bob.get("id") as number, title: "Bob Post 1" })
+  const p1 = await Post.insert({ userId: alice.get("id"), title: "Alice Post 1" })
+  const p2 = await Post.insert({ userId: alice.get("id"), title: "Alice Post 2" })
+  const p3 = await Post.insert({ userId: bob.get("id"), title: "Bob Post 1" })
 
   const tagA = await Tag.insert({ name: "tech" })
   const tagB = await Tag.insert({ name: "life" })
 
   await peta.kysely
     .insertInto("post_tags")
-    .values({ postId: p1.get("id") as number, tagId: tagA.get("id") as number })
+    .values({ postId: p1.get("id"), tagId: tagA.get("id") })
     .execute()
   await peta.kysely
     .insertInto("post_tags")
-    .values({ postId: p1.get("id") as number, tagId: tagB.get("id") as number })
+    .values({ postId: p1.get("id"), tagId: tagB.get("id") })
     .execute()
   await peta.kysely
     .insertInto("post_tags")
-    .values({ postId: p2.get("id") as number, tagId: tagA.get("id") as number })
+    .values({ postId: p2.get("id"), tagId: tagA.get("id") })
     .execute()
   await peta.kysely
     .insertInto("post_tags")
-    .values({ postId: p3.get("id") as number, tagId: tagB.get("id") as number })
+    .values({ postId: p3.get("id"), tagId: tagB.get("id") })
     .execute()
 })
 
@@ -423,7 +423,7 @@ describe("Nested create through relations", () => {
   it("creates with hasMany children", async () => {
     const alice = await User.find(1)
     expect(alice).toBeDefined()
-    const authorId = alice!.get("id") as number
+    const authorId = alice!.get("id")
 
     // Post.create with embedded tags (manyToMany)
     const tag1 = await Tag.insert({ name: "nested-tag-1" })
@@ -433,7 +433,7 @@ describe("Nested create through relations", () => {
       title: "Post With Tags",
       userId: authorId,
       tags: {
-        connect: [tag1.get("id") as number, tag2.get("id") as number],
+        connect: [tag1.get("id"), tag2.get("id")],
       },
     })
 
@@ -455,25 +455,25 @@ describe("Nested update through relations", () => {
     const post = posts[0]!
     const _oldAuthorName = alice!.get("name")
 
-    await Post.update(post.get("id") as number, {
+    await Post.update(post.get("id"), {
       title: "Updated Title",
       author: {
         update: { name: "Updated Author" },
       },
     })
 
-    const updated = await Post.find(post.get("id") as number)
+    const updated = await Post.find(post.get("id"))
     expect(updated!.get("title")).toBe("Updated Title")
 
     // Verify the author was updated
-    const author = await User.find(alice!.get("id") as number)
+    const author = await User.find(alice!.get("id"))
     expect(author!.get("name")).toBe("Updated Author")
   })
 
   it("creates new related via hasMany create in update", async () => {
     const alice = await User.find(1)
     expect(alice).toBeDefined()
-    const aliceId = alice!.get("id") as number
+    const aliceId = alice!.get("id")
 
     await User.update(aliceId, {
       posts: {
@@ -496,9 +496,9 @@ describe("Nested update through relations", () => {
     const post = posts[0]!
     const newTag = await Tag.insert({ name: "update-connect-tag" })
 
-    await Post.update(post.get("id") as number, {
+    await Post.update(post.get("id"), {
       tags: {
-        connect: [newTag.get("id") as number],
+        connect: [newTag.get("id")],
       },
     })
 
@@ -521,25 +521,25 @@ describe("attach/detach/sync for many-to-many", () => {
 
     // Create a fresh post
     const alice = await User.find(1)
-    const p = await Post.insert({ userId: alice!.get("id") as number, title: "Attach Test Post" })
+    const p = await Post.insert({ userId: alice!.get("id"), title: "Attach Test Post" })
     post = p
   })
 
   it("attach adds pivot rows", async () => {
-    await post!.$related("tags").attach(tagA!.get("id") as number)
+    await post!.$related("tags").attach(tagA!.get("id"))
     const tags = await post!.$related("tags")
     expect(tags.some((t) => t.get("id") === tagA!.get("id"))).toBe(true)
   })
 
   it("detach removes pivot rows", async () => {
-    const tagId = tagA!.get("id") as number
+    const tagId = tagA!.get("id")
     await post!.$related("tags").detach(tagId)
     const tags = await post!.$related("tags")
     expect(tags.some((t) => t.get("id") === tagId)).toBe(false)
   })
 
   it("sync replaces all pivot rows", async () => {
-    await post!.$related("tags").sync([tagA!.get("id") as number, tagB!.get("id") as number])
+    await post!.$related("tags").sync([tagA!.get("id"), tagB!.get("id")])
     const tags = await post!.$related("tags")
     expect(tags).toHaveLength(2)
   })
@@ -549,7 +549,7 @@ describe("attach/detach/sync for many-to-many", () => {
     await post!.$related("tags").detach()
 
     // Then syncWithoutDetaching
-    await post!.$related("tags").syncWithoutDetaching([tagA!.get("id") as number])
+    await post!.$related("tags").syncWithoutDetaching([tagA!.get("id")])
     const tags = await post!.$related("tags")
     expect(tags).toHaveLength(1)
     expect(tags[0]!.get("id")).toBe(tagA!.get("id"))

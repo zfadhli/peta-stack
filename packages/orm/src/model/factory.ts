@@ -13,27 +13,28 @@ import {
   setAttr,
   syncOriginal,
 } from "./state.js"
+import type { ColumnShape } from "../columns/column.js"
 import type { ModelConfig, ModelDefinition, ModelInstance } from "./types.js"
 import { FORBIDDEN_KEYS } from "./types.js"
 
 // Store model definition on instance for collection.load() to find
-const instanceDefs = new WeakMap<object, ModelDefinition>()
+const instanceDefs = new WeakMap<object, ModelDefinition<any>>()
 
-export function setModelDefOnInstance(instance: object, def: ModelDefinition): void {
+export function setModelDefOnInstance(instance: object, def: ModelDefinition<any>): void {
   instanceDefs.set(instance, def)
 }
 
-export function getModelDefFromInstance(instance: object): ModelDefinition | undefined {
+export function getModelDefFromInstance(instance: object): ModelDefinition<any> | undefined {
   return instanceDefs.get(instance)
 }
 
-export function createInstance(
-  def: ModelDefinition,
-  config: ModelConfig,
+export function createInstance<TColumns extends ColumnShape = ColumnShape>(
+  def: ModelDefinition<TColumns>,
+  config: ModelConfig<TColumns>,
   data: Record<string, unknown>,
   exists: boolean,
-): ModelInstance {
-  const instance: ModelInstance = {
+): ModelInstance<TColumns> {
+  const instance: ModelInstance<TColumns> = {
     get exists() {
       return getExists(instance)
     },

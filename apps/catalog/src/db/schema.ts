@@ -24,9 +24,9 @@ const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 // ---------------------------------------------------------------------------
 // Lazy model references — break circular type inference with explicit casts
 // ---------------------------------------------------------------------------
-let _Author: ModelDefinition
-let _Book: ModelDefinition
-let _Category: ModelDefinition
+let _Author: ModelDefinition<any>
+let _Book: ModelDefinition<any>
+let _Category: ModelDefinition<any>
 
 // ---------------------------------------------------------------------------
 // Models
@@ -52,7 +52,7 @@ export const User = defineModel("users", {
   .use(softDeletes())
   .use(ulid())
 
-export const Author: ModelDefinition = defineModel("authors", {
+export const Author = defineModel("authors", {
   columns: {
     id: t.string(26).primaryKey(),
     name: t.string(255),
@@ -73,7 +73,7 @@ export const Author: ModelDefinition = defineModel("authors", {
   .use(ulid())
 _Author = Author
 
-export const Book: ModelDefinition = defineModel("books", {
+export const Book = defineModel("books", {
   columns: {
     id: t.string(26).primaryKey(),
     title: t.string(255),
@@ -107,7 +107,7 @@ export const Book: ModelDefinition = defineModel("books", {
   .use(ulid())
 _Book = Book
 
-export const Category: ModelDefinition = defineModel("categories", {
+export const Category = defineModel("categories", {
   columns: {
     id: t.string(26).primaryKey(),
     name: t.string(255).unique(),

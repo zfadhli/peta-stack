@@ -136,11 +136,11 @@ for (const dialect of await getAvailableDialects()) {
 
         const alice = await User.insert({ name: "Alice" })
         const bob = await User.insert({ name: "Bob" })
-        await Post.insert({ userId: alice.get("id") as number, title: "Alice Post 1" })
-        await Post.insert({ userId: alice.get("id") as number, title: "Alice Post 2" })
-        await Post.insert({ userId: bob.get("id") as number, title: "Bob Post 1" })
-        await Profile.insert({ userId: alice.get("id") as number, bio: "Alice's bio" })
-        await Profile.insert({ userId: bob.get("id") as number, bio: "Bob's bio" })
+        await Post.insert({ userId: alice.get("id"), title: "Alice Post 1" })
+        await Post.insert({ userId: alice.get("id"), title: "Alice Post 2" })
+        await Post.insert({ userId: bob.get("id"), title: "Bob Post 1" })
+        await Profile.insert({ userId: alice.get("id"), bio: "Alice's bio" })
+        await Profile.insert({ userId: bob.get("id"), bio: "Bob's bio" })
       })
 
       afterAll(async () => {
@@ -238,15 +238,15 @@ for (const dialect of await getAvailableDialects()) {
         // Seed pivot directly
         await ctx.kysely
           .insertInto("mtm_post_tags")
-          .values({ postId: 1, tagId: tagA.get("id") as number })
+          .values({ postId: 1, tagId: tagA.get("id") })
           .execute()
         await ctx.kysely
           .insertInto("mtm_post_tags")
-          .values({ postId: 1, tagId: tagB.get("id") as number })
+          .values({ postId: 1, tagId: tagB.get("id") })
           .execute()
         await ctx.kysely
           .insertInto("mtm_post_tags")
-          .values({ postId: 2, tagId: tagA.get("id") as number })
+          .values({ postId: 2, tagId: tagA.get("id") })
           .execute()
       })
 
@@ -275,12 +275,12 @@ for (const dialect of await getAvailableDialects()) {
       it("attaches via $related()", async () => {
         const post = await Post.insert({ userId: 1, title: "Attach Test Post" })
         const tagA = await Tag.insert({ name: "attach-a" })
-        await post!.$related("tags").attach(tagA.get("id") as number)
+        await post!.$related("tags").attach(tagA.get("id"))
         // Verify via direct pivot query
         const pivotRows = await ctx.kysely
           .selectFrom("mtm_post_tags")
           .selectAll()
-          .where("postId", "=", post.get("id") as number)
+          .where("postId", "=", post.get("id"))
           .execute()
         expect(pivotRows.length).toBeGreaterThanOrEqual(1)
         expect(pivotRows.some((r: any) => r.tagId === tagA.get("id"))).toBe(true)
@@ -290,14 +290,14 @@ for (const dialect of await getAvailableDialects()) {
         const post = await Post.insert({ userId: 1, title: "Detach Test Post" })
         const tagA = await Tag.insert({ name: "detach-a" })
         const tagB = await Tag.insert({ name: "detach-b" })
-        await post!.$related("tags").attach(tagA.get("id") as number)
-        await post!.$related("tags").attach(tagB.get("id") as number)
+        await post!.$related("tags").attach(tagA.get("id"))
+        await post!.$related("tags").attach(tagB.get("id"))
 
-        await post!.$related("tags").detach(tagA.get("id") as number)
+        await post!.$related("tags").detach(tagA.get("id"))
         const pivotRows = await ctx.kysely
           .selectFrom("mtm_post_tags")
           .selectAll()
-          .where("postId", "=", post.get("id") as number)
+          .where("postId", "=", post.get("id"))
           .execute()
         const tagIds = pivotRows.map((r: any) => r.tagId)
         expect(tagIds).not.toContain(tagA.get("id"))
@@ -308,14 +308,14 @@ for (const dialect of await getAvailableDialects()) {
         const post = await Post.insert({ userId: 1, title: "Sync Test Post" })
         const tagA = await Tag.insert({ name: "sync-a" })
         const tagB = await Tag.insert({ name: "sync-b" })
-        await post!.$related("tags").attach(tagA.get("id") as number)
-        await post!.$related("tags").attach(tagB.get("id") as number)
+        await post!.$related("tags").attach(tagA.get("id"))
+        await post!.$related("tags").attach(tagB.get("id"))
 
-        await post!.$related("tags").sync([tagA.get("id") as number])
+        await post!.$related("tags").sync([tagA.get("id")])
         const pivotRows = await ctx.kysely
           .selectFrom("mtm_post_tags")
           .selectAll()
-          .where("postId", "=", post.get("id") as number)
+          .where("postId", "=", post.get("id"))
           .execute()
         expect(pivotRows).toHaveLength(1)
         expect(pivotRows[0].tagId).toBe(tagA.get("id"))

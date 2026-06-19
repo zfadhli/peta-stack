@@ -167,7 +167,7 @@ describe("resolveMorphRelation", () => {
     const post = await Post.insert({ title: "Resolve Test" })
     const like = await Like.insert({
       likeableType: "morph_posts",
-      likeableId: post.get("id") as number,
+      likeableId: post.get("id"),
     })
 
     const resolved = resolveMorphRelation(Like.relations.likeable, like)
@@ -196,11 +196,11 @@ describe("MorphTo query", () => {
 
     const likeOnPost = await Like.insert({
       likeableType: "morph_posts",
-      likeableId: post.get("id") as number,
+      likeableId: post.get("id"),
     })
     const likeOnVideo = await Like.insert({
       likeableType: "morph_videos",
-      likeableId: video.get("id") as number,
+      likeableId: video.get("id"),
     })
 
     // Query the likeable for the post like
@@ -222,7 +222,7 @@ describe("MorphTo getResults", () => {
     const post = await Post.insert({ title: "GetResults Post" })
     const like = await Like.insert({
       likeableType: "morph_posts",
-      likeableId: post.get("id") as number,
+      likeableId: post.get("id"),
     })
 
     const result = await Like.relations.likeable.getResults(like)
@@ -236,7 +236,7 @@ describe("MorphTo eager loading", () => {
     const post = await Post.insert({ title: "Eager Post" })
     await Like.insert({
       likeableType: "morph_posts",
-      likeableId: post.get("id") as number,
+      likeableId: post.get("id"),
       userId: "user1",
     })
 
@@ -256,11 +256,11 @@ describe("MorphTo eager loading", () => {
 
     await Like.insert({
       likeableType: "morph_posts",
-      likeableId: post.get("id") as number,
+      likeableId: post.get("id"),
     })
     await Like.insert({
       likeableType: "morph_videos",
-      likeableId: video.get("id") as number,
+      likeableId: video.get("id"),
     })
 
     const likes = await Like.query().with("likeable").orderBy("id", "asc")
@@ -307,16 +307,16 @@ describe("MorphMany (forward direction)", () => {
     const post = await Post.insert({ title: "MorphMany Post" })
     await Like.insert({
       likeableType: "morph_posts",
-      likeableId: post.get("id") as number,
+      likeableId: post.get("id"),
     })
     await Like.insert({
       likeableType: "morph_posts",
-      likeableId: post.get("id") as number,
+      likeableId: post.get("id"),
     })
 
     const posts = await Post.query()
       .with("likes")
-      .where("id", "=", post.get("id") as number)
+      .where("id", "=", post.get("id"))
     expect(posts).toHaveLength(1)
     const likes = posts[0]!.$getRelation("likes") as any[]
     expect(likes).toHaveLength(2)
@@ -329,19 +329,19 @@ describe("MorphTo + MorphMany bidirectional", () => {
     const comment = await Comment.insert({
       body: "Bidirectional comment",
       commentableType: "morph_posts",
-      commentableId: post.get("id") as number,
+      commentableId: post.get("id"),
     })
 
     // MorphMany: Post → comments
     const posts = await Post.query()
       .with("comments")
-      .where("id", "=", post.get("id") as number)
+      .where("id", "=", post.get("id"))
     expect(posts[0]!.$getRelation("comments")).toHaveLength(1)
 
     // MorphTo: Comment → commentable
     const comments = await Comment.query()
       .with("commentable")
-      .where("id", "=", comment.get("id") as number)
+      .where("id", "=", comment.get("id"))
     expect(comments[0]!.$getRelation("commentable").get("title")).toBe("Bidirectional Post")
   })
 })
@@ -363,7 +363,7 @@ describe("MorphTo through insertGraph", () => {
     expect(comment.get("commentableId")).toBeGreaterThan(0)
 
     // Verify the related post was created
-    const post = await Post.find(comment.get("commentableId") as number)
+    const post = await Post.find(comment.get("commentableId"))
     expect(post).toBeDefined()
     expect(post!.get("title")).toBe("Graph Post")
   })
@@ -383,7 +383,7 @@ describe("MorphTo through insertGraph", () => {
     expect(like.get("likeableType")).toBe("morph_posts")
     expect(like.get("likeableId")).toBeGreaterThan(0)
 
-    const post = await Post.find(like.get("likeableId") as number)
+    const post = await Post.find(like.get("likeableId"))
     expect(post).toBeDefined()
     expect(post!.get("title")).toBe("Auto-detect Post")
   })
@@ -415,7 +415,7 @@ describe("MorphTo through insertGraph", () => {
     const comment = await Comment.insertGraph({
       body: "Connect morph",
       commentable: {
-        connect: { id: existingPost.get("id") as number },
+        connect: { id: existingPost.get("id") },
         type: "morph_posts",
       },
     })
@@ -430,7 +430,7 @@ describe("MorphTo through insertGraph", () => {
     const comment = await Comment.insertGraph({
       body: "DbRef morph",
       commentable: {
-        "#dbRef": existingPost.get("id") as number,
+        "#dbRef": existingPost.get("id"),
         type: "morph_posts",
       },
     })
@@ -450,7 +450,7 @@ describe("MorphMany through insertGraph", () => {
     expect(post.get("id")).toBeGreaterThan(0)
 
     const comments = await Comment.query()
-      .where("commentableId", "=", post.get("id") as number)
+      .where("commentableId", "=", post.get("id"))
       .orderBy("id", "asc")
     expect(comments).toHaveLength(2)
     // Type column should be auto-set by the MorphMany relation
@@ -461,7 +461,7 @@ describe("MorphMany through insertGraph", () => {
 
   it("18. auto-sets type column on children via upsertGraph", async () => {
     const post = await Post.insert({ title: "MorphMany Upsert" })
-    const postId = post.get("id") as number
+    const postId = post.get("id")
 
     // upsertGraph — add new children
     await Post.upsertGraph({
@@ -492,14 +492,14 @@ describe("MorphTo + MorphMany mixed graph", () => {
     expect(comment.get("commentableId")).toBeGreaterThan(0)
 
     // Verify the Post was created
-    const post = await Post.find(comment.get("commentableId") as number)
+    const post = await Post.find(comment.get("commentableId"))
     expect(post).toBeDefined()
     expect(post!.get("title")).toBe("Mixed Parent")
 
     // Verify the Post has its own child comment (filter by body to distinguish from root comment)
     const grandComments = await Comment.query()
       .where("body", "=", "Grandchild")
-      .where("commentableId", "=", post!.get("id") as number)
+      .where("commentableId", "=", post!.get("id"))
     expect(grandComments).toHaveLength(1)
     expect(grandComments[0]!.get("commentableType")).toBe("morph_posts")
   })

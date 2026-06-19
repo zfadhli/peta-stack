@@ -1,11 +1,12 @@
 export type ModelId = number & { readonly __brand: "ModelId" }
 
-export interface ModelLike {
-  get<T = unknown>(key: string): T
+import type { ColumnShape, ColumnValue } from "./columns/column.js"
+
+export interface ModelLike<TColumns extends ColumnShape = ColumnShape> {
+  get<K extends keyof TColumns>(key: K): ColumnValue<TColumns[K]>
+  get(key: string): unknown
   set(key: string, value: unknown): void
 }
-
-import type { ColumnShape } from "./columns/column.js"
 
 export interface ORMLike {
   readonly kysely: import("./lib/kysely.js").Database
@@ -23,17 +24,17 @@ export interface ModelDefinition<TColumns extends ColumnShape = ColumnShape> {
   readonly relations: Record<string, import("./relations/base.js").Relation>
   readonly name: string
   _orm: ORMLike | null
-  query(): import("./query/index.js").QueryBuilder
-  find(id: number | string): Promise<import("./model/types.js").ModelInstance | undefined>
-  findOrFail(id: number | string): Promise<import("./model/types.js").ModelInstance>
-  first(): Promise<import("./model/types.js").ModelInstance | undefined>
-  create(data: Record<string, unknown>): Promise<import("./model/types.js").ModelInstance>
-  insert(data: Record<string, unknown>): Promise<import("./model/types.js").ModelInstance>
-  insertMany(dataArray: Record<string, unknown>[]): Promise<import("./model/types.js").ModelInstance[]>
-  update(id: number | string, data: Record<string, unknown>): Promise<import("./model/types.js").ModelInstance>
+  query(): import("./query/index.js").QueryBuilder<TColumns>
+  find(id: number | string): Promise<import("./model/types.js").ModelInstance<TColumns> | undefined>
+  findOrFail(id: number | string): Promise<import("./model/types.js").ModelInstance<TColumns>>
+  first(): Promise<import("./model/types.js").ModelInstance<TColumns> | undefined>
+  create(data: Record<string, unknown>): Promise<import("./model/types.js").ModelInstance<TColumns>>
+  insert(data: Record<string, unknown>): Promise<import("./model/types.js").ModelInstance<TColumns>>
+  insertMany(dataArray: Record<string, unknown>[]): Promise<import("./model/types.js").ModelInstance<TColumns>[]>
+  update(id: number | string, data: Record<string, unknown>): Promise<import("./model/types.js").ModelInstance<TColumns>>
   delete(id: number | string): Promise<void>
-  hydrate(row: Record<string, unknown>): import("./model/types.js").ModelInstance
-  on(event: string, callback: (model: import("./model/types.js").ModelInstance) => void | Promise<void>): () => void
+  hydrate(row: Record<string, unknown>): import("./model/types.js").ModelInstance<TColumns>
+  on(event: string, callback: (model: import("./model/types.js").ModelInstance<TColumns>) => void | Promise<void>): () => void
   getHooks(): import("./hooks/index.js").HookManager
   addGlobalScope(name: string, callback: (qb: import("./query/index.js").QueryBuilder) => void): void
   removeGlobalScope(name: string): void

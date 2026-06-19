@@ -96,7 +96,7 @@ describe("Authors API", () => {
     // Verify via direct DB query
     const { Author } = await import("../src/db/schema.js")
     const author = await Author.find(body.id)
-    expect(author?.get<string>("userId")).toBe(authorUserId)
+    expect(author?.get("userId")).toBe(authorUserId)
   })
 
   it("GET /api/authors/:id → 200 returns author with books", async () => {

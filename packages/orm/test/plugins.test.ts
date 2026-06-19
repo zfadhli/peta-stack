@@ -66,7 +66,7 @@ describe("Plugin system", () => {
 
     peta.registerAll(Model)
     const record = await Model.insert({ name: "Before" })
-    const createdAt = record.get("createdAt") as string
+    const createdAt = record.get("createdAt")
     await new Promise((r) => setTimeout(r, 10))
     record.set("name", "After")
     await record.$save()

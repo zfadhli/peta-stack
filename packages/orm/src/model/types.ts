@@ -1,4 +1,4 @@
-import type { ColumnShape } from "../columns/column.js"
+import type { ColumnShape, ColumnValue } from "../columns/column.js"
 import type { QueryBuilder } from "../query/index.js"
 import type { Relation } from "../relations/base.js"
 import type { InsertGraphOptions, UpsertGraphOptions } from "../relations/graph/index.js"
@@ -9,12 +9,13 @@ import type { Attribute } from "./attribute.js"
 export const FORBIDDEN_KEYS = new Set(["__proto__", "constructor", "prototype"])
 
 // ─── MODEL INSTANCE ──────────────────────────────────────────
-export interface ModelInstance {
+export interface ModelInstance<TColumns extends ColumnShape = ColumnShape> {
   readonly exists: boolean
   readonly attributes: Record<string, unknown>
   readonly dirtyAttributes: Record<string, unknown>
   isDirty(key?: string): boolean
-  get<T = unknown>(key: string): T
+  get<K extends keyof TColumns>(key: K): ColumnValue<TColumns[K]>
+  get(key: string): unknown
   set(key: string, value: unknown): void
   fill(data: Record<string, unknown>): void
   reset(): void
@@ -43,24 +44,24 @@ export interface ModelDefinition<TColumns extends ColumnShape = ColumnShape> {
 
   _orm: ORMLike | null
 
-  query(): QueryBuilder
-  find(id: number | string): Promise<ModelInstance | undefined>
-  findOrFail(id: number | string): Promise<ModelInstance>
-  first(): Promise<ModelInstance | undefined>
+  query(): QueryBuilder<TColumns>
+  find(id: number | string): Promise<ModelInstance<TColumns> | undefined>
+  findOrFail(id: number | string): Promise<ModelInstance<TColumns>>
+  first(): Promise<ModelInstance<TColumns> | undefined>
 
-  create(data: Record<string, unknown>): Promise<ModelInstance>
-  insert(data: Record<string, unknown>): Promise<ModelInstance>
-  insertMany(dataArray: Record<string, unknown>[]): Promise<ModelInstance[]>
-  update(id: number | string, data: Record<string, unknown>): Promise<ModelInstance>
+  create(data: Record<string, unknown>): Promise<ModelInstance<TColumns>>
+  insert(data: Record<string, unknown>): Promise<ModelInstance<TColumns>>
+  insertMany(dataArray: Record<string, unknown>[]): Promise<ModelInstance<TColumns>[]>
+  update(id: number | string, data: Record<string, unknown>): Promise<ModelInstance<TColumns>>
   delete(id: number | string): Promise<void>
   insertGraph(data: Record<string, unknown> | Record<string, unknown>[], options?: InsertGraphOptions): Promise<any>
   upsertGraph(data: Record<string, unknown> | Record<string, unknown>[], options?: UpsertGraphOptions): Promise<any>
 
-  hydrate(row: Record<string, unknown>): ModelInstance
+  hydrate(row: Record<string, unknown>): ModelInstance<TColumns>
 
-  use(plugin: import("../plugins/index.js").Plugin): ModelDefinition
+  use(plugin: import("../plugins/index.js").Plugin): ModelDefinition<TColumns>
   makeHelper<A extends any[], R>(fn: (qb: import("../query/index.js").QueryBuilder, ...args: A) => R): (...args: A) => R
-  on(event: string, callback: (model: ModelInstance) => void | Promise<void>): () => void
+  on(event: string, callback: (model: ModelInstance<TColumns>) => void | Promise<void>): () => void
   getHooks(): import("../hooks/index.js").HookManager
 
   // Static query hooks (once per query, not per instance)

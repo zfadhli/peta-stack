@@ -54,7 +54,7 @@ describe("Reviews API", () => {
       bio: "Bio",
       userId: authorUser.userId,
     })
-    const authorId = author.get<string>("id")
+    const authorId = author.get("id")
 
     // Create a book directly (bypass API)
     const book = await Book.insert({
@@ -64,7 +64,7 @@ describe("Reviews API", () => {
       authorId,
       inStock: true,
     })
-    bookId = book.get<string>("id")
+    bookId = book.get("id")
 
     // Create reviewer users
     const user = await createUser(app, {

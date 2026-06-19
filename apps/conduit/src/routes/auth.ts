@@ -95,11 +95,11 @@ app.post(
 
       return c.json(
         await buildUserResponse(
-          user.get<string>("id"),
-          user.get<string>("username"),
-          user.get<string>("email"),
-          user.get<string | null>("bio"),
-          user.get<string | null>("image"),
+          user.get("id"),
+          user.get("username"),
+          user.get("email"),
+          user.get("bio"),
+          user.get("image"),
         ),
         201,
       )
@@ -125,16 +125,16 @@ app.post(
       const user = await User.query().where("email", "=", body.email).first()
       if (!user) throw http.unauthorized("credentials: invalid")
 
-      const valid = await verifyPassword(user.get<string>("password"), body.password)
+      const valid = await verifyPassword(user.get("password"), body.password)
       if (!valid) throw http.unauthorized("credentials: invalid")
 
       return c.json(
         await buildUserResponse(
-          user.get<string>("id"),
-          user.get<string>("username"),
-          user.get<string>("email"),
-          user.get<string | null>("bio"),
-          user.get<string | null>("image"),
+          user.get("id"),
+          user.get("username"),
+          user.get("email"),
+          user.get("bio"),
+          user.get("image"),
         ),
       )
     }),
@@ -161,11 +161,11 @@ app.get(
 
       return c.json(
         await buildUserResponse(
-          user.get<string>("id"),
-          user.get<string>("username"),
-          user.get<string>("email"),
-          user.get<string | null>("bio"),
-          user.get<string | null>("image"),
+          user.get("id"),
+          user.get("username"),
+          user.get("email"),
+          user.get("bio"),
+          user.get("image"),
         ),
       )
     }),
@@ -206,11 +206,11 @@ app.put(
         if (!user) throw http.notFound("user: not found")
         return c.json(
           await buildUserResponse(
-            user.get<string>("id"),
-            user.get<string>("username"),
-            user.get<string>("email"),
-            user.get<string | null>("bio"),
-            user.get<string | null>("image"),
+            user.get("id"),
+            user.get("username"),
+            user.get("email"),
+            user.get("bio"),
+            user.get("image"),
           ),
         )
       }
@@ -228,11 +228,11 @@ app.put(
       if (!user) throw http.notFound("user: not found")
       return c.json(
         await buildUserResponse(
-          user.get<string>("id"),
-          user.get<string>("username"),
-          user.get<string>("email"),
-          user.get<string | null>("bio"),
-          user.get<string | null>("image"),
+          user.get("id"),
+          user.get("username"),
+          user.get("email"),
+          user.get("bio"),
+          user.get("image"),
         ),
       )
     }),

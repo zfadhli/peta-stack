@@ -126,7 +126,7 @@ app.patch(
       const reviewId = c.req.param("reviewId")!
       const review = await Review.query().where("id", "=", reviewId).where("bookId", "=", bookId).limit(1).execute()
       if (!review[0]) throw http.notFound()
-      if (review[0].get<string>("userId") !== c.var.session.userId) throw http.forbidden()
+      if (review[0].get("userId") !== c.var.session.userId) throw http.forbidden()
 
       const body = c.req.valid("json")
       review[0].fill(body as Record<string, unknown>)
@@ -154,7 +154,7 @@ app.delete(
       const reviewId = c.req.param("reviewId")!
       const review = await Review.query().where("id", "=", reviewId).where("bookId", "=", bookId).limit(1).execute()
       if (!review[0]) throw http.notFound()
-      if (review[0].get<string>("userId") !== c.var.session.userId) throw http.forbidden()
+      if (review[0].get("userId") !== c.var.session.userId) throw http.forbidden()
 
       await review[0].$delete()
       return c.body(null, 204)

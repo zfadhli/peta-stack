@@ -1,41 +1,42 @@
+import type { ColumnShape } from "../columns/column.js"
 import type { ModelInstance } from "../model/types.js"
 
-export interface Collection {
+export interface Collection<TColumns extends ColumnShape = ColumnShape> {
   readonly length: number
-  [Symbol.iterator](): Iterator<ModelInstance>
+  [Symbol.iterator](): Iterator<ModelInstance<TColumns>>
 
   // Access
-  at(index: number): ModelInstance | undefined
-  first(): ModelInstance | undefined
-  last(): ModelInstance | undefined
-  all(): ModelInstance[]
-  findBy(id: number | string): ModelInstance | undefined
-  find(callback: (item: ModelInstance, index: number) => boolean): ModelInstance | undefined
-  some(callback: (item: ModelInstance, index: number) => boolean): boolean
-  includes(item: ModelInstance): boolean
+  at(index: number): ModelInstance<TColumns> | undefined
+  first(): ModelInstance<TColumns> | undefined
+  last(): ModelInstance<TColumns> | undefined
+  all(): ModelInstance<TColumns>[]
+  findBy(id: number | string): ModelInstance<TColumns> | undefined
+  find(callback: (item: ModelInstance<TColumns>, index: number) => boolean): ModelInstance<TColumns> | undefined
+  some(callback: (item: ModelInstance<TColumns>, index: number) => boolean): boolean
+  includes(item: ModelInstance<TColumns>): boolean
   isEmpty(): boolean
   isNotEmpty(): boolean
 
   // Collection methods
   get(key: string): unknown[]
   pluck(key: string): unknown[]
-  groupBy(key: string): Record<string, ModelInstance[]>
-  keyBy(key: string): Record<string, ModelInstance>
+  groupBy(key: string): Record<string, ModelInstance<TColumns>[]>
+  keyBy(key: string): Record<string, ModelInstance<TColumns>>
 
   // Transformation
-  map<T>(fn: (item: ModelInstance, index: number) => T): T[]
-  filter(fn: (item: ModelInstance, index: number) => boolean): Collection
-  reduce<T>(fn: (acc: T, item: ModelInstance, index: number) => T, initial: T): T
-  forEach(fn: (item: ModelInstance, index: number) => void): void
-  each(fn: (item: ModelInstance, index: number) => void): Collection
+  map<T>(fn: (item: ModelInstance<TColumns>, index: number) => T): T[]
+  filter(fn: (item: ModelInstance<TColumns>, index: number) => boolean): Collection<TColumns>
+  reduce<T>(fn: (acc: T, item: ModelInstance<TColumns>, index: number) => T, initial: T): T
+  forEach(fn: (item: ModelInstance<TColumns>, index: number) => void): void
+  each(fn: (item: ModelInstance<TColumns>, index: number) => void): Collection<TColumns>
 
   // Sorting & slicing
-  unique(key?: string): Collection
-  sortBy(key: string, direction?: "asc" | "desc"): Collection
-  shuffle(): Collection
-  take(n: number): Collection
-  skip(n: number): Collection
-  chunk(size: number): Collection[]
+  unique(key?: string): Collection<TColumns>
+  sortBy(key: string, direction?: "asc" | "desc"): Collection<TColumns>
+  shuffle(): Collection<TColumns>
+  take(n: number): Collection<TColumns>
+  skip(n: number): Collection<TColumns>
+  chunk(size: number): Collection<TColumns>[]
 
   // Aggregation
   sum(key: string): number
@@ -44,22 +45,24 @@ export interface Collection {
   max(key: string): number
 
   // Set operations
-  diff(other: Collection): Collection
-  intersect(other: Collection): Collection
-  concat(other: Collection): Collection
-  push(...items: ModelInstance[]): void
+  diff(other: Collection<TColumns>): Collection<TColumns>
+  intersect(other: Collection<TColumns>): Collection<TColumns>
+  concat(other: Collection<TColumns>): Collection<TColumns>
+  push(...items: ModelInstance<TColumns>[]): void
 
   // Eager loading
-  load(...relations: string[]): Promise<Collection>
+  load(...relations: string[]): Promise<Collection<TColumns>>
 
   // Serialization
   toJSON(): Record<string, unknown>[]
 }
 
-export function createCollection(items?: ModelInstance[]): Collection {
-  const data: ModelInstance[] = [...(items ?? [])]
+export function createCollection<TColumns extends ColumnShape = ColumnShape>(
+  items?: ModelInstance<TColumns>[],
+): Collection<TColumns> {
+  const data: ModelInstance<TColumns>[] = [...(items ?? [])]
 
-  const collection: Collection = {
+  const collection: Collection<TColumns> = {
     get length() {
       return data.length
     },
@@ -67,28 +70,28 @@ export function createCollection(items?: ModelInstance[]): Collection {
       return data[Symbol.iterator]()
     },
 
-    at(index: number): ModelInstance | undefined {
+    at(index: number): ModelInstance<TColumns> | undefined {
       return data[index]
     },
-    first(): ModelInstance | undefined {
+    first(): ModelInstance<TColumns> | undefined {
       return data[0]
     },
-    last(): ModelInstance | undefined {
+    last(): ModelInstance<TColumns> | undefined {
       return data[data.length - 1]
     },
-    all(): ModelInstance[] {
+    all(): ModelInstance<TColumns>[] {
       return [...data]
     },
-    findBy(id: number | string): ModelInstance | undefined {
+    findBy(id: number | string): ModelInstance<TColumns> | undefined {
       return data.find((d) => d.get("id") === id)
     },
-    find(callback: (item: ModelInstance, index: number) => boolean): ModelInstance | undefined {
+    find(callback: (item: ModelInstance<TColumns>, index: number) => boolean): ModelInstance<TColumns> | undefined {
       return data.find(callback)
     },
-    some(callback: (item: ModelInstance, index: number) => boolean): boolean {
+    some(callback: (item: ModelInstance<TColumns>, index: number) => boolean): boolean {
       return data.some(callback)
     },
-    includes(item: ModelInstance): boolean {
+    includes(item: ModelInstance<TColumns>): boolean {
       return data.includes(item)
     },
     isEmpty(): boolean {
@@ -105,8 +108,8 @@ export function createCollection(items?: ModelInstance[]): Collection {
       return data.map((d) => d.get(key))
     },
 
-    groupBy(key: string): Record<string, ModelInstance[]> {
-      const result: Record<string, ModelInstance[]> = {}
+    groupBy(key: string): Record<string, ModelInstance<TColumns>[]> {
+      const result: Record<string, ModelInstance<TColumns>[]> = {}
       for (const item of data) {
         const v = String(item.get(key))
         if (!result[v]) result[v] = []
@@ -115,36 +118,36 @@ export function createCollection(items?: ModelInstance[]): Collection {
       return result
     },
 
-    keyBy(key: string): Record<string, ModelInstance> {
-      const result: Record<string, ModelInstance> = {}
+    keyBy(key: string): Record<string, ModelInstance<TColumns>> {
+      const result: Record<string, ModelInstance<TColumns>> = {}
       for (const item of data) {
         result[String(item.get(key))] = item
       }
       return result
     },
 
-    map<T>(fn: (item: ModelInstance, index: number) => T): T[] {
+    map<T>(fn: (item: ModelInstance<TColumns>, index: number) => T): T[] {
       return data.map(fn)
     },
 
-    filter(fn: (item: ModelInstance, index: number) => boolean): Collection {
+    filter(fn: (item: ModelInstance<TColumns>, index: number) => boolean): Collection<TColumns> {
       return createCollection(data.filter(fn))
     },
 
-    reduce<T>(fn: (acc: T, item: ModelInstance, index: number) => T, initial: T): T {
+    reduce<T>(fn: (acc: T, item: ModelInstance<TColumns>, index: number) => T, initial: T): T {
       return data.reduce(fn, initial)
     },
 
-    forEach(fn: (item: ModelInstance, index: number) => void): void {
+    forEach(fn: (item: ModelInstance<TColumns>, index: number) => void): void {
       data.forEach(fn)
     },
 
-    each(fn: (item: ModelInstance, index: number) => void): Collection {
+    each(fn: (item: ModelInstance<TColumns>, index: number) => void): Collection<TColumns> {
       data.forEach(fn)
       return collection
     },
 
-    unique(key?: string): Collection {
+    unique(key?: string): Collection<TColumns> {
       if (!key) {
         const seen = new Set<number>()
         return createCollection(
@@ -167,7 +170,7 @@ export function createCollection(items?: ModelInstance[]): Collection {
       )
     },
 
-    sortBy(key: string, direction: "asc" | "desc" = "asc"): Collection {
+    sortBy(key: string, direction: "asc" | "desc" = "asc"): Collection<TColumns> {
       const sorted = [...data].sort((a, b) => {
         const va = a.get(key) as any
         const vb = b.get(key) as any
@@ -178,8 +181,8 @@ export function createCollection(items?: ModelInstance[]): Collection {
       return createCollection(sorted)
     },
 
-    shuffle(): Collection {
-      const shuffled: ModelInstance[] = [...data]
+    shuffle(): Collection<TColumns> {
+      const shuffled: ModelInstance<TColumns>[] = [...data]
       for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1))
         const temp = shuffled[i]!
@@ -189,15 +192,15 @@ export function createCollection(items?: ModelInstance[]): Collection {
       return createCollection(shuffled)
     },
 
-    take(n: number): Collection {
+    take(n: number): Collection<TColumns> {
       return createCollection(data.slice(0, n))
     },
-    skip(n: number): Collection {
+    skip(n: number): Collection<TColumns> {
       return createCollection(data.slice(n))
     },
 
-    chunk(size: number): Collection[] {
-      const chunks: Collection[] = []
+    chunk(size: number): Collection<TColumns>[] {
+      const chunks: Collection<TColumns>[] = []
       for (let i = 0; i < data.length; i += size) {
         chunks.push(createCollection(data.slice(i, i + size)))
       }
@@ -217,21 +220,21 @@ export function createCollection(items?: ModelInstance[]): Collection {
       return Math.max(...data.map((d) => Number(d.get(key)) || 0))
     },
 
-    diff(other: Collection): Collection {
+    diff(other: Collection<TColumns>): Collection<TColumns> {
       const otherIds = new Set(other.pluck("id") as number[])
       return createCollection(data.filter((d) => !otherIds.has(d.get("id") as number)))
     },
 
-    intersect(other: Collection): Collection {
+    intersect(other: Collection<TColumns>): Collection<TColumns> {
       const otherIds = new Set(other.pluck("id") as number[])
       return createCollection(data.filter((d) => otherIds.has(d.get("id") as number)))
     },
 
-    concat(other: Collection): Collection {
+    concat(other: Collection<TColumns>): Collection<TColumns> {
       return createCollection([...data, ...other.all()])
     },
 
-    push(...items: ModelInstance[]): void {
+    push(...items: ModelInstance<TColumns>[]): void {
       data.push(...items)
     },
 

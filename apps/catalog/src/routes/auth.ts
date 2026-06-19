@@ -34,8 +34,8 @@ app.post(
       )
 
       const session = c.var.session
-      session.userId = user.get<string>("id")
-      session.userRole = user.get<string>("role")
+      session.userId = user.get("id")
+      session.userRole = user.get("role")
       await session.save()
 
       return c.json(
@@ -58,12 +58,12 @@ app.post(
       const user = await User.query().where("email", "=", body.email).first()
       if (!user) throw http.unauthorized("Invalid credentials")
 
-      const valid = await verifyPassword(user.get<string>("passwordHash"), body.password)
+      const valid = await verifyPassword(user.get("passwordHash"), body.password)
       if (!valid) throw http.unauthorized("Invalid credentials")
 
       const session = c.var.session
-      session.userId = user.get<string>("id")
-      session.userRole = user.get<string>("role")
+      session.userId = user.get("id")
+      session.userRole = user.get("role")
       await session.save()
 
       return c.json({ id: user.get("id"), email: user.get("email"), name: user.get("name"), role: user.get("role") })

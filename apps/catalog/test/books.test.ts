@@ -170,7 +170,7 @@ describe("Books API", () => {
       inStock: true,
     })
 
-    const res = await req("GET", `/api/books/${book.get<string>("id")}`)
+    const res = await req("GET", `/api/books/${book.get("id")}`)
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.title).toBe("Specific Book")
@@ -184,7 +184,7 @@ describe("Books API", () => {
   it("PATCH /api/books/:id → 200 for owner author", async () => {
     const { Book } = await import("../src/db/schema.js")
     const book = await Book.insert({ title: "Patchable", isbn: "9780000000015", price: 8.99, authorId, inStock: true })
-    const bookId = book.get<string>("id")
+    const bookId = book.get("id")
 
     const res = await req("PATCH", `/api/books/${bookId}`, { title: "Patched", price: 11.99 }, authorCookie)
     expect(res.status).toBe(200)
@@ -203,7 +203,7 @@ describe("Books API", () => {
     })
     await createLinkedAuthor(otherUser.userId, "Other Book Auth")
     const book = await Book.insert({ title: "Not Yours", isbn: "9780000000016", price: 7.99, authorId, inStock: true })
-    const bookId = book.get<string>("id")
+    const bookId = book.get("id")
 
     const res = await req("PATCH", `/api/books/${bookId}`, { title: "Hacked" }, otherUser.cookie)
     expect(res.status).toBe(403)
@@ -212,7 +212,7 @@ describe("Books API", () => {
   it("PATCH /api/books/:id → 200 for admin", async () => {
     const { Book } = await import("../src/db/schema.js")
     const book = await Book.insert({ title: "Admin Edit", isbn: "9780000000017", price: 6.99, authorId, inStock: true })
-    const bookId = book.get<string>("id")
+    const bookId = book.get("id")
 
     const res = await req("PATCH", `/api/books/${bookId}`, { title: "Admin Edited" }, adminCookie)
     expect(res.status).toBe(200)
@@ -230,7 +230,7 @@ describe("Books API", () => {
       authorId,
       inStock: true,
     })
-    const bookId = book.get<string>("id")
+    const bookId = book.get("id")
 
     const res = await req("PATCH", `/api/books/${bookId}`, { categoryIds: [cat2.id] }, adminCookie)
     expect(res.status).toBe(200)
@@ -239,7 +239,7 @@ describe("Books API", () => {
   it("DELETE /api/books/:id → 204 for owner", async () => {
     const { Book } = await import("../src/db/schema.js")
     const book = await Book.insert({ title: "Delete Me", isbn: "9780000000019", price: 4.99, authorId, inStock: true })
-    const bookId = book.get<string>("id")
+    const bookId = book.get("id")
 
     const res = await req("DELETE", `/api/books/${bookId}`, undefined, authorCookie)
     expect(res.status).toBe(204)
@@ -261,7 +261,7 @@ describe("Books API", () => {
       authorId,
       inStock: true,
     })
-    const bookId = book.get<string>("id")
+    const bookId = book.get("id")
 
     const res = await req("DELETE", `/api/books/${bookId}`, undefined, otherUser.cookie)
     expect(res.status).toBe(403)
@@ -276,7 +276,7 @@ describe("Books API", () => {
       authorId,
       inStock: true,
     })
-    const bookId = book.get<string>("id")
+    const bookId = book.get("id")
 
     const res = await req("DELETE", `/api/books/${bookId}`, undefined, adminCookie)
     expect(res.status).toBe(204)

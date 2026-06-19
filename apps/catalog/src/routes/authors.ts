@@ -116,7 +116,7 @@ app.patch(
       if (!author) throw http.notFound()
 
       // Only admin or the linked user can update
-      if (c.var.session.userRole !== "admin" && author.get<string>("userId") !== c.var.session.userId) {
+      if (c.var.session.userRole !== "admin" && author.get("userId") !== c.var.session.userId) {
         throw http.forbidden()
       }
 
@@ -146,7 +146,7 @@ app.delete(
       if (!author) throw http.notFound()
 
       // Only admin or the linked user can delete
-      if (c.var.session.userRole !== "admin" && author.get<string>("userId") !== c.var.session.userId) {
+      if (c.var.session.userRole !== "admin" && author.get("userId") !== c.var.session.userId) {
         throw http.forbidden()
       }
 
