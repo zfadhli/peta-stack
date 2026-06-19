@@ -21,10 +21,7 @@ export interface MigrationRunner {
   status(migrations: MigrationFile[]): Promise<MigrationStatus>
 }
 
-export function createMigrationRunner(
-  db: Kysely<Record<string, never>>,
-  table = "_peta_migrations",
-): MigrationRunner {
+export function createMigrationRunner(db: Kysely<Record<string, never>>, table = "_peta_migrations"): MigrationRunner {
   /**
    * Create a Kysely MigrationProvider from our MigrationFile[].
    */
@@ -58,11 +55,11 @@ export function createMigrationRunner(
    */
   async function queryCompleted(): Promise<MigrationRecord[]> {
     try {
-      const rows = await db
+      const rows = (await db
         .selectFrom(table as never)
         .select(["name", "timestamp"] as never)
         .orderBy("name" as never, "asc" as never)
-        .execute() as unknown as Array<{ name: string; timestamp: string }>
+        .execute()) as unknown as Array<{ name: string; timestamp: string }>
       return rows.map((r) => ({ name: String(r.name), appliedAt: String(r.timestamp) }))
     } catch {
       return []
@@ -106,9 +103,7 @@ export function createMigrationRunner(
   async function status(migrations: MigrationFile[]): Promise<MigrationStatus> {
     const completed = await queryCompleted()
     const completedNames = new Set(completed.map((r) => r.name))
-    const pending = migrations
-      .filter((m) => !completedNames.has(m.name))
-      .sort(byName)
+    const pending = migrations.filter((m) => !completedNames.has(m.name)).sort(byName)
     return { completed, pending }
   }
 

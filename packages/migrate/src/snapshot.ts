@@ -35,9 +35,8 @@ function columnToSchema(name: string, col: Column): SchemaColumn {
   let references: { table: string; column: string } | undefined
 
   if (refConstraint?.args[0]) {
-    const targetClass = typeof refConstraint.args[0] === "function"
-      ? (refConstraint.args[0] as () => unknown)()
-      : refConstraint.args[0]
+    const targetClass =
+      typeof refConstraint.args[0] === "function" ? (refConstraint.args[0] as () => unknown)() : refConstraint.args[0]
     const targetTable = (targetClass as Record<string, unknown>)?.table as string | undefined
     const targetColumns = refConstraint.args[1] as string[] | undefined
     if (typeof targetTable === "string" && targetTable && targetColumns?.length) {

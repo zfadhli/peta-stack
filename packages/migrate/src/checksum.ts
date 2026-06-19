@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto"
-import { readFileSync, writeFileSync, existsSync } from "node:fs"
+import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { resolve } from "node:path"
 
 export interface ChecksumStore {

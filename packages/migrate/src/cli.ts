@@ -2,12 +2,12 @@ import { mkdirSync, writeFileSync } from "node:fs"
 import { resolve } from "node:path"
 import cac from "cac"
 import ora from "ora"
+import { computeChecksum, loadChecksums, saveChecksums, verifyChecksum } from "./checksum.js"
 import { loadConfig, loadMigrationFiles, loadModels } from "./config.js"
+import { diffSnapshots } from "./differ.js"
 import { createMigrationGenerator } from "./generator.js"
 import { createMigrationRunner } from "./runner.js"
 import { createSnapshot, loadSnapshot, saveSnapshot } from "./snapshot.js"
-import { diffSnapshots } from "./differ.js"
-import { computeChecksum, loadChecksums, saveChecksums, verifyChecksum } from "./checksum.js"
 
 export async function run(): Promise<void> {
   const cli = cac("peta")
@@ -20,54 +20,56 @@ export async function run(): Promise<void> {
     spinner.succeed(`Migrations directory created at ${config.migrationsDir}`)
   })
 
-  cli.command("migrate:generate [name]", "Generate migration from models (initial or incremental)").action(async (name?: string) => {
-    const config = await loadConfig()
-    const spinner = ora("Loading models...").start()
-    const models = await loadModels(config.models)
-    if (models.size === 0) {
-      spinner.warn("No models found matching the configured patterns.")
-      return
-    }
-    spinner.text = "Generating migration..."
-    const gen = createMigrationGenerator()
-    const snapshotPath = resolve(config.migrationsDir, "snapshot.json")
-    const prevSnapshot = await loadSnapshot(snapshotPath)
-
-    let code: string
-    if (prevSnapshot) {
-      const currentSnapshot = createSnapshot(models)
-      const diffs = diffSnapshots(prevSnapshot, currentSnapshot)
-      if (diffs.length === 0) {
-        spinner.succeed("No schema changes detected since last snapshot.")
+  cli
+    .command("migrate:generate [name]", "Generate migration from models (initial or incremental)")
+    .action(async (name?: string) => {
+      const config = await loadConfig()
+      const spinner = ora("Loading models...").start()
+      const models = await loadModels(config.models)
+      if (models.size === 0) {
+        spinner.warn("No models found matching the configured patterns.")
         return
       }
-      code = gen.generateMigrationFromDiff(diffs, { name: name ?? "changes" })
-      await saveSnapshot(snapshotPath, currentSnapshot)
-      spinner.text = `Generated incremental migration (${diffs.length} change(s))`
-    } else {
-      code = gen.generateInitialMigration(models)
-      const currentSnapshot = createSnapshot(models)
-      await saveSnapshot(snapshotPath, currentSnapshot)
-      spinner.text = `Generated initial migration (${models.size} model(s))`
-    }
+      spinner.text = "Generating migration..."
+      const gen = createMigrationGenerator()
+      const snapshotPath = resolve(config.migrationsDir, "snapshot.json")
+      const prevSnapshot = await loadSnapshot(snapshotPath)
 
-    const timestamp = new Date()
-      .toISOString()
-      .replace(/[-:T.Z]/g, "")
-      .slice(0, 14)
-    const safeName = (name ?? "initial").replace(/[^a-zA-Z0-9_]/g, "_")
-    const filename = resolve(config.migrationsDir, `${timestamp}_${safeName}.ts`)
-    mkdirSync(config.migrationsDir, { recursive: true })
-    writeFileSync(filename, code)
+      let code: string
+      if (prevSnapshot) {
+        const currentSnapshot = createSnapshot(models)
+        const diffs = diffSnapshots(prevSnapshot, currentSnapshot)
+        if (diffs.length === 0) {
+          spinner.succeed("No schema changes detected since last snapshot.")
+          return
+        }
+        code = gen.generateMigrationFromDiff(diffs, { name: name ?? "changes" })
+        await saveSnapshot(snapshotPath, currentSnapshot)
+        spinner.text = `Generated incremental migration (${diffs.length} change(s))`
+      } else {
+        code = gen.generateInitialMigration(models)
+        const currentSnapshot = createSnapshot(models)
+        await saveSnapshot(snapshotPath, currentSnapshot)
+        spinner.text = `Generated initial migration (${models.size} model(s))`
+      }
 
-    // Record checksum
-    const checksums = loadChecksums(config.migrationsDir)
-    const fileName = `${timestamp}_${safeName}.ts`
-    checksums[fileName.replace(/\.(ts|js)$/, "")] = computeChecksum(filename)
-    saveChecksums(config.migrationsDir, checksums)
+      const timestamp = new Date()
+        .toISOString()
+        .replace(/[-:T.Z]/g, "")
+        .slice(0, 14)
+      const safeName = (name ?? "initial").replace(/[^a-zA-Z0-9_]/g, "_")
+      const filename = resolve(config.migrationsDir, `${timestamp}_${safeName}.ts`)
+      mkdirSync(config.migrationsDir, { recursive: true })
+      writeFileSync(filename, code)
 
-    spinner.succeed(`Created ${filename}`)
-  })
+      // Record checksum
+      const checksums = loadChecksums(config.migrationsDir)
+      const fileName = `${timestamp}_${safeName}.ts`
+      checksums[fileName.replace(/\.(ts|js)$/, "")] = computeChecksum(filename)
+      saveChecksums(config.migrationsDir, checksums)
+
+      spinner.succeed(`Created ${filename}`)
+    })
 
   cli.command("migrate:diff", "Preview schema changes without writing a migration").action(async () => {
     const config = await loadConfig()
@@ -92,7 +94,11 @@ export async function run(): Promise<void> {
     }
     console.log(`\n  📋 Schema changes: ${diffs.length}\n`)
     for (const d of diffs) {
-      const icon = d.type.startsWith("drop") ? "🗑️" : d.type.startsWith("create") || d.type.startsWith("add") ? "➕" : "✏️"
+      const icon = d.type.startsWith("drop")
+        ? "🗑️"
+        : d.type.startsWith("create") || d.type.startsWith("add")
+          ? "➕"
+          : "✏️"
       console.log(`  ${icon} [${d.type}] ${d.table}${d.column ? `.${d.column}` : ""}`)
     }
     console.log()
@@ -107,7 +113,6 @@ export async function run(): Promise<void> {
     }
 
     // Verify checksums for already-applied migrations
-    const checksums = loadChecksums(config.migrationsDir)
     for (const m of migrations) {
       const filePath = resolve(config.migrationsDir, `${m.name}.ts`)
       if (!verifyChecksum(config.migrationsDir, m.name, filePath)) {
@@ -222,7 +227,7 @@ export async function run(): Promise<void> {
       }
 
       for (const file of seedFiles) {
-        const mod = await import(resolve(config.migrationsDir, file)) as {
+        const mod = (await import(resolve(config.migrationsDir, file))) as {
           seed?: (db: unknown) => Promise<void>
         }
         if (mod.seed) {

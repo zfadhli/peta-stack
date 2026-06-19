@@ -6,10 +6,7 @@ import type { Column, ColumnShape, ModelDefinition } from "peta-orm"
  * Creates tables and columns that don't exist yet (no destructive changes).
  * Returns list of tables that were created.
  */
-export async function pushSchema(
-  db: Kysely<unknown>,
-  models: Map<string, ModelDefinition>,
-): Promise<string[]> {
+export async function pushSchema(db: Kysely<unknown>, models: Map<string, ModelDefinition>): Promise<string[]> {
   const createdTables: string[] = []
 
   for (const [, model] of models) {
@@ -29,11 +26,7 @@ export async function pushSchema(
     // Create non-PK, non-unique indexes
     for (const [colName, col] of Object.entries(columns)) {
       if (col.hasConstraint("index") && !col.isPrimaryKey && !col.isUnique) {
-        await db.schema
-          .createIndex(`${model.table}_${colName}_index`)
-          .on(model.table)
-          .column(colName)
-          .execute()
+        await db.schema.createIndex(`${model.table}_${colName}_index`).on(model.table).column(colName).execute()
       }
     }
   }
@@ -63,9 +56,8 @@ function buildColumn(col: Column, cb: any): any {
 
   const refConstraint = col.constraints.find((c) => c.type === "references")
   if (refConstraint?.args[0]) {
-    const targetClass = typeof refConstraint.args[0] === "function"
-      ? (refConstraint.args[0] as () => unknown)()
-      : refConstraint.args[0]
+    const targetClass =
+      typeof refConstraint.args[0] === "function" ? (refConstraint.args[0] as () => unknown)() : refConstraint.args[0]
     const targetTable = (targetClass as Record<string, unknown>)?.table as string | undefined
     const targetColumns = refConstraint.args[1] as string[] | undefined
     if (typeof targetTable === "string" && targetTable && targetColumns?.length) {

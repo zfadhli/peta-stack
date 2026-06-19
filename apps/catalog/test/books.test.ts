@@ -32,7 +32,7 @@ describe("Books API", () => {
   let categoryId: string
 
   beforeAll(async () => {
-    const { Author, Book } = await import("../src/db/schema.js")
+    await import("../src/db/schema.js")
 
     // Admin user
     const adminUser = await createUser(app, {

@@ -1,4 +1,4 @@
-import type { SchemaColumn, SchemaDiff, SchemaIndex, SchemaSnapshot, SchemaTable } from "./types.js"
+import type { SchemaColumn, SchemaDiff, SchemaSnapshot, SchemaTable } from "./types.js"
 
 /**
  * Compare two SchemaSnapshots and produce a list of SchemaDiff operations.

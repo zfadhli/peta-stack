@@ -11,7 +11,7 @@ export interface MigrationGenerator {
 }
 
 export function createMigrationGenerator(): MigrationGenerator {
-  function generateInitialMigration(models: Map<string, ModelDefinition>, options: GeneratorOptions = {}): string {
+  function generateInitialMigration(models: Map<string, ModelDefinition>, _options: GeneratorOptions = {}): string {
     const parts: string[] = []
     const indexParts: string[] = []
     const warnings: string[] = []
@@ -48,7 +48,6 @@ export function createMigrationGenerator(): MigrationGenerator {
     const upParts: string[] = []
     const downParts: string[] = []
     const warnings: string[] = []
-    const reverseMap = [...diffs].reverse()
 
     for (const diff of diffs) {
       switch (diff.type) {
@@ -70,13 +69,17 @@ export function createMigrationGenerator(): MigrationGenerator {
         }
         case "addColumn": {
           const col = diff.details as unknown as SchemaColumn
-          upParts.push(`  await db.schema.alterTable("${diff.table}").addColumn("${col.name}", "${col.type}"${columnCallbackFromSchema(col)}).execute()`)
+          upParts.push(
+            `  await db.schema.alterTable("${diff.table}").addColumn("${col.name}", "${col.type}"${columnCallbackFromSchema(col)}).execute()`,
+          )
           downParts.push(`  await db.schema.alterTable("${diff.table}").dropColumn("${col.name}").execute()`)
           break
         }
         case "dropColumn": {
           upParts.push(`  await db.schema.alterTable("${diff.table}").dropColumn("${diff.column}").execute()`)
-          downParts.push(`  // ⚠ Cannot auto-restore dropped column "${diff.table}.${diff.column}" — manual recovery needed`)
+          downParts.push(
+            `  // ⚠ Cannot auto-restore dropped column "${diff.table}.${diff.column}" — manual recovery needed`,
+          )
           warnings.push(`// ⚠ Dropped column "${diff.table}.${diff.column}". The down() function cannot restore it.`)
           break
         }
@@ -87,7 +90,9 @@ export function createMigrationGenerator(): MigrationGenerator {
             upParts.push(`  //   from: ${details.from.type} → to: ${details.to.type}`)
             upParts.push(`  //   nullable: ${details.from.isNullable} → ${details.to.isNullable}`)
           }
-          upParts.push(`  await db.schema.alterTable("${diff.table}").alterColumn("${diff.column}", (col) => col.setDataType("${details?.to.type ?? "text"}")).execute()`)
+          upParts.push(
+            `  await db.schema.alterTable("${diff.table}").alterColumn("${diff.column}", (col) => col.setDataType("${details?.to.type ?? "text"}")).execute()`,
+          )
           warnings.push(`// ⚠ ALTER COLUMN "${diff.table}.${diff.column}". Down migration is not auto-generated.`)
           break
         }

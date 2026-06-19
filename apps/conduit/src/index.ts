@@ -1,7 +1,7 @@
 import { Hono } from "hono"
 import { cors } from "hono/cors"
 import { getOpenAPISpec, serveScalarUI } from "peta-docs"
-import { type createORM } from "peta-orm"
+import type { createORM } from "peta-orm"
 import { getORM } from "./db/schema.js"
 import { resolveUser } from "./middleware/auth.js"
 import { onError } from "./middleware/error.js"

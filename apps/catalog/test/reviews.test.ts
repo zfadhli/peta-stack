@@ -32,7 +32,7 @@ describe("Reviews API", () => {
   let bookId: string
 
   beforeAll(async () => {
-    const { Author, Book, User } = await import("../src/db/schema.js")
+    const { Author, Book } = await import("../src/db/schema.js")
 
     // Create users directly via ORM
     const _admin = await createUser(app, {
