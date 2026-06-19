@@ -13,11 +13,11 @@ export async function pushSchema(db: Kysely<unknown>, models: Map<string, ModelD
     if (!model.table) continue
     if (await tableExists(db, model.table)) continue
 
-    const qb = db.schema.createTable(model.table).ifNotExists()
+    let qb = db.schema.createTable(model.table).ifNotExists()
     const columns = model.columns as ColumnShape
 
     for (const [name, col] of Object.entries(columns)) {
-      qb.addColumn(name, mapPushType(col) as any, (cb: any) => buildColumn(col, cb))
+      qb = qb.addColumn(name, mapPushType(col) as any, (cb: any) => buildColumn(col, cb))
     }
 
     await qb.execute()
