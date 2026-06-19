@@ -1,3 +1,0 @@
-#!/usr/bin/env bun
-import { run } from "../dist/migrations/cli.mjs"
-await run()

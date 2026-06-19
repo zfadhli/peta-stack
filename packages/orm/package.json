@@ -16,17 +16,9 @@
     ".": {
       "import": "./dist/index.mjs",
       "types": "./dist/index.d.mts"
-    },
-    "./migrator": {
-      "import": "./dist/migrations/index.mjs",
-      "types": "./dist/migrations/index.d.mts"
     }
   },
-  "bin": {
-    "peta": "./bin/peta"
-  },
   "files": [
-    "bin/",
     "dist/",
     "README.md",
     "LICENSE"
