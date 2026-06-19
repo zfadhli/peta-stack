@@ -77,7 +77,7 @@ export async function createUser(
 export async function createLinkedAuthor(userId: string, name?: string): Promise<Record<string, unknown>> {
   const { Author } = await import("../src/db/schema.js")
   const author = await Author.insert({ name: name ?? "Test Author", bio: "Bio", userId })
-  return author.$toJSON() as Record<string, unknown>
+  return author.$toJSON()
 }
 
 /**
@@ -86,7 +86,7 @@ export async function createLinkedAuthor(userId: string, name?: string): Promise
 export async function createCategory(name?: string): Promise<Record<string, unknown>> {
   const { Category } = await import("../src/db/schema.js")
   const cat = await Category.insert({ name: name ?? `Cat-${Date.now()}`, description: "Test category" })
-  return cat.$toJSON() as Record<string, unknown>
+  return cat.$toJSON()
 }
 
 /**
@@ -105,7 +105,7 @@ export async function createBook(
     inStock: true,
     ...overrides,
   })
-  return book.$toJSON() as Record<string, unknown>
+  return book.$toJSON()
 }
 
 /**
@@ -124,5 +124,5 @@ export async function createReview(
     body: "Great!",
     ...overrides,
   })
-  return review.$toJSON() as Record<string, unknown>
+  return review.$toJSON()
 }

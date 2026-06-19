@@ -1,9 +1,15 @@
-import type { ColumnShape, ColumnValue } from "../columns/column.js"
+import type { Column, ColumnShape, ColumnValue } from "../columns/column.js"
 import type { QueryBuilder } from "../query/index.js"
 import type { Relation } from "../relations/base.js"
 import type { InsertGraphOptions, UpsertGraphOptions } from "../relations/graph/index.js"
 import type { ORMLike } from "../types.js"
 import type { Attribute } from "./attribute.js"
+
+// ─── SERIALIZED SHAPE ─────────────────────────────────────────
+/** Mapped column shape — resolves each column to its JS value type for $toJSON(). */
+export type SerializedShape<TColumns extends ColumnShape> = {
+  [K in keyof TColumns]: TColumns[K] extends Column<infer T> ? T : unknown
+} & Record<string, unknown>
 
 // ─── FORBIDDEN KEYS ──────────────────────────────────────────
 export const FORBIDDEN_KEYS = new Set(["__proto__", "constructor", "prototype"])
@@ -31,8 +37,8 @@ export interface ModelInstance<TColumns extends ColumnShape = ColumnShape> {
   $restore(): Promise<void>
   $trashed(): boolean
   $reload(): Promise<void>
-  $toJSON(): Record<string, unknown>
-  toJSON(): Record<string, unknown>
+  $toJSON(): SerializedShape<TColumns>
+  toJSON(): SerializedShape<TColumns>
 }
 
 // ─── MODEL DEFINITION ────────────────────────────────────────

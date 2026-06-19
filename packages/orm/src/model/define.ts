@@ -9,7 +9,7 @@ import { createInstance } from "./factory.js"
 import { getHooksFor, registerSoftDeletesFor, registerTimestampsFor } from "./hooks.js"
 import { setConfig } from "./save.js"
 import { addScope, getScopes, removeScope } from "./scopes.js"
-import type { ModelConfig, ModelDefinition } from "./types.js"
+import type { ModelConfig, ModelDefinition, ModelInstance } from "./types.js"
 
 // ─── DEFINE MODEL FACTORY ────────────────────────────────────
 
@@ -44,22 +44,22 @@ export function defineModel<TColumns extends ColumnShape>(
 
     async create(data) {
       const mod = await import("./save.js")
-      return mod.insertModel(def, data)
+      return mod.insertModel(def, data) as Promise<ModelInstance<TColumns>>
     },
 
     async insert(data) {
       const mod = await import("./save.js")
-      return mod.insertModel(def, data)
+      return mod.insertModel(def, data) as Promise<ModelInstance<TColumns>>
     },
 
     async insertMany(dataArray) {
       const mod = await import("./save.js")
-      return mod.insertManyModel(def, dataArray)
+      return mod.insertManyModel(def, dataArray) as Promise<ModelInstance<TColumns>[]>
     },
 
     async update(id, data) {
       const mod = await import("./save.js")
-      return mod.updateModel(def, id, data)
+      return mod.updateModel(def, id, data) as Promise<ModelInstance<TColumns>>
     },
 
     async insertGraph(data, options) {

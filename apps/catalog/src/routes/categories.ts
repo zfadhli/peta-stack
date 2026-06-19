@@ -47,7 +47,7 @@ app.post(
         },
       )
 
-      return c.json(category.$toJSON() as Record<string, unknown>, 201)
+      return c.json(category.$toJSON(), 201)
     }),
 )
 
@@ -92,7 +92,7 @@ app.patch(
 
       category.fill(body as Record<string, unknown>)
       await category.$save()
-      return c.json(category.$toJSON() as Record<string, unknown>)
+      return c.json(category.$toJSON())
     }),
 )
 

@@ -24,7 +24,7 @@ export { createHookManager } from "./hooks/index.js"
 export { defineModel } from "./model/define.js"
 // ─── Model System ──────────────────────────────────────────
 export { Attribute } from "./model/index.js"
-export type { ModelConfig, ModelDefinition, ModelInstance } from "./model/types.js"
+export type { ModelConfig, ModelDefinition, ModelInstance, SerializedShape } from "./model/types.js"
 export type { ORMConfig } from "./orm/index.js"
 export { createORM, createORM as createPeta } from "./orm/index.js"
 // ─── Pagination ───────────────────────────────────────────

@@ -14,7 +14,7 @@ import {
   syncOriginal,
 } from "./state.js"
 import type { ColumnShape } from "../columns/column.js"
-import type { ModelConfig, ModelDefinition, ModelInstance } from "./types.js"
+import type { ModelConfig, ModelDefinition, ModelInstance, SerializedShape } from "./types.js"
 import { FORBIDDEN_KEYS } from "./types.js"
 
 // Store model definition on instance for collection.load() to find
@@ -119,7 +119,7 @@ export function createInstance<TColumns extends ColumnShape = ColumnShape>(
     },
 
     $save: () => {
-      return getRuntime().saveModel(def, instance)
+      return getRuntime().saveModel(def, instance) as Promise<ModelInstance<TColumns>>
     },
 
     $delete: () => {
@@ -142,12 +142,12 @@ export function createInstance<TColumns extends ColumnShape = ColumnShape>(
       return getRuntime().reloadModel(def, instance)
     },
 
-    $toJSON(): Record<string, unknown> {
-      return getRuntime().modelToJSON(def, instance)
+    $toJSON(): SerializedShape<TColumns> {
+      return getRuntime().modelToJSON(def, instance) as SerializedShape<TColumns>
     },
 
-    toJSON(): Record<string, unknown> {
-      return getRuntime().modelToJSON(def, instance)
+    toJSON(): SerializedShape<TColumns> {
+      return getRuntime().modelToJSON(def, instance) as SerializedShape<TColumns>
     },
   }
 

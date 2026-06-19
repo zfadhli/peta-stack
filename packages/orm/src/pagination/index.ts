@@ -1,7 +1,7 @@
 import type { ColumnShape } from "../columns/column.js"
 import type { Collection } from "../collection/index.js"
 import { createCollection } from "../collection/index.js"
-import type { ModelInstance } from "../model/types.js"
+import type { ModelInstance, SerializedShape } from "../model/types.js"
 
 export interface Paginator<TColumns extends ColumnShape = ColumnShape> {
   readonly data: Collection<TColumns>
@@ -17,11 +17,11 @@ export interface Paginator<TColumns extends ColumnShape = ColumnShape> {
   readonly onLastPage: boolean
   readonly count: number
   map<T>(fn: (item: ModelInstance<TColumns>) => T): T[]
-  toJSON(): PaginatorJson
+  toJSON(): PaginatorJson<TColumns>
 }
 
-export interface PaginatorJson {
-  data: Record<string, unknown>[]
+export interface PaginatorJson<TColumns extends ColumnShape = ColumnShape> {
+  data: SerializedShape<TColumns>[]
   total: number
   perPage: number
   currentPage: number
@@ -87,9 +87,9 @@ export function createPaginator<TColumns extends ColumnShape = ColumnShape>(
       return items.map(fn)
     },
 
-    toJSON(): PaginatorJson {
+    toJSON(): PaginatorJson<TColumns> {
       return {
-        data: collection.toJSON(),
+        data: collection.toJSON() as SerializedShape<TColumns>[],
         total,
         perPage,
         currentPage,

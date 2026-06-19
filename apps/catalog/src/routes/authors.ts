@@ -66,7 +66,7 @@ app.post(
       const body = c.req.valid("json")
       // Auto-set userId from session so the author is owned by the current user
       const author = await Author.insert({ name: body.name, bio: body.bio ?? null, userId: c.var.session.userId })
-      return c.json(author.$toJSON() as Record<string, unknown>, 201)
+      return c.json(author.$toJSON(), 201)
     }),
 )
 
@@ -122,7 +122,7 @@ app.patch(
 
       author.fill(body as Record<string, unknown>)
       await author.$save()
-      return c.json(author.$toJSON() as Record<string, unknown>)
+      return c.json(author.$toJSON())
     }),
 )
 

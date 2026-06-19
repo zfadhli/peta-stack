@@ -30,7 +30,7 @@ interface JoinBuilder {
 }
 
 /** Shape of rows returned before bulk delete — we only need `any[]` semantics. */
-type DeletedRows = ModelInstance[]
+type DeletedRows = ModelInstance<ColumnShape>[]
 
 const SAFE_COLUMN = /^[a-zA-Z_*][a-zA-Z0-9_.*]*$/
 
@@ -39,6 +39,7 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
   def: ModelDefinition<TColumns>,
   peta?: { kysely: import("../lib/kysely.js").Database },
 ): QueryBuilder<TColumns> {
+
   const db: any = peta?.kysely ?? def._orm?.kysely
   if (!db) throw new Error("Model not registered with an ORM instance")
 
@@ -98,7 +99,7 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
       )
     }
   }
-  async function runExecute(): Promise<ModelInstance[]> {
+  async function runExecute(): Promise<ModelInstance<TColumns>[]> {
     applyScopes()
 
     // Filter out computed-column names so they don't leak into SQL
@@ -147,20 +148,20 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
   const self: QueryBuilder<TColumns> = {
     // ─── PromiseLike ──────────────────────────────────────
     // biome-ignore lint/suspicious/noThenProperty: Intentional thenable for await support
-    then<TResult1 = ModelInstance[], TResult2 = never>(
-      onfulfilled?: ((value: ModelInstance[]) => TResult1 | PromiseLike<TResult1>) | null,
+    then<TResult1 = ModelInstance<TColumns>[], TResult2 = never>(
+      onfulfilled?: ((value: ModelInstance<TColumns>[]) => TResult1 | PromiseLike<TResult1>) | null,
       onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null,
     ): PromiseLike<TResult1 | TResult2> {
       return runExecute().then(onfulfilled, onrejected)
     },
 
     // ─── Execution ────────────────────────────────────────
-    execute: runExecute,
+    execute: runExecute as () => Promise<ModelInstance<TColumns>[]>,
 
-    async collect() {
+    async collect(): Promise<import("../collection/index.js").Collection<TColumns>> {
       const items = await runExecute()
       const { createCollection } = await import("../collection/index.js")
-      return createCollection(items)
+      return createCollection(items) as unknown as import("../collection/index.js").Collection<TColumns>
     },
 
     async executeTakeFirst() {
@@ -237,7 +238,7 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
     },
 
     // ─── Aggregate subqueries (withCount, etc.) ─────────────
-    withCount(relation: string): QueryBuilder {
+    withCount(relation: string): QueryBuilder<TColumns> {
       const alias = `${relation}_count`
       const rel = def.relations[relation]
       if (!rel) throw new RelationNotFoundError(def.name, relation)
@@ -252,7 +253,7 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
       return self
     },
 
-    withSum(relation: string, column: string): QueryBuilder {
+    withSum(relation: string, column: string): QueryBuilder<TColumns> {
       const alias = `${relation}_sum_${column}`
       const rel = def.relations[relation]
       if (!rel) throw new RelationNotFoundError(def.name, relation)
@@ -266,7 +267,7 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
       return self
     },
 
-    withAvg(relation: string, column: string): QueryBuilder {
+    withAvg(relation: string, column: string): QueryBuilder<TColumns> {
       const alias = `${relation}_avg_${column}`
       const rel = def.relations[relation]
       if (!rel) throw new RelationNotFoundError(def.name, relation)
@@ -280,7 +281,7 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
       return self
     },
 
-    withMin(relation: string, column: string): QueryBuilder {
+    withMin(relation: string, column: string): QueryBuilder<TColumns> {
       const alias = `${relation}_min_${column}`
       const rel = def.relations[relation]
       if (!rel) throw new RelationNotFoundError(def.name, relation)
@@ -294,7 +295,7 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
       return self
     },
 
-    withMax(relation: string, column: string): QueryBuilder {
+    withMax(relation: string, column: string): QueryBuilder<TColumns> {
       const alias = `${relation}_max_${column}`
       const rel = def.relations[relation]
       if (!rel) throw new RelationNotFoundError(def.name, relation)
@@ -308,7 +309,7 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
       return self
     },
 
-    withExists(relation: string): QueryBuilder {
+    withExists(relation: string): QueryBuilder<TColumns> {
       const alias = `${relation}_exists`
       const rel = def.relations[relation]
       if (!rel) throw new RelationNotFoundError(def.name, relation)
@@ -323,7 +324,7 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
     },
 
     // ─── Chunking ─────────────────────────────────────────
-    async chunk(size: number, callback: (chunk: ModelInstance[]) => Promise<void>): Promise<void> {
+    async chunk(size: number, callback: (chunk: ModelInstance<TColumns>[]) => Promise<void>): Promise<void> {
       let offset = 0
       let hasMore = true
 
@@ -363,7 +364,7 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
     },
 
     // ─── Eager loading ────────────────────────────────────
-    allowGraph(...expressions: string[]): QueryBuilder {
+    allowGraph(...expressions: string[]): QueryBuilder<TColumns> {
       const paths = new Set<string>()
       for (const expr of expressions) {
         const parts = expr
@@ -379,7 +380,7 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
       return self
     },
 
-    with(...relations: (string | Record<string, (qb: QueryBuilder) => void>)[]): QueryBuilder {
+    with(...relations: (string | Record<string, (qb: QueryBuilder) => void>)[]): QueryBuilder<TColumns> {
       for (const rel of relations) {
         if (typeof rel === "string") {
           // Validate against allowGraph if set — recursive prefix check
@@ -541,19 +542,19 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
     },
 
     // ─── Soft deletes ─────────────────────────────────────
-    withTrashed(): QueryBuilder {
+    withTrashed(): QueryBuilder<TColumns> {
       withTrashed = true
       return self
     },
 
-    onlyTrashed(): QueryBuilder {
+    onlyTrashed(): QueryBuilder<TColumns> {
       onlyTrashedMode = true
       withTrashed = false
       return self
     },
 
     // ─── Where conditions ────────────────────────────────
-    whereIn(column: string, values: unknown[]): QueryBuilder {
+    whereIn(column: string, values: unknown[]): QueryBuilder<TColumns> {
       qb = qb.where(validateColumn(column), "in", values)
       whereOps.push((q) => q.where(validateColumn(column), "in", values))
       _hasWhere = true
@@ -561,7 +562,7 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
       return self
     },
 
-    whereInPivot(column: string, values: unknown[]): QueryBuilder {
+    whereInPivot(column: string, values: unknown[]): QueryBuilder<TColumns> {
       qb = qb.where(validateColumn(column), "in", values)
       whereOps.push((q) => q.where(validateColumn(column), "in", values))
       _hasWhere = true
@@ -569,7 +570,7 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
       return self
     },
 
-    has(relationName: string): QueryBuilder {
+    has(relationName: string): QueryBuilder<TColumns> {
       const rel = def.relations[relationName]
       if (!rel) throw new RelationNotFoundError(def.name, relationName)
       const relatedTable = rel.relatedModelClass.table
@@ -585,11 +586,11 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
       return self
     },
 
-    whereHas(relationName: string, _callback?: (qb: QueryBuilder) => void): QueryBuilder {
+    whereHas(relationName: string, _callback?: (qb: QueryBuilder<TColumns>) => void): QueryBuilder<TColumns> {
       return self.has(relationName)
     },
 
-    whereDoesntHave(relationName: string, _callback?: (qb: QueryBuilder) => void): QueryBuilder {
+    whereDoesntHave(relationName: string, _callback?: (qb: QueryBuilder<TColumns>) => void): QueryBuilder<TColumns> {
       const rel = def.relations[relationName]
       if (!rel) throw new RelationNotFoundError(def.name, relationName)
       const relatedTable = rel.relatedModelClass.table
@@ -605,7 +606,7 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
       return self
     },
 
-    where(column: string, operator: unknown, value?: unknown): QueryBuilder {
+    where(column: string, operator: unknown, value?: unknown): QueryBuilder<TColumns> {
       if (value === undefined) {
         qb = qb.where(validateColumn(column), "=", operator)
         whereOps.push((q) => q.where(validateColumn(column), "=", operator))
@@ -619,7 +620,7 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
       return self
     },
 
-    whereRef(col1: string, operator: string, col2: string): QueryBuilder {
+    whereRef(col1: string, operator: string, col2: string): QueryBuilder<TColumns> {
       qb = qb.whereRef(validateColumn(col1), operator, validateColumn(col2))
       whereOps.push((q) => q.whereRef(validateColumn(col1), operator, validateColumn(col2)))
       _hasWhere = true
@@ -627,7 +628,7 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
       return self
     },
 
-    orWhere(column: string, operator: unknown, value?: unknown): QueryBuilder {
+    orWhere(column: string, operator: unknown, value?: unknown): QueryBuilder<TColumns> {
       if (value === undefined) {
         qb = qb.orWhere(validateColumn(column), "=", operator)
         whereOps.push((q) => q.orWhere(validateColumn(column), "=", operator))
@@ -641,51 +642,51 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
     },
 
     // ─── Ordering ─────────────────────────────────────────
-    orderBy(column: string, direction: "asc" | "desc" = "asc"): QueryBuilder {
+    orderBy(column: string, direction: "asc" | "desc" = "asc"): QueryBuilder<TColumns> {
       qb = qb.orderBy(validateColumn(column), direction)
       return self
     },
 
     // ─── Limit/offset ─────────────────────────────────────
-    limit(n: number): QueryBuilder {
+    limit(n: number): QueryBuilder<TColumns> {
       qb = qb.limit(n)
       return self
     },
 
-    offset(n: number): QueryBuilder {
+    offset(n: number): QueryBuilder<TColumns> {
       qb = qb.offset(n)
       return self
     },
 
     // ─── Select ───────────────────────────────────────────
-    select(...columns: string[]): QueryBuilder {
+    select(...columns: string[]): QueryBuilder<TColumns> {
       selectedColumns = columns
       return self
     },
 
-    selectAll(_table?: string): QueryBuilder {
+    selectAll(_table?: string): QueryBuilder<TColumns> {
       selectedColumns = null
       return self
     },
 
     // ─── Joins ──────────────────────────────────────────────
-    innerJoin(table: string, lhs: string, rhs: string): QueryBuilder {
+    innerJoin(table: string, lhs: string, rhs: string): QueryBuilder<TColumns> {
       qb = qb.innerJoin(table, (join: JoinBuilder) => join.onRef(lhs, "=", rhs))
       return self
     },
 
-    leftJoin(table: string, lhs: string, rhs: string): QueryBuilder {
+    leftJoin(table: string, lhs: string, rhs: string): QueryBuilder<TColumns> {
       qb = qb.leftJoin(table, (join: JoinBuilder) => join.onRef(lhs, "=", rhs))
       return self
     },
 
     // ─── Group by / having ────────────────────────────────
-    groupBy(...columns: string[]): QueryBuilder {
+    groupBy(...columns: string[]): QueryBuilder<TColumns> {
       qb = qb.groupBy(columns.map(validateColumn))
       return self
     },
 
-    having(column: string, operator: string, value: unknown): QueryBuilder {
+    having(column: string, operator: string, value: unknown): QueryBuilder<TColumns> {
       qb = qb.having(validateColumn(column), operator, value)
       _hasWhere = true
       hasEffectiveWhere = true
@@ -693,23 +694,23 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
     },
 
     // ─── Scope control ────────────────────────────────────
-    withoutGlobalScope(name: string): QueryBuilder {
+    withoutGlobalScope(name: string): QueryBuilder<TColumns> {
       omitScopes.add(name)
       return self
     },
 
-    all(): QueryBuilder {
+    all(): QueryBuilder<TColumns> {
       hasAll = true
       return self
     },
 
     // ─── Conditional chaining ─────────────────────────────
-    when(condition: unknown, callback: (q: QueryBuilder) => QueryBuilder): QueryBuilder {
+    when(condition: unknown, callback: (q: QueryBuilder<TColumns>) => QueryBuilder<TColumns>): QueryBuilder<TColumns> {
       if (condition) return callback(self)
       return self
     },
 
-    unless(condition: unknown, callback: (q: QueryBuilder) => QueryBuilder): QueryBuilder {
+    unless(condition: unknown, callback: (q: QueryBuilder<TColumns>) => QueryBuilder<TColumns>): QueryBuilder<TColumns> {
       if (!condition) return callback(self)
       return self
     },

@@ -1,5 +1,5 @@
 import type { ColumnShape } from "../columns/column.js"
-import type { ModelInstance } from "../model/types.js"
+import type { ModelInstance, SerializedShape } from "../model/types.js"
 
 export interface Collection<TColumns extends ColumnShape = ColumnShape> {
   readonly length: number
@@ -54,7 +54,7 @@ export interface Collection<TColumns extends ColumnShape = ColumnShape> {
   load(...relations: string[]): Promise<Collection<TColumns>>
 
   // Serialization
-  toJSON(): Record<string, unknown>[]
+  toJSON(): SerializedShape<TColumns>[]
 }
 
 export function createCollection<TColumns extends ColumnShape = ColumnShape>(
@@ -254,8 +254,8 @@ export function createCollection<TColumns extends ColumnShape = ColumnShape>(
       return collection
     },
 
-    toJSON(): Record<string, unknown>[] {
-      return data.map((d) => d.toJSON())
+    toJSON(): SerializedShape<TColumns>[] {
+      return data.map((d) => d.toJSON()) as SerializedShape<TColumns>[]
     },
   }
 

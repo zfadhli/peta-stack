@@ -82,7 +82,7 @@ app.post(
         createdAt: new Date().toISOString(),
       })
 
-      return c.json(review.$toJSON() as Record<string, unknown>, 201)
+      return c.json(review.$toJSON(), 201)
     }),
 )
 
