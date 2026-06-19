@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-06-19
+
+### Added
+
+- **migrate**: Snapshot-based incremental migration generation (`migrate:generate` now creates diffs from previous snapshot)
+- **migrate**: `migrate:diff` command to preview schema changes without writing a migration
+- **migrate**: `migrate:push` command to push schema directly to the database (prototyping)
+- **migrate**: `migrate:seed` command to generate and run seed files
+- **migrate**: `migrate:rollback --steps=N` for batch rollback
+- **migrate**: Checksum verification (`sha256`) to detect tampered migration files
+
+### Changed
+
+- **migrate**: Extracted from `packages/orm` into standalone `packages/migrate` package
+- **migrate**: Runner now wraps Kysely's `Migrator` with lock table for concurrent safety
+- **migrate**: `migrate:generate` now loads actual model definitions via glob patterns (was `new Map()` — critical bug fix)
+- **migrate**: Generated migrations include `ifNotExists()`, proper references, and ManyToMany pivot warnings
+- **migrate**: Deduplicated — ORM no longer ships its own migration code
+
+### Fixed
+
+- **migrate**: `migrate:generate` was producing empty migrations because it never loaded models — now resolves model files via `loadModels(patterns)`
+
 ## [0.3.0] - 2026-06-19
 
 ### Added
