@@ -1,8 +1,8 @@
 // Peta ORM — 27-plugins-and-helpers
 // .use() plugin system + makeHelper()
 
-import { Database } from "bun:sqlite"
-import { BunSqliteDialect } from "kysely-bun-sqlite"
+import { createClient } from "@libsql/client"
+import { LibsqlDialect } from "@libsql/kysely-libsql"
 import { t as columnTypes, createArkTypeSchemaConfig, createORM, defineModel, timestamps } from "../src/index.js"
 import type { Plugin } from "../src/plugins/index.js"
 
@@ -38,14 +38,14 @@ const searchByName = User.makeHelper((qb: any, query: string) => {
   return qb.where("name", "like", `%${query}%`)
 })
 
-const database = new Database(":memory:")
-database.run(
+const client = createClient({ url: "file::memory:?cache=shared" })
+await client.execute(
   "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, slug TEXT, createdAt TEXT, updatedAt TEXT)",
 )
-database.run("CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, slug TEXT)")
+await client.execute("CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, slug TEXT)")
 
-const db = createORM({
-  dialect: new BunSqliteDialect({ database }),
+const client = createORM({
+  dialect: new LibsqlDialect({ client }),
   models: { User, Post },
 })
 

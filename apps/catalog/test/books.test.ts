@@ -6,10 +6,10 @@ import { createCategory, createLinkedAuthor, createTestORM, createUser } from ".
 let app: Hono
 let close: () => void
 
-beforeAll(() => {
-  const { orm, db } = createTestORM()
-  app = createApp(orm)
-  close = () => db.close()
+beforeAll(async () => {
+  const { orm, client } = await createTestORM()
+  app = await createApp(orm)
+  close = () => client.close()
 })
 
 afterAll(() => {

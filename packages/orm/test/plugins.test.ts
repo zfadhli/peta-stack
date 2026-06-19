@@ -1,6 +1,6 @@
-import { Database } from "bun:sqlite"
 import { describe, expect, it } from "bun:test"
-import { BunSqliteDialect } from "kysely-bun-sqlite"
+import { createClient } from "@libsql/client"
+import { LibsqlDialect } from "@libsql/kysely-libsql"
 import { t as columnTypes, createArkTypeSchemaConfig } from "../src/columns/index.js"
 import { createPeta, defineModel, softDeletes, timestamps } from "../src/index.js"
 import type { Plugin } from "../src/plugins/index.js"
@@ -20,12 +20,12 @@ describe("Plugin system", () => {
   })
 
   it("timestamps() plugin sets createdAt/updatedAt on create", async () => {
-    const db = new Database(":memory:")
-    db.run("PRAGMA journal_mode = WAL")
-    db.run(
+    const db = createClient({ url: ":memory:" })
+    await db.execute("PRAGMA journal_mode = WAL")
+    await db.execute(
       "CREATE TABLE ts_plugin (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, createdAt TEXT, updatedAt TEXT)",
     )
-    const peta = createPeta({ dialect: new BunSqliteDialect({ database: db }) })
+    const peta = createPeta({ dialect: new LibsqlDialect({ client: db }) })
 
     const TimestampedModel = defineModel("ts_plugin", {
       columns: {
@@ -48,12 +48,12 @@ describe("Plugin system", () => {
   })
 
   it("timestamps() updates updatedAt on save", async () => {
-    const db = new Database(":memory:")
-    db.run("PRAGMA journal_mode = WAL")
-    db.run(
+    const db = createClient({ url: ":memory:" })
+    await db.execute("PRAGMA journal_mode = WAL")
+    await db.execute(
       "CREATE TABLE ts_update (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, createdAt TEXT, updatedAt TEXT)",
     )
-    const peta = createPeta({ dialect: new BunSqliteDialect({ database: db }) })
+    const peta = createPeta({ dialect: new LibsqlDialect({ client: db }) })
 
     const Model = defineModel("ts_update", {
       columns: {
@@ -79,10 +79,10 @@ describe("Plugin system", () => {
   })
 
   it("softDeletes() configures soft delete behavior", async () => {
-    const db = new Database(":memory:")
-    db.run("PRAGMA journal_mode = WAL")
-    db.run("CREATE TABLE sd_plugin (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, deletedAt TEXT)")
-    const peta = createPeta({ dialect: new BunSqliteDialect({ database: db }) })
+    const db = createClient({ url: ":memory:" })
+    await db.execute("PRAGMA journal_mode = WAL")
+    await db.execute("CREATE TABLE sd_plugin (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, deletedAt TEXT)")
+    const peta = createPeta({ dialect: new LibsqlDialect({ client: db }) })
 
     const SDModel = defineModel("sd_plugin", {
       columns: { id: t.integer().primaryKey(), name: t.string(255), deletedAt: t.timestamp().nullable() },

@@ -5,7 +5,7 @@ const uniqueId = () => Date.now().toString(36) + Math.random().toString(36).slic
 
 describe("Comments", () => {
   it("should create a comment on an article", async () => {
-    const { app } = createTestApp()
+    const { app } = await createTestApp()
     const uid = uniqueId()
     const { token } = await signupUser(app, {
       username: `cmt_${uid}`,
@@ -33,7 +33,7 @@ describe("Comments", () => {
   })
 
   it("should list comments for an article", async () => {
-    const { app } = createTestApp()
+    const { app } = await createTestApp()
     const uid = uniqueId()
     const { token } = await signupUser(app, {
       username: `listcmt_${uid}`,
@@ -66,7 +66,7 @@ describe("Comments", () => {
   })
 
   it("should require auth to create a comment", async () => {
-    const { app } = createTestApp()
+    const { app } = await createTestApp()
     const uid = uniqueId()
     const { token } = await signupUser(app, {
       username: `noauthcmt_${uid}`,
@@ -91,7 +91,7 @@ describe("Comments", () => {
   })
 
   it("should delete own comment", async () => {
-    const { app } = createTestApp()
+    const { app } = await createTestApp()
     const uid = uniqueId()
     const { token } = await signupUser(app, {
       username: `delcmt_${uid}`,
@@ -124,7 +124,7 @@ describe("Comments", () => {
   })
 
   it("should not delete another user's comment", async () => {
-    const { app } = createTestApp()
+    const { app } = await createTestApp()
     const uid = uniqueId()
     const { token: authorToken } = await signupUser(app, {
       username: `authcmt_${uid}`,

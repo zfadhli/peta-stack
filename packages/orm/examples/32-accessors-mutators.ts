@@ -6,8 +6,8 @@
 //
 // Both receive (value, instance) — the current value and the model instance.
 
-import { Database } from "bun:sqlite"
-import { BunSqliteDialect } from "kysely-bun-sqlite"
+import { createClient } from "@libsql/client"
+import { LibsqlDialect } from "@libsql/kysely-libsql"
 import { Attribute, t as columnTypes, createArkTypeSchemaConfig, createORM, defineModel } from "../src/index.js"
 
 const t = columnTypes({ schema: createArkTypeSchemaConfig() })
@@ -62,14 +62,14 @@ const PlainUser = defineModel("plain_users_32", {
 
 // ─── Setup ─────────────────────────────────────────────────────
 
-const database = new Database(":memory:")
-database.run(
+const client = createClient({ url: "file::memory:?cache=shared" })
+await client.execute(
   "CREATE TABLE users_32 (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT, password TEXT, role TEXT DEFAULT 'user')",
 )
-database.run("CREATE TABLE plain_users_32 (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
+await client.execute("CREATE TABLE plain_users_32 (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
 
-const db = createORM({
-  dialect: new BunSqliteDialect({ database }),
+const client = createORM({
+  dialect: new LibsqlDialect({ client }),
   models: { User, PlainUser },
 })
 

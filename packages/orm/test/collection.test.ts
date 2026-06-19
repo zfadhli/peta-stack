@@ -1,6 +1,6 @@
-import { Database } from "bun:sqlite"
 import { afterAll, beforeAll, describe, expect, it } from "bun:test"
-import { BunSqliteDialect } from "kysely-bun-sqlite"
+import { createClient } from "@libsql/client"
+import { LibsqlDialect } from "@libsql/kysely-libsql"
 import { t as columnTypes, createArkTypeSchemaConfig } from "../src/columns/index.js"
 import { createCollection, createPeta, defineModel } from "../src/index.js"
 import { hasMany } from "../src/relations/index.js"
@@ -29,13 +29,13 @@ const CollUser = defineModel("coll_users", {
 let peta: ReturnType<typeof createPeta>
 
 beforeAll(async () => {
-  const database = new Database(":memory:")
-  database.run("PRAGMA journal_mode = WAL")
-  database.run("CREATE TABLE coll_users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, role TEXT NOT NULL)")
-  database.run(
+  const client = createClient({ url: ":memory:" })
+  await client.execute("PRAGMA journal_mode = WAL")
+  await client.execute("CREATE TABLE coll_users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, role TEXT NOT NULL)")
+  await client.execute(
     "CREATE TABLE coll_items (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, label TEXT NOT NULL)",
   )
-  peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
+  peta = createPeta({ dialect: new LibsqlDialect({ client }) })
   peta.registerAll(CollUser, CollItem)
   await CollUser.insert({ name: "Alice", role: "admin" })
   await CollUser.insert({ name: "Bob", role: "user" })
@@ -187,7 +187,7 @@ describe("Paginator", () => {
 })
 
 describe("Global scopes", () => {
-  const db = new Database(":memory:")
+  const db = createClient({ url: ":memory:" })
   let peta: ReturnType<typeof createPeta>
 
   const ScopedUser = defineModel("scoped_users", {
@@ -195,10 +195,10 @@ describe("Global scopes", () => {
   })
 
   beforeAll(async () => {
-    db.run(
+    await db.execute(
       "CREATE TABLE scoped_users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, active INTEGER DEFAULT 1)",
     )
-    peta = createPeta({ dialect: new BunSqliteDialect({ database: db }) })
+    peta = createPeta({ dialect: new LibsqlDialect({ client: db }) })
     peta.registerAll(ScopedUser)
     ScopedUser.addGlobalScope("active", (qb: any) => qb.where("active", "=", 1))
     await ScopedUser.insert({ name: "A", active: 1 })
@@ -223,7 +223,7 @@ describe("Global scopes", () => {
 })
 
 describe("Batch operations", () => {
-  const db = new Database(":memory:")
+  const db = createClient({ url: ":memory:" })
   let peta: ReturnType<typeof createPeta>
 
   const BatchUser = defineModel("batch_users", {
@@ -231,10 +231,10 @@ describe("Batch operations", () => {
   })
 
   beforeAll(async () => {
-    db.run(
+    await db.execute(
       "CREATE TABLE batch_users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, role TEXT DEFAULT 'user')",
     )
-    peta = createPeta({ dialect: new BunSqliteDialect({ database: db }) })
+    peta = createPeta({ dialect: new LibsqlDialect({ client: db }) })
     peta.registerAll(BatchUser)
     await BatchUser.insert({ name: "A" })
     await BatchUser.insert({ name: "B" })

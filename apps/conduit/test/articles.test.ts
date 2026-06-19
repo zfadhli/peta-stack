@@ -5,7 +5,7 @@ const uniqueId = () => Date.now().toString(36) + Math.random().toString(36).slic
 
 describe("Articles", () => {
   it("should create an article", async () => {
-    const { app } = createTestApp()
+    const { app } = await createTestApp()
     const uid = uniqueId()
     const { token } = await signupUser(app, {
       username: `art_${uid}`,
@@ -24,7 +24,7 @@ describe("Articles", () => {
   })
 
   it("should list articles", async () => {
-    const { app } = createTestApp()
+    const { app } = await createTestApp()
     const uid = uniqueId()
     const { token } = await signupUser(app, {
       username: `list_${uid}`,
@@ -46,7 +46,7 @@ describe("Articles", () => {
   })
 
   it("should get article by slug", async () => {
-    const { app } = createTestApp()
+    const { app } = await createTestApp()
     const uid = uniqueId()
     const { token } = await signupUser(app, {
       username: `get_${uid}`,
@@ -68,13 +68,13 @@ describe("Articles", () => {
   })
 
   it("should return 404 for non-existent article", async () => {
-    const { app } = createTestApp()
+    const { app } = await createTestApp()
     const res = await app.fetch(new Request("http://localhost/api/articles/non-existent-slug"))
     expect(res.status).toBe(404)
   })
 
   it("should update an article", async () => {
-    const { app } = createTestApp()
+    const { app } = await createTestApp()
     const uid = uniqueId()
     const { token } = await signupUser(app, {
       username: `upd_${uid}`,
@@ -101,7 +101,7 @@ describe("Articles", () => {
   })
 
   it("should not update article by non-author", async () => {
-    const { app } = createTestApp()
+    const { app } = await createTestApp()
     const uid = uniqueId()
     const { token: authorToken } = await signupUser(app, {
       username: `author_${uid}`,
@@ -131,7 +131,7 @@ describe("Articles", () => {
   })
 
   it("should delete an article", async () => {
-    const { app } = createTestApp()
+    const { app } = await createTestApp()
     const uid = uniqueId()
     const { token } = await signupUser(app, {
       username: `del_${uid}`,
@@ -159,7 +159,7 @@ describe("Articles", () => {
   })
 
   it("should not delete article by non-author", async () => {
-    const { app } = createTestApp()
+    const { app } = await createTestApp()
     const uid = uniqueId()
     const { token: authorToken } = await signupUser(app, {
       username: `author_${uid}`,
@@ -188,7 +188,7 @@ describe("Articles", () => {
   })
 
   it("should filter articles by tag", async () => {
-    const { app } = createTestApp()
+    const { app } = await createTestApp()
     const uid = uniqueId()
     const { token } = await signupUser(app, {
       username: `tag_${uid}`,
@@ -210,7 +210,7 @@ describe("Articles", () => {
   })
 
   it("should filter articles by author", async () => {
-    const { app } = createTestApp()
+    const { app } = await createTestApp()
     const uid = uniqueId()
     const username = `byauthor_${uid}`
     const { token } = await signupUser(app, {

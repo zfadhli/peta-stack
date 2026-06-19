@@ -1,7 +1,7 @@
 import { hashPassword } from "peta-auth"
 import { Article, ArticleTag, Comment, Favorite, Follow, getORM, Tag, User } from "./schema.js"
 
-const orm = getORM()
+const orm = await getORM()
 
 // ---------------------------------------------------------------------------
 // Users

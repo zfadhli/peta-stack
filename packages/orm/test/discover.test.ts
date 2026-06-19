@@ -1,6 +1,6 @@
-import { Database } from "bun:sqlite"
 import { afterAll, beforeAll, describe, expect, it } from "bun:test"
-import { BunSqliteDialect } from "kysely-bun-sqlite"
+import { createClient } from "@libsql/client"
+import { LibsqlDialect } from "@libsql/kysely-libsql"
 import { t as columnTypes, createArkTypeSchemaConfig } from "../src/columns/index.js"
 import { createPeta, defineModel } from "../src/index.js"
 
@@ -20,11 +20,11 @@ const EmptyTable = defineModel("", {
 
 let peta: ReturnType<typeof createPeta>
 
-beforeAll(() => {
-  const database = new Database(":memory:")
-  database.run("CREATE TABLE rest_a (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
-  database.run("CREATE TABLE rest_b (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
-  peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
+beforeAll(async () => {
+  const client = createClient({ url: ":memory:" })
+  await client.execute("CREATE TABLE rest_a (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
+  await client.execute("CREATE TABLE rest_b (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
+  peta = createPeta({ dialect: new LibsqlDialect({ client }) })
 })
 
 afterAll(async () => {
@@ -39,7 +39,7 @@ describe("registerAll rest params", () => {
   })
 
   it("still accepts array for backward compat", () => {
-    const p = createPeta({ dialect: new BunSqliteDialect({ database: new Database(":memory:") }) })
+    const p = createPeta({ dialect: new LibsqlDialect({ url: ":memory:" }) })
     p.registerAll([RestA, RestB] as any)
     expect(p.getModel("rest_a")).toBe(RestA)
     expect(p.getModel("rest_b")).toBe(RestB)
@@ -47,7 +47,7 @@ describe("registerAll rest params", () => {
   })
 
   it("is idempotent — calling again overrides", () => {
-    const p = createPeta({ dialect: new BunSqliteDialect({ database: new Database(":memory:") }) })
+    const p = createPeta({ dialect: new LibsqlDialect({ url: ":memory:" }) })
     p.registerAll(RestA)
     p.registerAll(RestA, RestB)
     expect(p.getModel("rest_a")).toBe(RestA)

@@ -1,6 +1,6 @@
-import { Database } from "bun:sqlite"
 import { afterAll, beforeAll, describe, expect, it } from "bun:test"
-import { BunSqliteDialect } from "kysely-bun-sqlite"
+import { createClient } from "@libsql/client"
+import { LibsqlDialect } from "@libsql/kysely-libsql"
 import { t as columnTypes, createArkTypeSchemaConfig } from "../src/columns/index.js"
 import {
   belongsTo,
@@ -75,24 +75,24 @@ Profile.relations.user = belongsTo(() => User, { foreignKey: "userId" })
 
 // ─── Setup ─────────────────────────────────────────────────────
 
-let db: Database
+let db: ReturnType<typeof createClient>
 let peta: ReturnType<typeof createPeta>
 
 beforeAll(async () => {
-  db = new Database(":memory:")
-  db.run("PRAGMA journal_mode = WAL")
-  db.run("CREATE TABLE graph_users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
-  db.run("CREATE TABLE graph_profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER, bio TEXT)")
-  db.run(
+  db = createClient({ url: ":memory:" })
+  await db.execute("PRAGMA journal_mode = WAL")
+  await db.execute("CREATE TABLE graph_users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
+  await db.execute("CREATE TABLE graph_profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER, bio TEXT)")
+  await db.execute(
     "CREATE TABLE graph_posts (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, title TEXT NOT NULL)",
   )
-  db.run(
+  await db.execute(
     "CREATE TABLE graph_comments (id INTEGER PRIMARY KEY AUTOINCREMENT, postId INTEGER NOT NULL, body TEXT NOT NULL)",
   )
-  db.run("CREATE TABLE graph_tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
-  db.run("CREATE TABLE graph_post_tags (postId INTEGER NOT NULL, tagId INTEGER NOT NULL)")
+  await db.execute("CREATE TABLE graph_tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
+  await db.execute("CREATE TABLE graph_post_tags (postId INTEGER NOT NULL, tagId INTEGER NOT NULL)")
 
-  peta = createPeta({ dialect: new BunSqliteDialect({ database: db }) })
+  peta = createPeta({ dialect: new LibsqlDialect({ client: db }) })
   peta.registerAll(User, Profile, Post, Comment, Tag)
 })
 
@@ -180,7 +180,7 @@ describe("insertGraph", () => {
     expect(post.get("title")).toBe("ManyToMany Post")
 
     // Check pivot rows
-    const pivots = db.query("SELECT * FROM graph_post_tags WHERE postId = ?").all(post.get("id") as number)
+    const pivots = (await db.execute({ sql: "SELECT * FROM graph_post_tags WHERE postId = ?", args: [post.get("id") as number] })).rows
     expect(pivots).toHaveLength(2)
   })
 
@@ -193,7 +193,7 @@ describe("insertGraph", () => {
       },
     })
 
-    const pivots = db.query("SELECT * FROM graph_post_tags WHERE postId = ?").all(post.get("id") as number)
+    const pivots = (await db.execute({ sql: "SELECT * FROM graph_post_tags WHERE postId = ?", args: [post.get("id") as number] })).rows
     expect(pivots).toHaveLength(2)
   })
 
@@ -263,7 +263,7 @@ describe("insertGraph", () => {
       },
     })
 
-    const pivots = db.query("SELECT * FROM graph_post_tags WHERE postId = ?").all(post.get("id") as number)
+    const pivots = (await db.execute({ sql: "SELECT * FROM graph_post_tags WHERE postId = ?", args: [post.get("id") as number] })).rows
     expect(pivots).toHaveLength(1)
     expect(pivots[0] as any).toMatchObject({ tagId: tag.get("id") })
   })
@@ -432,7 +432,7 @@ describe("upsertGraph", () => {
       },
     })
 
-    const pivots = db.query("SELECT tagId FROM graph_post_tags WHERE postId = ?").all(post.get("id") as number) as {
+    const pivots = (await db.execute({ sql: "SELECT tagId FROM graph_post_tags WHERE postId = ?", args: [post.get("id") as number] })).rows as {
       tagId: number
     }[]
     const pivotTagIds = pivots.map((p) => p.tagId)

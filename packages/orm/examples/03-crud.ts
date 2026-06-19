@@ -2,8 +2,8 @@
 // insert, find, findOrFail, first, update, delete, reload, count
 // Thenable QB — no .execute() needed
 
-import { Database } from "bun:sqlite"
-import { BunSqliteDialect } from "kysely-bun-sqlite"
+import { createClient } from "@libsql/client"
+import { LibsqlDialect } from "@libsql/kysely-libsql"
 import { t as columnTypes, createArkTypeSchemaConfig, createORM, defineModel } from "../src/index.js"
 
 const t = columnTypes({ schema: createArkTypeSchemaConfig() })
@@ -16,13 +16,13 @@ const User = defineModel("users", {
   },
 })
 
-const database = new Database(":memory:")
-database.run(
+const client = createClient({ url: "file::memory:?cache=shared" })
+await client.execute(
   "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE)",
 )
 
-const db = createORM({
-  dialect: new BunSqliteDialect({ database }),
+const client = createORM({
+  dialect: new LibsqlDialect({ client }),
   models: { User },
 })
 

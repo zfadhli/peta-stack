@@ -5,8 +5,8 @@
 // Comment.commentable resolves to the correct parent (Post or Video)
 // at runtime based on the commentableType column.
 
-import { Database } from "bun:sqlite"
-import { BunSqliteDialect } from "kysely-bun-sqlite"
+import { createClient } from "@libsql/client"
+import { LibsqlDialect } from "@libsql/kysely-libsql"
 import {
   t as columnTypes,
   createArkTypeSchemaConfig,
@@ -71,15 +71,15 @@ Comment.relations.commentable = defineMorphTo({
 
 // ─── Setup ─────────────────────────────────────────────────────
 
-const database = new Database(":memory:")
-database.run("CREATE TABLE posts_morph (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL)")
-database.run("CREATE TABLE videos_morph (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL)")
-database.run(
+const client = createClient({ url: "file::memory:?cache=shared" })
+await client.execute("CREATE TABLE posts_morph (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL)")
+await client.execute("CREATE TABLE videos_morph (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL)")
+await client.execute(
   "CREATE TABLE comments_morph (id INTEGER PRIMARY KEY AUTOINCREMENT, body TEXT NOT NULL, commentableType TEXT NOT NULL, commentableId INTEGER NOT NULL)",
 )
 
-const db = createORM({
-  dialect: new BunSqliteDialect({ database }),
+const client = createORM({
+  dialect: new LibsqlDialect({ client }),
   models: { Post, Video, Comment },
 })
 

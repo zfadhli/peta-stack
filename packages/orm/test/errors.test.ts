@@ -1,6 +1,6 @@
-import { Database } from "bun:sqlite"
 import { afterAll, beforeAll, describe, expect, it } from "bun:test"
-import { BunSqliteDialect } from "kysely-bun-sqlite"
+import { createClient } from "@libsql/client"
+import { LibsqlDialect } from "@libsql/kysely-libsql"
 import { t as columnTypes, createArkTypeSchemaConfig } from "../src/columns/index.js"
 import { DatabaseError } from "../src/errors.js"
 import { createPeta, defineModel } from "../src/index.js"
@@ -17,10 +17,10 @@ const UniqueUser = defineModel("unique_users", {
 let peta: ReturnType<typeof createPeta>
 
 beforeAll(async () => {
-  const database = new Database(":memory:")
-  database.run("PRAGMA journal_mode = WAL")
-  database.run("CREATE TABLE unique_users (id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT NOT NULL UNIQUE)")
-  peta = createPeta({ dialect: new BunSqliteDialect({ database }) })
+  const client = createClient({ url: ":memory:" })
+  await client.execute("PRAGMA journal_mode = WAL")
+  await client.execute("CREATE TABLE unique_users (id INTEGER PRIMARY KEY AUTOINCREMENT, slug TEXT NOT NULL UNIQUE)")
+  peta = createPeta({ dialect: new LibsqlDialect({ client }) })
   peta.registerAll(UniqueUser)
   await UniqueUser.insert({ slug: "taken" })
 })

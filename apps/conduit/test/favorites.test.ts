@@ -5,7 +5,7 @@ const uniqueId = () => Date.now().toString(36) + Math.random().toString(36).slic
 
 describe("Favorites", () => {
   it("should favorite an article", async () => {
-    const { app } = createTestApp()
+    const { app } = await createTestApp()
     const uid = uniqueId()
     const { token } = await signupUser(app, {
       username: `fav_${uid}`,
@@ -32,7 +32,7 @@ describe("Favorites", () => {
   })
 
   it("should unfavorite an article", async () => {
-    const { app } = createTestApp()
+    const { app } = await createTestApp()
     const uid = uniqueId()
     const { token } = await signupUser(app, {
       username: `unfav_${uid}`,
@@ -68,7 +68,7 @@ describe("Favorites", () => {
   })
 
   it("should require auth to favorite", async () => {
-    const { app } = createTestApp()
+    const { app } = await createTestApp()
     const uid = uniqueId()
     const { token } = await signupUser(app, {
       username: `noauthfav_${uid}`,
@@ -91,7 +91,7 @@ describe("Favorites", () => {
   })
 
   it("should return 404 for non-existent article", async () => {
-    const { app } = createTestApp()
+    const { app } = await createTestApp()
     const uid = uniqueId()
     const { token } = await signupUser(app, {
       username: `notfoundfav_${uid}`,

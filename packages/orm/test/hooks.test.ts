@@ -1,6 +1,6 @@
-import { Database } from "bun:sqlite"
 import { afterAll, beforeAll, describe, expect, it } from "bun:test"
-import { BunSqliteDialect } from "kysely-bun-sqlite"
+import { createClient } from "@libsql/client"
+import { LibsqlDialect } from "@libsql/kysely-libsql"
 import { t as columnTypes, createArkTypeSchemaConfig } from "../src/columns/index.js"
 import { createHookManager, createPeta, defineModel } from "../src/index.js"
 
@@ -28,7 +28,7 @@ describe("HookManager", () => {
 })
 
 describe("Model lifecycle hooks", () => {
-  const db = new Database(":memory:")
+  const db = createClient({ url: ":memory:" })
   let peta: ReturnType<typeof createPeta>
 
   const HooksTest = defineModel("hooks_test", {
@@ -40,11 +40,11 @@ describe("Model lifecycle hooks", () => {
   })
 
   beforeAll(async () => {
-    db.run("PRAGMA journal_mode = WAL")
-    db.run(
+    await db.execute("PRAGMA journal_mode = WAL")
+    await db.execute(
       "CREATE TABLE hooks_test (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, counter INTEGER DEFAULT 0)",
     )
-    peta = createPeta({ dialect: new BunSqliteDialect({ database: db }) })
+    peta = createPeta({ dialect: new LibsqlDialect({ client: db }) })
     peta.registerAll(HooksTest)
   })
 
@@ -103,7 +103,7 @@ describe("Model lifecycle hooks", () => {
 })
 
 describe("Timestamps", () => {
-  const db = new Database(":memory:")
+  const db = createClient({ url: ":memory:" })
   let peta: ReturnType<typeof createPeta>
 
   const Timestamped = defineModel("timestamped", {
@@ -116,11 +116,11 @@ describe("Timestamps", () => {
   })
 
   beforeAll(async () => {
-    db.run("PRAGMA journal_mode = WAL")
-    db.run(
+    await db.execute("PRAGMA journal_mode = WAL")
+    await db.execute(
       "CREATE TABLE timestamped (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, createdAt TEXT, updatedAt TEXT)",
     )
-    peta = createPeta({ dialect: new BunSqliteDialect({ database: db }) })
+    peta = createPeta({ dialect: new LibsqlDialect({ client: db }) })
     peta.registerAll(Timestamped)
     Timestamped.registerTimestamps()
   })
@@ -149,7 +149,7 @@ describe("Timestamps", () => {
 })
 
 describe("SoftDeletes", () => {
-  const db = new Database(":memory:")
+  const db = createClient({ url: ":memory:" })
   let peta: ReturnType<typeof createPeta>
 
   const SoftDeletable = defineModel("soft_deletable", {
@@ -161,9 +161,9 @@ describe("SoftDeletes", () => {
   })
 
   beforeAll(async () => {
-    db.run("PRAGMA journal_mode = WAL")
-    db.run("CREATE TABLE soft_deletable (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, deletedAt TEXT)")
-    peta = createPeta({ dialect: new BunSqliteDialect({ database: db }) })
+    await db.execute("PRAGMA journal_mode = WAL")
+    await db.execute("CREATE TABLE soft_deletable (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, deletedAt TEXT)")
+    peta = createPeta({ dialect: new LibsqlDialect({ client: db }) })
     peta.registerAll(SoftDeletable)
     SoftDeletable.registerSoftDeletes()
   })
@@ -205,7 +205,7 @@ describe("SoftDeletes", () => {
 })
 
 describe("Custom errors", () => {
-  const db = new Database(":memory:")
+  const db = createClient({ url: ":memory:" })
   let peta: ReturnType<typeof createPeta>
 
   const ErrUser = defineModel("err_users", {
@@ -213,9 +213,9 @@ describe("Custom errors", () => {
   })
 
   beforeAll(async () => {
-    db.run("PRAGMA journal_mode = WAL")
-    db.run("CREATE TABLE err_users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
-    peta = createPeta({ dialect: new BunSqliteDialect({ database: db }) })
+    await db.execute("PRAGMA journal_mode = WAL")
+    await db.execute("CREATE TABLE err_users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
+    peta = createPeta({ dialect: new LibsqlDialect({ client: db }) })
     peta.registerAll(ErrUser)
     await ErrUser.insert({ name: "Alice" })
   })
@@ -350,7 +350,8 @@ describe("Serialization control", () => {
 })
 
 describe("Transaction", () => {
-  const db = new Database(":memory:")
+  const _txDir = new URL("../../../.tmp/", import.meta.url).pathname
+  const db = createClient({ url: "file:" + _txDir + "hooks-tx-" + Date.now() + ".db" })
   let peta: ReturnType<typeof createPeta>
 
   const TxUser = defineModel("tx_users", {
@@ -358,8 +359,8 @@ describe("Transaction", () => {
   })
 
   beforeAll(async () => {
-    db.run("CREATE TABLE tx_users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
-    peta = createPeta({ dialect: new BunSqliteDialect({ database: db }) })
+    await db.execute("CREATE TABLE tx_users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
+    peta = createPeta({ dialect: new LibsqlDialect({ client: db }) })
     peta.registerAll(TxUser)
   })
 
@@ -378,7 +379,7 @@ describe("Transaction", () => {
 })
 
 describe("Static hooks (asFindQuery)", () => {
-  const db = new Database(":memory:")
+  const db = createClient({ url: ":memory:" })
   let peta: ReturnType<typeof createPeta>
 
   const StaticUser = defineModel("static_users", {
@@ -386,11 +387,11 @@ describe("Static hooks (asFindQuery)", () => {
   })
 
   beforeAll(async () => {
-    db.run("PRAGMA journal_mode = WAL")
-    db.run(
+    await db.execute("PRAGMA journal_mode = WAL")
+    await db.execute(
       "CREATE TABLE static_users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, active INTEGER DEFAULT 1)",
     )
-    peta = createPeta({ dialect: new BunSqliteDialect({ database: db }) })
+    peta = createPeta({ dialect: new LibsqlDialect({ client: db }) })
     peta.registerAll(StaticUser)
     await StaticUser.insert({ name: "A", active: 1 })
     await StaticUser.insert({ name: "B", active: 1 })

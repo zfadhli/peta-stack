@@ -1,7 +1,7 @@
 import { hashPassword } from "peta-auth"
 import { Author, Book, BookCategory, Category, getORM, Review, User } from "./schema.js"
 
-const orm = getORM()
+const orm = await getORM()
 
 // ---------------------------------------------------------------------------
 // Users

@@ -1,12 +1,12 @@
-import { Database } from "bun:sqlite"
-import { BunSqliteDialect } from "kysely-bun-sqlite"
+import { createClient } from "@libsql/client"
+import { LibsqlDialect } from "@libsql/kysely-libsql"
 import { hashPassword } from "peta-auth"
 import { createTables, getORM } from "../../src/db/schema.js"
 
-const db = new Database("catalog.db", { create: true })
-db.run("PRAGMA foreign_keys = ON")
-createTables(db)
-const orm = getORM(new BunSqliteDialect({ database: db }))
+const client = createClient({ url: "file:catalog.db" })
+await client.execute("PRAGMA foreign_keys = ON")
+await createTables(client)
+const orm = await getORM(new LibsqlDialect({ client }))
 
 const { User, Author, Category } = await import("../../src/db/schema.js")
 
@@ -39,4 +39,4 @@ await Category.insert({ name: "Hurl Category", description: "Test category" })
 
 console.log("Seed complete")
 await orm.destroy()
-db.close()
+client.close()

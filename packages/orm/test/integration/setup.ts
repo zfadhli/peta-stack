@@ -34,10 +34,10 @@
  * Set INTEGRATION_SKIP_PG=1 or INTEGRATION_SKIP_MYSQL=1 to skip without connecting.
  */
 
-import { Database } from "bun:sqlite"
 import { afterAll, beforeAll, describe, expect, it } from "bun:test"
 import { Kysely, MysqlDialect, PostgresDialect, sql } from "kysely"
-import { BunSqliteDialect } from "kysely-bun-sqlite"
+import { createClient } from "@libsql/client"
+import { LibsqlDialect } from "@libsql/kysely-libsql"
 import { createORM } from "../../src/index.js"
 
 // ─── Helpers ────────────────────────────────────────────────────────
@@ -88,10 +88,8 @@ export interface DialectInfo {
 // ─── Dialect Factories ──────────────────────────────────────────────
 
 function createSqliteContext(): DialectContext {
-  const database = new Database(":memory:")
-  database.run("PRAGMA journal_mode = WAL")
-  database.run("PRAGMA foreign_keys = ON")
-  const dialect = new BunSqliteDialect({ database })
+  const client = createClient({ url: ":memory:" })
+  const dialect = new LibsqlDialect({ client })
   const kysely = new Kysely<any>({ dialect })
   const orm = createORM({ dialect: dialect as any })
   return {
@@ -101,7 +99,7 @@ function createSqliteContext(): DialectContext {
     registerAll: (...models: any[]) => orm.registerAll(...models),
     destroy: async () => {
       await kysely.destroy()
-      database.close()
+      client.close()
     },
   }
 }

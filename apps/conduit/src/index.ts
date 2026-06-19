@@ -1,6 +1,7 @@
 import { Hono } from "hono"
 import { cors } from "hono/cors"
 import { getOpenAPISpec, serveScalarUI } from "peta-docs"
+import { createORM } from "peta-orm"
 import { getORM } from "./db/schema.js"
 import { resolveUser } from "./middleware/auth.js"
 import { onError } from "./middleware/error.js"
@@ -33,9 +34,9 @@ const API_COMPONENTS = {
  *
  * @param orm - Optional ORM instance (for tests). Defaults to the singleton.
  */
-export function createApp(orm?: ReturnType<typeof getORM>): Hono {
+export async function createApp(orm?: ReturnType<typeof createORM>): Promise<Hono> {
   // Ensure the ORM is initialized
-  orm ??= getORM()
+  if (!orm) orm = await getORM()
 
   const app = new Hono()
 
@@ -65,8 +66,8 @@ export function createApp(orm?: ReturnType<typeof getORM>): Hono {
 
 // ─── Production entrypoint ───────────────────────────
 if (import.meta.main) {
-  const orm = getORM()
-  const app = createApp(orm)
+  const orm = await getORM()
+  const app = await createApp(orm)
 
   const port = Number(process.env.PORT ?? 3001)
   console.log(`📝 Conduit API running at http://localhost:${port}`)
