@@ -24,7 +24,7 @@ jobs:
       - run: bun install --frozen-lockfile
         working-directory: ./
 
-      - run: bun test
+      - run: mkdir -p .tmp && bun test
       - run: bun test test/integration/
       - run: bun run typecheck
 

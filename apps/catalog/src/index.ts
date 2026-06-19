@@ -3,7 +3,7 @@ import { cors } from "hono/cors"
 import { HTTPException } from "hono/http-exception"
 import { session } from "peta-auth/hono"
 import { getOpenAPISpec, serveScalarUI } from "peta-docs"
-import { createORM, DatabaseError, normalizeError } from "peta-orm"
+import { type createORM, DatabaseError, normalizeError } from "peta-orm"
 import { getORM } from "./db/schema.js"
 
 import auth from "./routes/auth.js"

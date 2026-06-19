@@ -36,3 +36,6 @@ docs/.vitepress/cache
 
 # Finder (MacOS) folder config
 .DS_Store
+
+# session handoff reports
+/.tmp
