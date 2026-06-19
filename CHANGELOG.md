@@ -7,13 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.0] - 2026-06-19
 
+### Added
+
+- **orm**: `createDb()` utility for lazy-initialized singleton database connections — avoids module-level side effects that break testing, HMR, and error recovery. [#8](https://github.com/zfadhli/peta-stack/issues/8)
+- **orm**: `createColumnTypes()` factory for custom validation backends (replaces the old callable `t`)
+- **orm**: `createORM()` now accepts a pre-existing Kysely instance via `kysely` config option (alongside the existing `dialect`)
+- **orm**: `SerializedShape<TColumns>` mapped type for typed `$toJSON()` / `toJSON()` returns
+- **orm**: `QueryBuilder` methods now preserve `TColumns` generics through all chained calls
+- **orm**: `createRepo` and `RepoMethods` exported from public entry point (`peta-orm`)
+- **migrate**: Comprehensive test coverage — 4 new test files (snapshot, differ, checksum, pusher), 79 total test cases
+
 ### Changed
 
 - **orm**: `t` is now a pre-configured `ColumnTypes` object backed by ArkType — import and use directly as `t.integer()`, `t.string()`, etc. The old factory API `t({ schema: createArkTypeSchemaConfig() })` is replaced by `createColumnTypes({ schema })` for custom validation backends. [#8](https://github.com/zfadhli/peta-stack/issues/8)
+- **orm**: Repository pattern (`createRepo`, `RepoMethods`, `QueryMethod`) now part of the public API
+- **docs**: Updated integration guide to use `createDb()` safe initialization pattern
+- **migrate**: `prepublish` → `prepublishOnly`; `"module"` field corrected from `src/index.ts` to `./dist/index.mjs`
+- **auth**: Added `"main"`, `"private": false`, `prepublishOnly`, and LICENSE to published files
+- **docs**: Added LICENSE to published files
+- **packaging**: All publishable packages now consistently include LICENSE in their tarball
 
-### Added
+### Fixed
 
-- **orm**: `createColumnTypes()` factory for custom validation backends (replaces the old callable `t`)
+- **migrate**: `pushSchema()` in `pusher.ts` now properly reassigns the Kysely query builder in the column loop — was silently dropping all but the last column due to builder immutability
+- **orm**: Discover test no longer fails when run from the monorepo root — uses `import.meta.dirname` instead of cwd-relative paths
+- **orm**: `getSortedMigrations` now correctly orders migration files by name
+- **orm**: Removed module-level `await getORM()` eager initialization from catalog app schema
 
 ## [0.4.0] - 2026-06-19
 
