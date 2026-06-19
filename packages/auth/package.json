@@ -1,5 +1,6 @@
 {
   "name": "peta-auth",
+  "private": false,
   "version": "0.2.2",
   "description": "Encrypted cookie sessions for Bun — Hono, ElysiaJS & Nuxt adapters",
   "license": "MIT",
@@ -8,6 +9,7 @@
     "url": "git+https://github.com/zfadhli/peta-stack.git"
   },
   "type": "module",
+  "main": "./dist/index.mjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.mts",
   "exports": {
@@ -45,13 +47,15 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsdown",
     "lint": "biome check --write .",
     "lint:ci": "biome ci .",
-    "prepublish": "bun run build",
+    "prepublishOnly": "bun run build",
     "test": "bun test",
     "typecheck": "tsc --noEmit"
   },

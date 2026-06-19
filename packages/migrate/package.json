@@ -1,6 +1,7 @@
 {
   "name": "peta-migrate",
   "type": "module",
+  "private": false,
   "version": "0.2.0",
   "description": "Migration tools for peta-orm",
   "license": "MIT",
@@ -8,7 +9,7 @@
     "type": "git",
     "url": "git+https://github.com/zfadhli/peta-stack.git"
   },
-  "module": "src/index.ts",
+  "module": "./dist/index.mjs",
   "main": "./dist/index.mjs",
   "types": "./dist/index.d.mts",
   "exports": {
@@ -46,7 +47,7 @@
   },
   "scripts": {
     "build": "tsdown",
-    "prepublish": "bun run build",
+    "prepublishOnly": "bun run build",
     "typecheck": "bun x tsc --noEmit",
     "test": "bun test"
   }

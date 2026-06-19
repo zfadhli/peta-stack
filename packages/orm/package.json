@@ -9,7 +9,7 @@
     "type": "git",
     "url": "git+https://github.com/zfadhli/peta-stack.git"
   },
-  "module": "src/index.ts",
+  "module": "./dist/index.mjs",
   "main": "./dist/index.mjs",
   "types": "./dist/index.d.mts",
   "exports": {
@@ -56,6 +56,6 @@
     "build": "tsdown",
     "lint": "bunx biome check src test examples",
     "lint:fix": "bunx biome check --write --unsafe src test examples",
-    "prepublish": "bun run build"
+    "prepublishOnly": "bun run build"
   }
 }
