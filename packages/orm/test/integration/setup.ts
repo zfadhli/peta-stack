@@ -91,7 +91,7 @@ function createSqliteContext(): DialectContext {
   const client = createClient({ url: ":memory:" })
   const dialect = new LibsqlDialect({ client })
   const kysely = new Kysely<any>({ dialect })
-  const orm = createORM({ dialect: dialect as any })
+  const orm = createORM({ kysely })
   return {
     dialect: "sqlite",
     getORM: () => orm,
@@ -112,7 +112,7 @@ async function createPostgresContext(): Promise<DialectContext> {
   })
   const dialect = new PostgresDialect({ pool })
   const kysely = new Kysely<any>({ dialect })
-  const orm = createORM({ dialect: dialect as any })
+  const orm = createORM({ kysely })
   return {
     dialect: "postgres",
     getORM: () => orm,
@@ -133,7 +133,7 @@ async function createMysqlContext(): Promise<DialectContext> {
   })
   const dialect = new MysqlDialect({ pool })
   const kysely = new Kysely<any>({ dialect })
-  const orm = createORM({ dialect: dialect as any })
+  const orm = createORM({ kysely })
   return {
     dialect: "mysql",
     getORM: () => orm,

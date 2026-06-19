@@ -7,18 +7,32 @@ import type { ModelDefinition } from "../model/types.js"
 import type { ORMLike } from "../types.js"
 
 export interface ORMConfig {
-  dialect: Dialect
+  /** Kysely dialect to create an internal Kysely instance. Required unless `kysely` is provided. */
+  dialect?: Dialect
+  /** A pre-existing Kysely instance to reuse. Required unless `dialect` is provided. */
+  kysely?: Kysely<any>
+  /** Optional map of model definitions to register immediately. */
   models?: Record<string, ModelDefinition>
 }
 
 /**
  * Create an ORM instance — the central registry that wires Kysely to model definitions.
  * Replaces createPeta() from v0.x.
+ *
+ * Pass either `dialect` (to auto-create a Kysely instance) or `kysely` (to reuse one).
+ * Passing a pre-existing Kysely instance avoids creating a second connection for
+ * migration runners or other tools that already have their own Kysely.
  */
 export function createORM(config: ORMConfig): ORMLike & { kysely: Database } {
-  const kysely = new Kysely<Record<string, never>>({
-    dialect: config.dialect,
-  }) as unknown as Database
+  if (!config.dialect && !config.kysely) {
+    throw new Error(
+      "createORM: provide either `dialect` (to create a Kysely instance) or `kysely` (to reuse one)",
+    )
+  }
+
+  const kysely = (config.kysely ?? new Kysely<Record<string, never>>({
+    dialect: config.dialect!,
+  })) as unknown as Database
 
   const modelMap = new Map<string, ModelDefinition>()
 

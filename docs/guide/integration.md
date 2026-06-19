@@ -139,18 +139,28 @@ GET /api/auth/me         GET/POST/PATCH/DELETE /api/authors
 ## Pattern 5: Migrations + ORM
 
 Generate migrations from your model definitions, then run them with the migration runner.
+Share a single Kysely instance between the ORM and migration runner to avoid redundant connections.
 
 ```ts
+import { Kysely } from "kysely"
+import { createORM, defineModel, t } from "peta-orm"
 import { createMigrationGenerator, createMigrationRunner } from "peta-migrate"
 
-// Generate initial migration
-const gen = createMigrationGenerator()
-const migrationCode = gen.generateInitialMigration(models)
+// Create a single Kysely instance
+const kysely = new Kysely<any>({ dialect })
 
-// Run migrations
-const runner = createMigrationRunner(kysely)
+// Share it with the ORM — no redundant connection
+const orm = createORM({ kysely })
+orm.registerAll(User, Post)
+
+// And with the migration runner
+const runner = createMigrationRunner(orm.kysely)
 await runner.ensureTable()
 await runner.up(migrationFiles)
+
+// Generate initial migration from model definitions
+const gen = createMigrationGenerator()
+const migrationCode = gen.generateInitialMigration(orm.models)
 ```
 
 ## Shared Configuration

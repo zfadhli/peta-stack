@@ -28,6 +28,8 @@ peta-orm adds ActiveRecord-style models with `$save()`, `$delete()`, `$reload()`
 
 Yes. Access the underlying Kysely instance via `orm.kysely` for raw queries.
 
+You can also pass a pre-existing Kysely instance into `createORM({ kysely })` to share a single connection between the ORM and other tools (migration runners, raw query builders, etc.).
+
 ### How do migrations work?
 
 Define models, then generate an initial migration with `createMigrationGenerator().generateInitialMigration(models)`. Run migrations with `createMigrationRunner(kysely).up(files)`. Or use the `peta` CLI.

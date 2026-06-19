@@ -164,6 +164,7 @@ import { LibsqlDialect } from "@libsql/kysely-libsql"
 
 const dialect = new LibsqlDialect({ url: ":memory:" })
 const orm = createORM({ dialect })
+// Or reuse a Kysely instance: createORM({ kysely })
 
 const User = defineModel("users", {
   columns: { id: t.integer().primaryKey(), name: t.string(255), email: t.text().unique() },

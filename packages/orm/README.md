@@ -29,6 +29,9 @@ const orm = createORM({
   dialect: new LibsqlDialect({ url: "file:my-app.db" }),
 })
 
+// Or reuse an existing Kysely instance (e.g. for migration runners):
+// const orm = createORM({ kysely: existingKyselyInstance })
+
 const User = defineModel("users", {
   columns: { id: t.integer().primaryKey(), name: t.string(255), email: t.text().unique() },
 })
