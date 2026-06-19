@@ -1,26 +1,25 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "bun:test"
 import { createClient } from "@libsql/client"
 import { LibsqlDialect } from "@libsql/kysely-libsql"
-import { t as columnTypes, createArkTypeSchemaConfig } from "../src/columns/index.js"
+import { t } from "../src/columns/index.js"
 import { createPeta, defineModel, defineMorphMany, defineMorphTo } from "../src/index.js"
 import { resolveMorphRelation } from "../src/relations/morph.js"
 
-const _t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
 // ─── Models ────────────────────────────────────────────────────
 
 const Post = defineModel("morph_posts", {
   columns: {
-    id: _t.integer().primaryKey(),
-    title: _t.string(255),
+    id: t.integer().primaryKey(),
+    title: t.string(255),
   },
   relations: {},
 })
 
 const Video = defineModel("morph_videos", {
   columns: {
-    id: _t.integer().primaryKey(),
-    title: _t.string(255),
+    id: t.integer().primaryKey(),
+    title: t.string(255),
   },
   relations: {},
 })
@@ -28,10 +27,10 @@ const Video = defineModel("morph_videos", {
 // A "likeable" polymorphic relation: both Post and Video can be liked
 const Like = defineModel("morph_likes", {
   columns: {
-    id: _t.integer().primaryKey(),
-    likeableType: _t.string(50),
-    likeableId: _t.integer(),
-    userId: _t.string(255).nullable(),
+    id: t.integer().primaryKey(),
+    likeableType: t.string(50),
+    likeableId: t.integer(),
+    userId: t.string(255).nullable(),
   },
   relations: {},
 })
@@ -39,10 +38,10 @@ const Like = defineModel("morph_likes", {
 // A "commentable" polymorphic relation (with MorphTo for the inverse)
 const Comment = defineModel("morph_comments", {
   columns: {
-    id: _t.integer().primaryKey(),
-    body: _t.text(),
-    commentableType: _t.string(50),
-    commentableId: _t.integer(),
+    id: t.integer().primaryKey(),
+    body: t.text(),
+    commentableType: t.string(50),
+    commentableId: t.integer(),
   },
   relations: {},
 })
@@ -50,10 +49,10 @@ const Comment = defineModel("morph_comments", {
 // A model without any morph map entry (for error testing)
 const Orphan = defineModel("morph_orphans", {
   columns: {
-    id: _t.integer().primaryKey(),
-    commentableType: _t.string(50),
-    commentableId: _t.integer(),
-    label: _t.string(255),
+    id: t.integer().primaryKey(),
+    commentableType: t.string(50),
+    commentableId: t.integer(),
+    label: t.string(255),
   },
   relations: {},
 })

@@ -3,10 +3,9 @@
 
 import { createClient } from "@libsql/client"
 import { LibsqlDialect } from "@libsql/kysely-libsql"
-import { t as columnTypes, createArkTypeSchemaConfig, createORM, defineModel } from "../src/index.js"
+import { t, createORM, defineModel } from "../src/index.js"
 import { computeAtRuntime, computeBatchAtRuntime, setComputedConfig } from "../src/model/computed.js"
 
-const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
 const User = defineModel("users", {
   columns: {

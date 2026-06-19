@@ -4,8 +4,7 @@ import { LibsqlDialect } from "@libsql/kysely-libsql"
 import type { ModelDefinition } from "peta-orm"
 import {
   belongsTo,
-  t as columnTypes,
-  createArkTypeSchemaConfig,
+  t,
   createORM,
   defineModel,
   hasMany,
@@ -13,11 +12,6 @@ import {
   timestamps,
   ulid,
 } from "peta-orm"
-
-// ---------------------------------------------------------------------------
-// Column type factory
-// ---------------------------------------------------------------------------
-const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
 // ---------------------------------------------------------------------------
 // Lazy model references — break circular type inference with explicit casts

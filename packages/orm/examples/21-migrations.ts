@@ -4,10 +4,9 @@
 import { Kysely } from "kysely"
 import { createClient } from "@libsql/client"
 import { LibsqlDialect } from "@libsql/kysely-libsql"
-import { t as columnTypes, createArkTypeSchemaConfig, defineModel } from "../src/index.js"
+import { t, defineModel } from "../src/index.js"
 import { createMigrationGenerator, createMigrationRunner } from "../src/migrations/index.js"
 
-const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
 const User = defineModel("users", {
   columns: { id: t.integer().primaryKey(), name: t.string(255), email: t.text().unique() },

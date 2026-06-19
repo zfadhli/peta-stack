@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-06-19
+
+### Changed
+
+- **orm**: `t` is now a pre-configured `ColumnTypes` object backed by ArkType — import and use directly as `t.integer()`, `t.string()`, etc. The old factory API `t({ schema: createArkTypeSchemaConfig() })` is replaced by `createColumnTypes({ schema })` for custom validation backends. [#8](https://github.com/zfadhli/peta-stack/issues/8)
+
+### Added
+
+- **orm**: `createColumnTypes()` factory for custom validation backends (replaces the old callable `t`)
+
 ## [0.4.0] - 2026-06-19
 
 ### Added

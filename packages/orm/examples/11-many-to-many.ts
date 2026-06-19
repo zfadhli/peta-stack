@@ -3,9 +3,8 @@
 
 import { createClient } from "@libsql/client"
 import { LibsqlDialect } from "@libsql/kysely-libsql"
-import { t as columnTypes, createArkTypeSchemaConfig, createORM, defineModel, manyToMany } from "../src/index.js"
+import { t, createORM, defineModel, manyToMany } from "../src/index.js"
 
-const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
 const Post = defineModel("posts", {
   columns: { id: t.integer().primaryKey(), title: t.string(255) },

@@ -3,9 +3,8 @@
 
 import { createClient } from "@libsql/client"
 import { LibsqlDialect } from "@libsql/kysely-libsql"
-import { t as columnTypes, createArkTypeSchemaConfig, createORM, defineModel, softDeletes } from "../src/index.js"
+import { t, createORM, defineModel, softDeletes } from "../src/index.js"
 
-const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
 const User = defineModel("users", {
   columns: {

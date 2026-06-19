@@ -5,10 +5,9 @@
 import { Hono } from "hono"
 import { createClient } from "@libsql/client"
 import { LibsqlDialect } from "@libsql/kysely-libsql"
-import { t as columnTypes, createArkTypeSchemaConfig, createORM, DatabaseError, defineModel } from "../src/index.js"
+import { t, createORM, DatabaseError, defineModel } from "../src/index.js"
 import { petaMiddleware } from "../src/integrations/hono.js"
 
-const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
 const User = defineModel("users", {
   columns: { id: t.integer().primaryKey(), name: t.string(255) },

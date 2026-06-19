@@ -1,23 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test"
 import { createClient } from "@libsql/client"
 import { LibsqlDialect } from "@libsql/kysely-libsql"
-import { t as columnTypes, createArkTypeSchemaConfig } from "../src/columns/index.js"
+import { t } from "../src/columns/index.js"
 import { Attribute, createPeta, defineModel } from "../src/index.js"
-
-const _t = columnTypes({ schema: createArkTypeSchemaConfig() })
-
-// ─── Helper models ────────────────────────────────────────────────
-
-const t = (name: string) =>
-  defineModel(name, {
-    columns: {
-      id: _t.integer().primaryKey(),
-      name: _t.string(255),
-      email: _t.text().nullable(),
-      password: _t.string(255).nullable(),
-      role: _t.string(50).nullable().default("user"),
-    },
-  })
 
 // ─── Unit tests (no DB) ──────────────────────────────────────────
 
@@ -57,11 +42,11 @@ describe("Attribute accessors & mutators", () => {
   // Model with attribute transformations
   const User = defineModel("attr_users", {
     columns: {
-      id: _t.integer().primaryKey(),
-      name: _t.string(255),
-      email: _t.text().nullable(),
-      password: _t.string(255).nullable(),
-      role: _t.string(50).nullable().default("user"),
+      id: t.integer().primaryKey(),
+      name: t.string(255),
+      email: t.text().nullable(),
+      password: t.string(255).nullable(),
+      role: t.string(50).nullable().default("user"),
     },
     attributes: {
       // Mutator: uppercase name on set, accessor: reverse on get for testing
@@ -87,8 +72,8 @@ describe("Attribute accessors & mutators", () => {
 
   const NoAccessors = defineModel("no_accessors", {
     columns: {
-      id: _t.integer().primaryKey(),
-      name: _t.string(255),
+      id: t.integer().primaryKey(),
+      name: t.string(255),
     },
   })
 
@@ -185,9 +170,9 @@ describe("Attribute accessors & mutators", () => {
   it("6. accessor/mutator with casts does not interfere", async () => {
     const WithCast = defineModel("with_casts", {
       columns: {
-        id: _t.integer().primaryKey(),
-        name: _t.string(255),
-        metadata: _t.text().nullable(),
+        id: t.integer().primaryKey(),
+        name: t.string(255),
+        metadata: t.text().nullable(),
       },
       casts: {
         metadata: "json",
@@ -344,9 +329,9 @@ describe("Attribute accessors & mutators", () => {
   it("12. accessor/mutator can use instance.get()", async () => {
     const FullNameModel = defineModel("fullname_users", {
       columns: {
-        id: _t.integer().primaryKey(),
-        firstName: _t.string(255),
-        lastName: _t.string(255),
+        id: t.integer().primaryKey(),
+        firstName: t.string(255),
+        lastName: t.string(255),
       },
       attributes: {
         fullName: Attribute.make({
@@ -366,9 +351,9 @@ describe("Attribute accessors & mutators", () => {
     // Mutator can also use instance
     const CounterModel = defineModel("counter_users", {
       columns: {
-        id: _t.integer().primaryKey(),
-        name: _t.string(255),
-        version: _t.integer().default(1),
+        id: t.integer().primaryKey(),
+        name: t.string(255),
+        version: t.integer().default(1),
       },
       attributes: {
         name: Attribute.make({
@@ -398,9 +383,9 @@ describe("Attribute accessors & mutators", () => {
   it("13. convention-based get<Key>Attribute() still works for appends", async () => {
     const AppendModel = defineModel("append_models", {
       columns: {
-        id: _t.integer().primaryKey(),
-        firstName: _t.string(255),
-        lastName: _t.string(255),
+        id: t.integer().primaryKey(),
+        firstName: t.string(255),
+        lastName: t.string(255),
       },
       appends: ["fullName"],
     })

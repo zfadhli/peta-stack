@@ -5,7 +5,7 @@
  * Each test group creates its own tables using unique table names.
  */
 
-import { t as columnTypes, createArkTypeSchemaConfig } from "../../src/columns/index.js"
+import { t } from "../../src/columns/index.js"
 import { belongsTo, defineModel, hasMany, hasOne, manyToMany } from "../../src/index.js"
 import type { ModelInstance } from "../../src/model/types.js"
 import type { DialectContext, SchemaDef } from "./setup.js"
@@ -21,7 +21,6 @@ import {
   it,
 } from "./setup.js"
 
-const _t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
 // ─── Schema builders ────────────────────────────────────────────────
 
@@ -112,7 +111,7 @@ for (const dialect of await getAvailableDialects()) {
       let ctx: DialectContext
 
       const User = defineModel("rel_users", {
-        columns: { id: _t.integer().primaryKey(), name: _t.string(255) },
+        columns: { id: t.integer().primaryKey(), name: t.string(255) },
         relations: {
           posts: hasMany(() => Post, { foreignKey: "userId" }),
           profile: hasOne(() => Profile, { foreignKey: "userId" }),
@@ -120,12 +119,12 @@ for (const dialect of await getAvailableDialects()) {
       })
 
       const Post = defineModel("rel_posts", {
-        columns: { id: _t.integer().primaryKey(), userId: _t.integer(), title: _t.string(255) },
+        columns: { id: t.integer().primaryKey(), userId: t.integer(), title: t.string(255) },
         relations: { author: belongsTo(() => User, { foreignKey: "userId" }) },
       })
 
       const Profile = defineModel("rel_profiles", {
-        columns: { id: _t.integer().primaryKey(), userId: _t.integer(), bio: _t.text().nullable() },
+        columns: { id: t.integer().primaryKey(), userId: t.integer(), bio: t.text().nullable() },
         relations: { user: belongsTo(() => User, { foreignKey: "userId" }) },
       })
 
@@ -204,7 +203,7 @@ for (const dialect of await getAvailableDialects()) {
       let ctx: DialectContext
 
       const Post = defineModel("mtm_posts", {
-        columns: { id: _t.integer().primaryKey(), userId: _t.integer(), title: _t.string(255) },
+        columns: { id: t.integer().primaryKey(), userId: t.integer(), title: t.string(255) },
         relations: {
           tags: manyToMany(() => Tag, {
             through: "mtm_post_tags",
@@ -215,7 +214,7 @@ for (const dialect of await getAvailableDialects()) {
       })
 
       const Tag = defineModel("mtm_tags", {
-        columns: { id: _t.integer().primaryKey(), name: _t.string(255) },
+        columns: { id: t.integer().primaryKey(), name: t.string(255) },
         relations: {
           posts: manyToMany(() => Post, {
             through: "mtm_post_tags",
@@ -335,12 +334,12 @@ for (const dialect of await getAvailableDialects()) {
       ]
 
       const User = defineModel("graph_users", {
-        columns: { id: _t.integer().primaryKey(), name: _t.string(255) },
+        columns: { id: t.integer().primaryKey(), name: t.string(255) },
         relations: { posts: hasMany(() => Post, { foreignKey: "userId" }) },
       })
 
       const Post = defineModel("graph_posts", {
-        columns: { id: _t.integer().primaryKey(), userId: _t.integer(), title: _t.string(255) },
+        columns: { id: t.integer().primaryKey(), userId: t.integer(), title: t.string(255) },
         relations: {
           author: belongsTo(() => User, { foreignKey: "userId" }),
           // Many-to-many with tags omitted for insertGraph tests — referencing
@@ -350,7 +349,7 @@ for (const dialect of await getAvailableDialects()) {
       })
 
       const Tag = defineModel("graph_tags", {
-        columns: { id: _t.integer().primaryKey(), name: _t.string(255) },
+        columns: { id: t.integer().primaryKey(), name: t.string(255) },
       })
 
       beforeAll(async () => {

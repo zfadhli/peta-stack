@@ -113,7 +113,6 @@ The factory function runs **once** on the first `await db()` call. Importing mod
 Column definitions double as validation schemas — no separate validation step needed.
 
 ```ts
-const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
 const User = defineModel("users", {
   columns: {

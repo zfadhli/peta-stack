@@ -8,9 +8,8 @@
 
 import { createClient } from "@libsql/client"
 import { LibsqlDialect } from "@libsql/kysely-libsql"
-import { Attribute, t as columnTypes, createArkTypeSchemaConfig, createORM, defineModel } from "../src/index.js"
+import { Attribute, t, createORM, defineModel } from "../src/index.js"
 
-const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
 // ─── Model with attribute transformations ──────────────────────
 

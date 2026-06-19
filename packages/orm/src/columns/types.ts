@@ -1,6 +1,7 @@
 import type { Column } from "./column.js"
 import { createColumn } from "./column.js"
 import type { SchemaConfig } from "./schema.js"
+import { createArkTypeSchemaConfig } from "./arktype.js"
 
 export interface ColumnTypes {
   integer: () => Column<number>
@@ -21,7 +22,28 @@ export interface ColumnTypes {
   timestamps: () => { createdAt: Column<string>; updatedAt: Column<string> }
 }
 
-export function t(config: { schema: SchemaConfig }): ColumnTypes {
+/**
+ * Pre-configured column type factory backed by ArkType validation.
+ *
+ * The most common usage — just import and use:
+ * ```ts
+ * import { t } from "peta-orm"
+ * const id = t.integer().primaryKey()
+ * ```
+ *
+ * For a custom validation backend, use `createColumnTypes({ schema })` instead.
+ */
+export const t: ColumnTypes = createColumnTypes({ schema: createArkTypeSchemaConfig() })
+
+/**
+ * Create a column type factory with a custom validation schema backend.
+ *
+ * @example
+ * ```ts
+ * const t = createColumnTypes({ schema: myCustomSchemaConfig })
+ * ```
+ */
+export function createColumnTypes(config: { schema: SchemaConfig }): ColumnTypes {
   const schema = config.schema
   function col<T>(dataType: string, args?: unknown[]): Column<T> {
     return createColumn<T>(schema, dataType, args)

@@ -7,7 +7,7 @@ export { createCollection } from "./collection/index.js"
 export type { ColumnShape } from "./columns/column.js"
 // ─── Columns ───────────────────────────────────────────────
 export type { Column, ColumnTypes, ColumnValue, Constraint, SchemaConfig } from "./columns/index.js"
-export { createArkTypeSchemaConfig, createColumn, t } from "./columns/index.js"
+export { createArkTypeSchemaConfig, createColumn, createColumnTypes, t } from "./columns/index.js"
 // ─── Errors ────────────────────────────────────────────────
 export type { DatabaseErrorCode } from "./errors.js"
 export {

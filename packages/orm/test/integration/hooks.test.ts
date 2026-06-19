@@ -4,7 +4,7 @@
  * Covers: hooks.test.ts + plugins.test.ts
  */
 
-import { t as columnTypes, createArkTypeSchemaConfig } from "../../src/columns/index.js"
+import { t } from "../../src/columns/index.js"
 import { createHookManager, defineModel, softDeletes, timestamps } from "../../src/index.js"
 import type { Plugin } from "../../src/plugins/index.js"
 import type { DialectContext, SchemaDef } from "./setup.js"
@@ -20,7 +20,6 @@ import {
   it,
 } from "./setup.js"
 
-const _t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
 // ─── Schema builders ────────────────────────────────────────────────
 
@@ -87,7 +86,7 @@ for (const dialect of await getAvailableDialects()) {
           log.push("after")
         })
         const Dummy = defineModel("dummy", {
-          columns: { id: _t.integer().primaryKey(), name: _t.string(255) },
+          columns: { id: t.integer().primaryKey(), name: t.string(255) },
         })
         const model = Dummy.hydrate({ name: "test" })
         await hm.trigger("beforeCreate", model)
@@ -104,9 +103,9 @@ for (const dialect of await getAvailableDialects()) {
 
       const HooksTest = defineModel("hooks_test", {
         columns: {
-          id: _t.integer().primaryKey(),
-          name: _t.string(255),
-          counter: _t.integer().default(0),
+          id: t.integer().primaryKey(),
+          name: t.string(255),
+          counter: t.integer().default(0),
         },
       })
 
@@ -163,7 +162,7 @@ for (const dialect of await getAvailableDialects()) {
           ;(def as any).__pluginApplied = true
         }
         const Model = defineModel("plugin_test", {
-          columns: { id: _t.integer().primaryKey(), name: _t.string(255) },
+          columns: { id: t.integer().primaryKey(), name: t.string(255) },
         }).use(plugin)
         expect((Model as any).__pluginApplied).toBe(true)
       })
@@ -188,10 +187,10 @@ for (const dialect of await getAvailableDialects()) {
       it("sets createdAt/updatedAt on create", async () => {
         const TimestampedModel = defineModel("ts_plugin", {
           columns: {
-            id: _t.integer().primaryKey(),
-            name: _t.string(255),
-            createdAt: _t.timestamp(),
-            updatedAt: _t.timestamp(),
+            id: t.integer().primaryKey(),
+            name: t.string(255),
+            createdAt: t.timestamp(),
+            updatedAt: t.timestamp(),
           },
         }).use(timestamps())
 
@@ -205,10 +204,10 @@ for (const dialect of await getAvailableDialects()) {
       it("updates updatedAt on save", async () => {
         const Model = defineModel("ts_plugin", {
           columns: {
-            id: _t.integer().primaryKey(),
-            name: _t.string(255),
-            createdAt: _t.timestamp(),
-            updatedAt: _t.timestamp(),
+            id: t.integer().primaryKey(),
+            name: t.string(255),
+            createdAt: t.timestamp(),
+            updatedAt: t.timestamp(),
           },
         }).use(timestamps())
 
@@ -243,9 +242,9 @@ for (const dialect of await getAvailableDialects()) {
       it("configures soft delete behavior", async () => {
         const SDModel = defineModel("sd_plugin", {
           columns: {
-            id: _t.integer().primaryKey(),
-            name: _t.string(255),
-            deletedAt: _t.timestamp().nullable(),
+            id: t.integer().primaryKey(),
+            name: t.string(255),
+            deletedAt: t.timestamp().nullable(),
           },
         }).use(softDeletes())
 

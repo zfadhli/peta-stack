@@ -1,11 +1,10 @@
 import { describe, expect, it } from "bun:test"
 import { createClient } from "@libsql/client"
 import { LibsqlDialect } from "@libsql/kysely-libsql"
-import { t as columnTypes, createArkTypeSchemaConfig } from "../src/columns/index.js"
+import { t } from "../src/columns/index.js"
 import { createPeta, defineModel, softDeletes, timestamps } from "../src/index.js"
 import type { Plugin } from "../src/plugins/index.js"
 
-const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
 describe("Plugin system", () => {
   it(".use() accepts a plugin and chains", () => {

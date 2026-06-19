@@ -1,11 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test"
 import { createClient } from "@libsql/client"
 import { LibsqlDialect } from "@libsql/kysely-libsql"
-import { t as columnTypes, createArkTypeSchemaConfig } from "../src/columns/index.js"
+import { t } from "../src/columns/index.js"
 import { createCollection, createPeta, defineModel } from "../src/index.js"
 import { hasMany } from "../src/relations/index.js"
 
-const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
 const CollItem = defineModel("coll_items", {
   columns: {

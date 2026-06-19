@@ -8,8 +8,7 @@ import { createClient } from "@libsql/client"
 import { LibsqlDialect } from "@libsql/kysely-libsql"
 import {
   belongsTo,
-  t as columnTypes,
-  createArkTypeSchemaConfig,
+  t,
   createORM,
   defineModel,
   hasMany,
@@ -17,7 +16,6 @@ import {
   manyToMany,
 } from "../src/index.js"
 
-const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
 // ─── Models ────────────────────────────────────────────────────
 

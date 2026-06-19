@@ -5,15 +5,13 @@ import { createClient } from "@libsql/client"
 import { LibsqlDialect } from "@libsql/kysely-libsql"
 import {
   belongsTo,
-  t as columnTypes,
-  createArkTypeSchemaConfig,
+  t,
   createORM,
   defineModel,
   hasMany,
   manyToMany,
 } from "../src/index.js"
 
-const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
 const Tag = defineModel("tags", { columns: { id: t.integer().primaryKey(), name: t.string(255) } })
 

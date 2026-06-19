@@ -1,11 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test"
 import { createClient } from "@libsql/client"
 import { LibsqlDialect } from "@libsql/kysely-libsql"
-import { t as columnTypes, createArkTypeSchemaConfig } from "../src/columns/index.js"
+import { t } from "../src/columns/index.js"
 import { belongsTo, createPeta, defineModel, hasMany, hasManyThrough, hasOne, manyToMany } from "../src/index.js"
 import type { ModelInstance } from "../src/model/types.js"
 
-const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
 const User = defineModel("users", {
   columns: {

@@ -8,15 +8,13 @@
 import { createClient } from "@libsql/client"
 import { LibsqlDialect } from "@libsql/kysely-libsql"
 import {
-  t as columnTypes,
-  createArkTypeSchemaConfig,
+  t,
   createORM,
   defineModel,
   defineMorphMany,
   defineMorphTo,
 } from "../src/index.js"
 
-const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
 // ─── Models ────────────────────────────────────────────────────
 

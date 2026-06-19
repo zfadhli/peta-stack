@@ -7,9 +7,8 @@
 
 import { createClient } from "@libsql/client"
 import { LibsqlDialect } from "@libsql/kysely-libsql"
-import { createArkTypeSchemaConfig, createORM, t as columnTypes } from "../src/index.js"
+import { createORM, t } from "../src/index.js"
 
-const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
 const client = createClient({ url: ":memory:" })
 await client.execute("CREATE TABLE discovered (id INTEGER PRIMARY KEY AUTOINCREMENT, label TEXT NOT NULL)")

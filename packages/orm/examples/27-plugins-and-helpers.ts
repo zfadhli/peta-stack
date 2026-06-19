@@ -3,10 +3,9 @@
 
 import { createClient } from "@libsql/client"
 import { LibsqlDialect } from "@libsql/kysely-libsql"
-import { t as columnTypes, createArkTypeSchemaConfig, createORM, defineModel, timestamps } from "../src/index.js"
+import { t, createORM, defineModel, timestamps } from "../src/index.js"
 import type { Plugin } from "../src/plugins/index.js"
 
-const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
 // Built-in plugin: timestamps()
 const User = defineModel("users", {

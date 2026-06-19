@@ -2,11 +2,10 @@ import { afterAll, describe, expect, it } from "bun:test"
 import { Kysely } from "kysely"
 import { createClient } from "@libsql/client"
 import { LibsqlDialect } from "@libsql/kysely-libsql"
-import { t as columnTypes, createArkTypeSchemaConfig, defineModel, createPeta } from "peta-orm"
+import { t, defineModel, createPeta } from "peta-orm"
 import { createMigrationGenerator, createMigrationRunner } from "../src/index.js"
 import { manyToMany } from "peta-orm"
 
-const t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
 const User = defineModel("users", {
   columns: {

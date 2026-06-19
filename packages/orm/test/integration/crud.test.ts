@@ -4,7 +4,7 @@
  * Covers: model.test.ts + attribute.test.ts + collection.test.ts
  */
 
-import { t as columnTypes, createArkTypeSchemaConfig } from "../../src/columns/index.js"
+import { t } from "../../src/columns/index.js"
 import { Attribute, defineModel } from "../../src/index.js"
 import { computeAtRuntime, computeBatchAtRuntime, setComputedConfig } from "../../src/model/computed.js"
 import type { DialectContext } from "./setup.js"
@@ -21,7 +21,6 @@ import {
   it,
 } from "./setup.js"
 
-const _t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
 // ─── Tests ──────────────────────────────────────────────────────────
 
@@ -44,19 +43,19 @@ for (const dialect of await getAvailableDialects()) {
     describe("CRUD operations", () => {
       const User = defineModel("users", {
         columns: {
-          id: _t.integer().primaryKey(),
-          name: _t.string(255),
-          email: _t.text().unique(),
-          age: _t.integer().nullable().default(0),
+          id: t.integer().primaryKey(),
+          name: t.string(255),
+          email: t.text().unique(),
+          age: t.integer().nullable().default(0),
         },
       })
 
       const Post = defineModel("posts", {
         columns: {
-          id: _t.integer().primaryKey(),
-          userId: _t.integer(),
-          title: _t.string(255),
-          body: _t.text().nullable(),
+          id: t.integer().primaryKey(),
+          userId: t.integer(),
+          title: t.string(255),
+          body: t.text().nullable(),
         },
       })
 
@@ -150,10 +149,10 @@ for (const dialect of await getAvailableDialects()) {
     describe("Query Builder", () => {
       const User = defineModel("users", {
         columns: {
-          id: _t.integer().primaryKey(),
-          name: _t.string(255),
-          email: _t.text().unique(),
-          age: _t.integer().nullable().default(0),
+          id: t.integer().primaryKey(),
+          name: t.string(255),
+          email: t.text().unique(),
+          age: t.integer().nullable().default(0),
         },
       })
 
@@ -212,10 +211,10 @@ for (const dialect of await getAvailableDialects()) {
     describe("insertMany", () => {
       const User = defineModel("users", {
         columns: {
-          id: _t.integer().primaryKey(),
-          name: _t.string(255),
-          email: _t.text().unique(),
-          age: _t.integer().nullable().default(0),
+          id: t.integer().primaryKey(),
+          name: t.string(255),
+          email: t.text().unique(),
+          age: t.integer().nullable().default(0),
         },
       })
 
@@ -241,10 +240,10 @@ for (const dialect of await getAvailableDialects()) {
     describe("Pagination", () => {
       const Post = defineModel("posts", {
         columns: {
-          id: _t.integer().primaryKey(),
-          userId: _t.integer(),
-          title: _t.string(255),
-          body: _t.text().nullable(),
+          id: t.integer().primaryKey(),
+          userId: t.integer(),
+          title: t.string(255),
+          body: t.text().nullable(),
         },
       })
 
@@ -277,10 +276,10 @@ for (const dialect of await getAvailableDialects()) {
     describe("toJSON", () => {
       const User = defineModel("users", {
         columns: {
-          id: _t.integer().primaryKey(),
-          name: _t.string(255),
-          email: _t.text().unique(),
-          age: _t.integer().nullable().default(0),
+          id: t.integer().primaryKey(),
+          name: t.string(255),
+          email: t.text().unique(),
+          age: t.integer().nullable().default(0),
         },
       })
 
@@ -318,11 +317,11 @@ for (const dialect of await getAvailableDialects()) {
 
       const User = defineModel("attr_users", {
         columns: {
-          id: _t.integer().primaryKey(),
-          name: _t.string(255),
-          email: _t.text().nullable(),
-          password: _t.string(255).nullable(),
-          role: _t.string(50).nullable().default("user"),
+          id: t.integer().primaryKey(),
+          name: t.string(255),
+          email: t.text().nullable(),
+          password: t.string(255).nullable(),
+          role: t.string(50).nullable().default("user"),
         },
         attributes: {
           name: Attribute.make({
@@ -394,9 +393,9 @@ for (const dialect of await getAvailableDialects()) {
 
       const User = defineModel("computed_users", {
         columns: {
-          id: _t.integer().primaryKey(),
-          firstName: _t.string(100),
-          lastName: _t.string(100),
+          id: t.integer().primaryKey(),
+          firstName: t.string(100),
+          lastName: t.string(100),
         },
       })
 

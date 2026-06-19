@@ -4,7 +4,7 @@
  * Covers: errors.test.ts
  */
 
-import { t as columnTypes, createArkTypeSchemaConfig } from "../../src/columns/index.js"
+import { t } from "../../src/columns/index.js"
 import { DatabaseError } from "../../src/errors.js"
 import { defineModel } from "../../src/index.js"
 import type { DialectContext, SchemaDef } from "./setup.js"
@@ -20,7 +20,6 @@ import {
   it,
 } from "./setup.js"
 
-const _t = columnTypes({ schema: createArkTypeSchemaConfig() })
 
 // ─── Schema builders ────────────────────────────────────────────────
 
@@ -60,9 +59,9 @@ for (const dialect of await getAvailableDialects()) {
 
       const User = defineModel("err_users", {
         columns: {
-          id: _t.integer().primaryKey(),
-          name: _t.string(255),
-          email: _t.text().unique(),
+          id: t.integer().primaryKey(),
+          name: t.string(255),
+          email: t.text().unique(),
         },
       })
 
