@@ -17,17 +17,16 @@ const page = await Post.query().with("author").orderBy("id", "asc").paginate(1, 
 ## Quick Start
 
 ```bash
-bun add peta-orm arktype kysely
-bun add -d kysely-bun-sqlite
+bun add peta-orm arktype kysely @libsql/kysely-libsql @libsql/client
 ```
 
 ```ts
-import { Database } from "bun:sqlite"
-import { BunSqliteDialect } from "kysely-bun-sqlite"
+import { createClient } from "@libsql/client"
+import { LibsqlDialect } from "@libsql/kysely-libsql"
 import { createORM, defineModel, t } from "peta-orm"
 
 const orm = createORM({
-  dialect: new BunSqliteDialect({ database: new Database("my-app.db") }),
+  dialect: new LibsqlDialect({ url: "file:my-app.db" }),
 })
 
 const User = defineModel("users", {
@@ -343,7 +342,7 @@ bun run examples/07-soft-deletes.ts
 
 | Database | Dialect package | Status |
 |----------|----------------|--------|
-| SQLite | `kysely-bun-sqlite` | ✅ Tested |
+| SQLite | `@libsql/kysely-libsql` + `@libsql/client` | ✅ Tested |
 | PostgreSQL | `pg` | ✅ Tested via Docker |
 | MySQL | `mysql2` | ✅ Tested via Docker |
 

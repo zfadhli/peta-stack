@@ -7,10 +7,10 @@
 Standalone migration runner and generator for [peta-orm](https://www.npmjs.com/package/peta-orm). Run, roll back, and generate database migrations with a clean programmatic API and CLI.
 
 ```bash
-bun add peta-migrate
+bun add peta-migrate kysely @libsql/kysely-libsql @libsql/client
 ```
 
-Requires `kysely` as a peer dependency.
+Requires `kysely` as a peer dependency. SQLite via `@libsql/kysely-libsql`, PostgreSQL via `pg`, MySQL via `mysql2`.
 
 ---
 
@@ -19,11 +19,12 @@ Requires `kysely` as a peer dependency.
 ### Programmatic
 
 ```ts
-import { Kysely, BunSqliteDialect } from "kysely-bun-sqlite"
-import { Database } from "bun:sqlite"
+import { createClient } from "@libsql/client"
+import { LibsqlDialect } from "@libsql/kysely-libsql"
+import { Kysely } from "kysely"
 import { createMigrationRunner, createMigrationGenerator } from "peta-migrate"
 
-const db = new Kysely({ dialect: new BunSqliteDialect({ database: new Database("my-app.db") }) })
+const db = new Kysely({ dialect: new LibsqlDialect({ url: "file:my-app.db" }) })
 const runner = createMigrationRunner(db)
 
 await runner.ensureTable()  // create tracking table

@@ -1,16 +1,15 @@
 # Peta Stack
 
-[![npm version](https://img.shields.io/badge/peta--orm-0.3.0-blue?style=flat-square)](https://www.npmjs.com/package/peta-orm)
-[![npm version](https://img.shields.io/badge/peta--auth-0.2.0-blue?style=flat-square)](https://www.npmjs.com/package/peta-auth)
-[![npm version](https://img.shields.io/badge/peta--docs-0.3.0-blue?style=flat-square)](https://www.npmjs.com/package/peta-docs)
-[![npm version](https://img.shields.io/badge/peta--migrate-0.1.0-blue?style=flat-square)](https://www.npmjs.com/package/peta-migrate)
+[![npm version](https://img.shields.io/npm/v/peta-orm?style=flat-square)](https://www.npmjs.com/package/peta-orm)
+[![npm version](https://img.shields.io/npm/v/peta-auth?style=flat-square)](https://www.npmjs.com/package/peta-auth)
+[![npm version](https://img.shields.io/npm/v/peta-docs?style=flat-square)](https://www.npmjs.com/package/peta-docs)
+[![npm version](https://img.shields.io/npm/v/peta-migrate?style=flat-square)](https://www.npmjs.com/package/peta-migrate)
 [![CI](https://img.shields.io/github/actions/workflow/status/zfadhli/peta-stack/ci.yml?style=flat-square&label=CI)](https://github.com/zfadhli/peta-stack/actions)
-[![Docs](https://img.shields.io/badge/docs-peta--stack-blue?style=flat-square)](https://zfadhli.github.io/peta-stack/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org)
 [![Bun](https://img.shields.io/badge/Bun-1.3-black?style=flat-square&logo=bun)](https://bun.sh)
 [![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 
-A modular full-stack TypeScript toolkit for Bun — ORM, auth, API docs, and migrations, designed to work together or standalone.
+A modular full-stack TypeScript toolkit — ORM, auth, API docs, and migrations, designed to work together or standalone.
 
 - **peta-orm** — ActiveRecord-style ORM built on Kysely with ArkType validation, relations, hooks, soft deletes, and more
 - **peta-auth** — Stateless encrypted cookie sessions (Hono, Elysia, Nuxt), JWT, CSRF, OAuth, password hashing
@@ -62,7 +61,7 @@ const page = await Post.query().with("author").orderBy("id", "asc").paginate(1, 
 | **Error handling** | Normalized `DatabaseError` with dialect-aware codes (SQLite, PG, MySQL) |
 | **Repository pattern** | `Repo.makeHelper()`, query method wrappers |
 | **CLI** | `peta` binary with migration commands |
-| **Database support** | SQLite (via `kysely-bun-sqlite`), PostgreSQL, MySQL |
+| **Database support** | SQLite (via `@libsql/client`), PostgreSQL, MySQL |
 | **Examples** | 32 runnable TypeScript examples covering every feature |
 
 ### peta-auth
@@ -160,10 +159,10 @@ bun add peta-orm peta-auth peta-docs peta-migrate
 
 ```ts
 import { createORM, defineModel, t, hasMany } from "peta-orm"
-import { Database } from "bun:sqlite"
-import { Kysely, BunSqliteDialect } from "kysely-bun-sqlite"
+import { createClient } from "@libsql/client"
+import { LibsqlDialect } from "@libsql/kysely-libsql"
 
-const dialect = new BunSqliteDialect({ database: new Database(":memory:") })
+const dialect = new LibsqlDialect({ url: ":memory:" })
 const orm = createORM({ dialect })
 
 const User = defineModel("users", {
@@ -176,8 +175,7 @@ const Post = defineModel("posts", {
 
 orm.registerAll(User, Post)
 
-const user = await User.create({ name: "Alice", email: "alice@test.com" })
-const post = await Post.create({ userId: user.id, title: "Hello World" })
+const user = await User.insert({ name: "Alice", email: "alice@test.com" })
 const posts = await User.relations.posts.query(user).execute()
 ```
 
@@ -219,7 +217,7 @@ peta-stack/
 ├── apps/
 │   ├── conduit/      # RealWorld API (Medium clone)
 │   └── catalog/      # Books API
-├── docs/             # Research and design docs
+├── docs/             # Vitepress documentation site
 └── docker-compose.yml # PostgreSQL + MySQL for integration tests
 ```
 
@@ -280,10 +278,10 @@ Set `INTEGRATION_SKIP_PG=1` or `INTEGRATION_SKIP_MYSQL=1` to skip specific datab
 
 | Package | npm | Description |
 |---------|-----|-------------|
-| [peta-orm](./packages/orm) | [![npm](https://img.shields.io/npm/v/peta-orm?style=flat-square)](https://www.npmjs.com/package/peta-orm) | ORM with models, relations, hooks, scopes, plugins, pagination |
-| [peta-auth](./packages/auth) | [![npm](https://img.shields.io/npm/v/peta-auth?style=flat-square)](https://www.npmjs.com/package/peta-auth) | Encrypted cookie sessions, JWT, OAuth, password hashing |
-| [peta-docs](./packages/docs) | [![npm](https://img.shields.io/npm/v/peta-docs?style=flat-square)](https://www.npmjs.com/package/peta-docs) | OpenAPI 3.1 spec generation + Scalar UI |
-| [peta-migrate](./packages/migrate) | [![npm](https://img.shields.io/npm/v/peta-migrate?style=flat-square)](https://www.npmjs.com/package/peta-migrate) | Migration runner and generator |
+| [peta-orm](./packages/orm) | [![npm](https://img.shields.io/npm/v/peta-orm?style=flat-square&label=0.4.0)](https://www.npmjs.com/package/peta-orm) | ORM with models, relations, hooks, scopes, plugins, pagination |
+| [peta-auth](./packages/auth) | [![npm](https://img.shields.io/npm/v/peta-auth?style=flat-square&label=0.2.1)](https://www.npmjs.com/package/peta-auth) | Encrypted cookie sessions, JWT, OAuth, password hashing |
+| [peta-docs](./packages/docs) | [![npm](https://img.shields.io/npm/v/peta-docs?style=flat-square&label=0.3.1)](https://www.npmjs.com/package/peta-docs) | OpenAPI 3.1 spec generation + Scalar UI |
+| [peta-migrate](./packages/migrate) | [![npm](https://img.shields.io/npm/v/peta-migrate?style=flat-square&label=0.1.1)](https://www.npmjs.com/package/peta-migrate) | Migration runner and generator |
 
 ## License
 
