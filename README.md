@@ -278,10 +278,10 @@ Set `INTEGRATION_SKIP_PG=1` or `INTEGRATION_SKIP_MYSQL=1` to skip specific datab
 
 | Package | npm | Description |
 |---------|-----|-------------|
-| [peta-orm](./packages/orm) | [![npm](https://img.shields.io/npm/v/peta-orm?style=flat-square&label=0.4.0)](https://www.npmjs.com/package/peta-orm) | ORM with models, relations, hooks, scopes, plugins, pagination |
-| [peta-auth](./packages/auth) | [![npm](https://img.shields.io/npm/v/peta-auth?style=flat-square&label=0.2.1)](https://www.npmjs.com/package/peta-auth) | Encrypted cookie sessions, JWT, OAuth, password hashing |
-| [peta-docs](./packages/docs) | [![npm](https://img.shields.io/npm/v/peta-docs?style=flat-square&label=0.3.1)](https://www.npmjs.com/package/peta-docs) | OpenAPI 3.1 spec generation + Scalar UI |
-| [peta-migrate](./packages/migrate) | [![npm](https://img.shields.io/npm/v/peta-migrate?style=flat-square&label=0.1.1)](https://www.npmjs.com/package/peta-migrate) | Migration runner and generator |
+| [peta-orm](./packages/orm) | [![npm](https://img.shields.io/npm/v/peta-orm?style=flat-square&label=0.4.1)](https://www.npmjs.com/package/peta-orm) | ORM with models, relations, hooks, scopes, plugins, pagination |
+| [peta-auth](./packages/auth) | [![npm](https://img.shields.io/npm/v/peta-auth?style=flat-square&label=0.2.2)](https://www.npmjs.com/package/peta-auth) | Encrypted cookie sessions, JWT, OAuth, password hashing |
+| [peta-docs](./packages/docs) | [![npm](https://img.shields.io/npm/v/peta-docs?style=flat-square&label=0.3.2)](https://www.npmjs.com/package/peta-docs) | OpenAPI 3.1 spec generation + Scalar UI |
+| [peta-migrate](./packages/migrate) | [![npm](https://img.shields.io/npm/v/peta-migrate?style=flat-square&label=0.2.0)](https://www.npmjs.com/package/peta-migrate) | Migration runner and generator |
 
 ## License
 
