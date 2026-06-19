@@ -1,7 +1,7 @@
 {
   "name": "peta-auth",
   "private": false,
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Encrypted cookie sessions for Bun — Hono, ElysiaJS & Nuxt adapters",
   "license": "MIT",
   "repository": {
