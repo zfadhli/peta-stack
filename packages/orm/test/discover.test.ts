@@ -61,7 +61,8 @@ describe("registerAll rest params", () => {
 
 describe("discover", () => {
   it("discovers models from fixture directory", async () => {
-    const models = await peta.discover("./test/fixtures/*.ts")
+    const pattern = import.meta.dirname + "/fixtures/*.ts"
+    const models = await peta.discover(pattern)
     expect(models).toHaveLength(1)
     expect(models[0]!.table).toBe("discovered")
     expect(models[0]!.columns).toHaveProperty("id")
@@ -72,8 +73,9 @@ describe("discover", () => {
   })
 
   it("throws clear error when no files match", async () => {
-    await expect(peta.discover("./test/fixtures/nonexistent/*.ts")).rejects.toThrow(
-      'discover: no files matched pattern "./test/fixtures/nonexistent/*.ts"',
+    const pattern = import.meta.dirname + "/fixtures/nonexistent/*.ts"
+    await expect(peta.discover(pattern)).rejects.toThrow(
+      `discover: no files matched pattern "${pattern}"`,
     )
   })
 })
