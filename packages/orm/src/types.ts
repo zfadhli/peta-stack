@@ -16,6 +16,17 @@ export interface ORMLike {
   transaction<T>(fn: (trx: import("kysely").Kysely<Record<string, never>>) => Promise<T>): Promise<T>
   readonly models: ReadonlyMap<string, ModelDefinition<any>>
   getModel<T extends ColumnShape = ColumnShape>(name: string): ModelDefinition<T> | undefined
+  /**
+   * Discover model definitions by scanning files matching a glob pattern.
+   *
+   * Uses `fast-glob` to resolve the pattern relative to `cwd`, then dynamically
+   * imports each matching file and collects exported `ModelDefinition` values.
+   * Does **not** auto-register — use `registerAll(...result)` to register them.
+   *
+   * @param pattern  Glob pattern (e.g. `"./src/models/**\/*.ts"`)
+   * @returns  Array of discovered model definitions
+   */
+  discover(pattern: string): Promise<ModelDefinition<any>[]>
 }
 
 export interface ModelDefinition<TColumns extends ColumnShape = ColumnShape> {

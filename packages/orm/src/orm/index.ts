@@ -1,5 +1,6 @@
 import type { Dialect } from "kysely"
 import { Kysely } from "kysely"
+import { pathToFileURL } from "url"
 import type { ColumnShape } from "../columns/column.js"
 import type { Database } from "../lib/kysely.js"
 import type { ModelDefinition } from "../model/types.js"
@@ -52,6 +53,40 @@ export function createORM(config: ORMConfig): ORMLike & { kysely: Database } {
 
     getModel<T extends ColumnShape = ColumnShape>(name: string): ModelDefinition<T> | undefined {
       return modelMap.get(name) as ModelDefinition<T> | undefined
+    },
+
+    async discover(pattern: string): Promise<ModelDefinition<any>[]> {
+      const fg = await import("fast-glob")
+      const entries = await fg.glob(pattern, { absolute: true, onlyFiles: true })
+
+      if (entries.length === 0) {
+        throw new Error(`discover: no files matched pattern "${pattern}"`)
+      }
+
+      const models: ModelDefinition<any>[] = []
+      const seen = new Set<string>()
+
+      for (const fp of entries) {
+        const mod = await import(pathToFileURL(fp).href)
+        for (const val of Object.values(mod)) {
+          if (
+            val &&
+            typeof val === "object" &&
+            "columns" in val &&
+            "table" in val &&
+            typeof (val as any).table === "string" &&
+            (val as any).table.length > 0
+          ) {
+            const def = val as ModelDefinition<any>
+            if (!seen.has(def.table)) {
+              seen.add(def.table)
+              models.push(def)
+            }
+          }
+        }
+      }
+
+      return models
     },
   }
 

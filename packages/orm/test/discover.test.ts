@@ -60,9 +60,21 @@ describe("registerAll rest params", () => {
   })
 })
 
-// Note: discover() method is not yet implemented in v2.
-// These tests will be re-enabled when model discovery is added.
-describe.todo("discover", () => {
-  it("discovers models from fixture directory", async () => {})
-  it("throws clear error in non-Bun runtimes", async () => {})
+describe("discover", () => {
+  it("discovers models from fixture directory", async () => {
+    const models = await peta.discover("./test/fixtures/*.ts")
+    expect(models).toHaveLength(1)
+    expect(models[0]!.table).toBe("discovered")
+    expect(models[0]!.columns).toHaveProperty("id")
+    expect(models[0]!.columns).toHaveProperty("label")
+    // Returned models can be registered
+    peta.registerAll(...models)
+    expect(peta.getModel("discovered")).toBe(models[0])
+  })
+
+  it("throws clear error when no files match", async () => {
+    await expect(peta.discover("./test/fixtures/nonexistent/*.ts")).rejects.toThrow(
+      'discover: no files matched pattern "./test/fixtures/nonexistent/*.ts"',
+    )
+  })
 })

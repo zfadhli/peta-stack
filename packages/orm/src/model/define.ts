@@ -164,9 +164,6 @@ export function defineModel<TColumns extends ColumnShape>(
   def.registerSoftDeletes = (deletedAtCol?: string) => {
     registerSoftDeletesFor(def, deletedAtCol)
   }
-  def.discover = async () => {
-    throw new Error("discover() not yet implemented in v2")
-  }
 
   return def
 }

@@ -81,7 +81,6 @@ export interface ModelDefinition<TColumns extends ColumnShape = ColumnShape> {
   // Backward-compat convenience methods
   registerTimestamps?(createdAtCol?: string, updatedAtCol?: string): void
   registerSoftDeletes?(deletedAtCol?: string): void
-  discover?(): Promise<never>
 
   _init(orm: ORMLike): void
 }
