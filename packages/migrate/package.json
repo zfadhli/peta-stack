@@ -29,6 +29,7 @@
   ],
   "dependencies": {
     "cac": "^7.0.0",
+    "fast-glob": "^3.3.3",
     "ora": "^9.4.0"
   },
   "peerDependencies": {

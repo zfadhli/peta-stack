@@ -57,7 +57,7 @@
     },
     "packages/auth": {
       "name": "peta-auth",
-      "version": "0.2.2",
+      "version": "0.2.3",
       "dependencies": {
         "@node-rs/argon2": "^2.0.2",
         "cookie": "^1.1.1",
@@ -87,7 +87,7 @@
     },
     "packages/docs": {
       "name": "peta-docs",
-      "version": "0.3.2",
+      "version": "0.3.3",
       "dependencies": {
         "hono": "^4",
       },
@@ -105,12 +105,13 @@
     },
     "packages/migrate": {
       "name": "peta-migrate",
-      "version": "0.2.0",
+      "version": "0.2.2",
       "bin": {
         "peta": "./bin/peta",
       },
       "dependencies": {
         "cac": "^7.0.0",
+        "fast-glob": "^3.3.3",
         "ora": "^9.4.0",
       },
       "devDependencies": {

@@ -1,5 +1,6 @@
 import { readdirSync } from "node:fs"
 import { resolve } from "node:path"
+import { sync as globSync } from "fast-glob"
 import type { ModelDefinition } from "peta-orm"
 import type { PetaMigrateConfig } from "./types.js"
 
@@ -10,17 +11,36 @@ export async function loadConfig(): Promise<PetaMigrateConfig> {
     try {
       mod = (await import(resolve(process.cwd(), file))) as Record<string, unknown>
       break
-    } catch {}
+    } catch (err) {
+      console.warn(`⚠ Failed to load config from "${file}":`, (err as Error).message)
+    }
   }
-  if (!mod) throw new Error("No peta.config.ts found. Create one in your project root.")
+  if (!mod) {
+    const tried = candidates.map((f) => `\`${resolve(process.cwd(), f)}\``).join(", ")
+    throw new Error(
+      `No configuration file found. Tried: ${tried}.\n` +
+        "Create one in your project root and export a PetaMigrateConfig object.",
+    )
+  }
   const config = (mod.default ?? mod) as PetaMigrateConfig
   return { migrationsDir: config.migrationsDir, models: config.models, getKysely: config.getKysely }
 }
 
-export async function loadMigrationFiles(dir: string): Promise<import("./types.js").MigrationFile[]> {
-  const files = readdirSync(dir)
-    .filter((f) => f.endsWith(".ts") || f.endsWith(".js"))
-    .sort()
+export async function loadMigrationFiles(
+  dir: string,
+): Promise<import("./types.js").MigrationFile[]> {
+  let files: string[]
+  try {
+    files = readdirSync(dir)
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new Error(
+        `Migrations directory "${dir}" not found. Run \`peta migrate:init\` to create it.`,
+      )
+    }
+    throw err
+  }
+  files = files.filter((f) => f.endsWith(".ts") || f.endsWith(".js")).sort()
   const migrations: import("./types.js").MigrationFile[] = []
   for (const file of files) {
     const mod = (await import(resolve(dir, file))) as {
@@ -28,7 +48,11 @@ export async function loadMigrationFiles(dir: string): Promise<import("./types.j
       down?: (db: unknown) => Promise<void>
     }
     if (mod.up)
-      migrations.push({ name: file.replace(/\.(ts|js)$/, ""), up: mod.up, down: mod.down ?? (async () => {}) })
+      migrations.push({
+        name: file.replace(/\.(ts|js)$/, ""),
+        up: mod.up,
+        down: mod.down ?? (async () => {}),
+      })
   }
   return migrations
 }
@@ -38,7 +62,9 @@ export async function loadMigrationFiles(dir: string): Promise<import("./types.j
  * Dynamically imports each matched file and collects ModelDefinition exports.
  * Models are keyed by their `.name` property.
  */
-export async function loadModels(patterns: string | string[]): Promise<Map<string, ModelDefinition>> {
+export async function loadModels(
+  patterns: string | string[],
+): Promise<Map<string, ModelDefinition>> {
   const modelMap = new Map<string, ModelDefinition>()
   const patternList = Array.isArray(patterns) ? patterns : [patterns]
   const cwd = process.cwd()
@@ -49,9 +75,7 @@ export async function loadModels(patterns: string | string[]): Promise<Map<strin
     if (!pattern.startsWith("/")) {
       pattern = resolve(cwd, pattern)
     }
-    // Use Bun.Glob for cross-platform glob matching
-    const glob = new Bun.Glob(pattern)
-    const files = Array.from(glob.scanSync(cwd))
+    const files = globSync(pattern, { cwd, onlyFiles: true, dot: false })
     for (const file of files) {
       const fullPath = resolve(cwd, file)
       try {
@@ -74,5 +98,7 @@ export async function loadModels(patterns: string | string[]): Promise<Map<strin
 function isModelDefinition(value: unknown): value is ModelDefinition {
   if (value === null || value === undefined) return false
   const obj = value as Record<string, unknown>
-  return typeof obj.table === "string" && obj.columns !== undefined && typeof obj.columns === "object"
+  return (
+    typeof obj.table === "string" && obj.columns !== undefined && typeof obj.columns === "object"
+  )
 }

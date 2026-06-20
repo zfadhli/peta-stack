@@ -25,7 +25,9 @@ const Post = defineModel("posts", {
   },
 })
 
-function buildMap(...models: ReturnType<typeof defineModel>[]): Map<string, ReturnType<typeof defineModel>> {
+function buildMap(
+  ...models: ReturnType<typeof defineModel>[]
+): Map<string, ReturnType<typeof defineModel>> {
   const map = new Map<string, ReturnType<typeof defineModel>>()
   for (const m of models) map.set(m.name, m)
   return map
@@ -253,9 +255,10 @@ describe("loadSnapshot / saveSnapshot", () => {
     mkdirSync(tmpDir, { recursive: true })
     writeFileSync(filePath, "not valid json{", "utf-8")
 
-    const result = loadSnapshot(filePath)
-    expect(result).toBeNull()
-
-    unlinkSync(filePath)
+    try {
+      expect(() => loadSnapshot(filePath)).toThrow("Corrupt snapshot file")
+    } finally {
+      unlinkSync(filePath)
+    }
   })
 })
