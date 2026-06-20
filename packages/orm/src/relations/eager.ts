@@ -6,14 +6,12 @@ export interface EagerLoad {
   constraints?: ((qb: QueryBuilder) => void) | null
 }
 
-import type { Relation } from "./base.js"
-
-function isMorphRelation(relation: Relation): boolean {
-  return relation._morphMap !== undefined
-}
-
 export class EagerLoader {
-  async loadRelated(models: ModelInstance[], eagerLoad: EagerLoad, def: ModelDefinition): Promise<void> {
+  async loadRelated(
+    models: ModelInstance[],
+    eagerLoad: EagerLoad,
+    def: ModelDefinition,
+  ): Promise<void> {
     const { name, constraints } = eagerLoad
     const dotIdx = name.indexOf(".")
 
@@ -31,7 +29,7 @@ export class EagerLoader {
 
       // Check for morphTo — nested eager loading through polymorphic relations
       // is not supported because the related model varies per row
-      if (isMorphRelation(relation)) {
+      if (relation._morphMap !== undefined) {
         throw new Error(
           `Cannot eagerly load nested relation "${nestedName}" through polymorphic ` +
             `relation "${baseName}" on ${def.name}. ` +
@@ -70,7 +68,11 @@ export class EagerLoader {
     }
   }
 
-  async loadRelatedForModel(model: ModelInstance, name: string, def: ModelDefinition): Promise<void> {
+  async loadRelatedForModel(
+    model: ModelInstance,
+    name: string,
+    def: ModelDefinition,
+  ): Promise<void> {
     await this.loadRelated([model], { name }, def)
   }
 }

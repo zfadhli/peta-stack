@@ -7,12 +7,19 @@ export function createArkTypeSchemaConfig(): SchemaConfig {
     const def = buildDef(dataType, args, constraints)
     return (arktype as (def: string) => unknown)(def)
   }
+  function formatProblems(result: unknown): string {
+    const raw = (result as Record<string, unknown>).flatProblemsByPath as
+      | Record<string, string[]>
+      | undefined
+    if (!raw) return "Validation failed"
+    return Object.entries(raw)
+      .map(([path, msgs]) => `${path}: ${msgs.join(", ")}`)
+      .join("; ")
+  }
   function parse<T>(schema: unknown, value: unknown): T {
     const result = (schema as (v: unknown) => unknown)(value)
     if (result instanceof arktype.errors) {
-      const problems = extractProblems(result)
-      const message = [...problems.entries()].map(([path, msgs]) => `${path}: ${msgs.join(", ")}`).join("; ")
-      throw new ValidationError(message)
+      throw new ValidationError(formatProblems(result))
     }
     return result as T
   }
@@ -22,9 +29,7 @@ export function createArkTypeSchemaConfig(): SchemaConfig {
       return t.assert(value)
     } catch (e: unknown) {
       if (isArkError(e)) {
-        const problems = extractProblems(e.arkErrors)
-        const message = [...problems.entries()].map(([path, msgs]) => `${path}: ${msgs.join(", ")}`).join("; ")
-        throw new ValidationError(message)
+        throw new ValidationError(formatProblems(e.arkErrors))
       }
       throw e
     }
@@ -119,13 +124,4 @@ interface ArkErrorLike {
 }
 function isArkError(e: unknown): e is ArkErrorLike {
   return typeof e === "object" && e !== null && "arkErrors" in e
-}
-
-function extractProblems(result: unknown): Map<string, string[]> {
-  const problems = new Map<string, string[]>()
-  const raw = (result as Record<string, unknown>).flatProblemsByPath as Record<string, string[]> | undefined
-  if (raw) {
-    for (const [path, msgs] of Object.entries(raw)) problems.set(path, msgs)
-  }
-  return problems
 }

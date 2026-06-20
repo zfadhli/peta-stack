@@ -11,7 +11,9 @@ export interface Collection<TColumns extends ColumnShape = ColumnShape> {
   last(): ModelInstance<TColumns> | undefined
   all(): ModelInstance<TColumns>[]
   findBy(id: number | string): ModelInstance<TColumns> | undefined
-  find(callback: (item: ModelInstance<TColumns>, index: number) => boolean): ModelInstance<TColumns> | undefined
+  find(
+    callback: (item: ModelInstance<TColumns>, index: number) => boolean,
+  ): ModelInstance<TColumns> | undefined
   some(callback: (item: ModelInstance<TColumns>, index: number) => boolean): boolean
   includes(item: ModelInstance<TColumns>): boolean
   isEmpty(): boolean
@@ -85,7 +87,9 @@ export function createCollection<TColumns extends ColumnShape = ColumnShape>(
     findBy(id: number | string): ModelInstance<TColumns> | undefined {
       return data.find((d) => d.get("id") === id)
     },
-    find(callback: (item: ModelInstance<TColumns>, index: number) => boolean): ModelInstance<TColumns> | undefined {
+    find(
+      callback: (item: ModelInstance<TColumns>, index: number) => boolean,
+    ): ModelInstance<TColumns> | undefined {
       return data.find(callback)
     },
     some(callback: (item: ModelInstance<TColumns>, index: number) => boolean): boolean {
@@ -105,7 +109,7 @@ export function createCollection<TColumns extends ColumnShape = ColumnShape>(
       return data.map((d) => d.get(key))
     },
     pluck(key: string): unknown[] {
-      return data.map((d) => d.get(key))
+      return this.get(key)
     },
 
     groupBy(key: string): Record<string, ModelInstance<TColumns>[]> {
@@ -260,9 +264,4 @@ export function createCollection<TColumns extends ColumnShape = ColumnShape>(
   }
 
   return collection
-}
-
-async function _getDef(model: any): Promise<any> {
-  const { getModelDef } = await import("../model/relation.js")
-  return getModelDef(model)
 }
