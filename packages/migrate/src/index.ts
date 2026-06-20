@@ -1,5 +1,5 @@
 export { computeChecksum, loadChecksums, saveChecksums, verifyChecksum } from "./checksum.js"
-export { defineConfig, loadConfig, loadMigrationFiles, loadModels } from "./config.js"
+export { loadConfig, loadMigrationFiles, loadModels } from "./config.js"
 export { diffSnapshots } from "./differ.js"
 export type { GeneratorOptions, MigrationGenerator } from "./generator.js"
 export { createMigrationGenerator } from "./generator.js"
@@ -12,7 +12,6 @@ export type {
   MigrationRecord,
   MigrationStatus,
   PetaMigrateConfig,
-  ResolvedConfig,
   SchemaColumn,
   SchemaDiff,
   SchemaIndex,

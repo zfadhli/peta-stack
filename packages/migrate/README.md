@@ -86,13 +86,13 @@ Creates a generator that produces migration code from model definitions.
 ### Configuration
 
 ```ts
-import { defineConfig } from "peta-migrate"
+import type { PetaMigrateConfig } from "peta-migrate"
 
-const config = defineConfig({
+const config: PetaMigrateConfig = {
   migrationsDir: "./migrations",
   models: ["./src/models/*.ts"],
   getKysely: () => db,
-})
+}
 ```
 
 | Option | Type | Description |

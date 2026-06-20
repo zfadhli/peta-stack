@@ -22,12 +22,6 @@ export interface PetaMigrateConfig {
   getKysely: () => Kysely<unknown>
 }
 
-export interface ResolvedConfig {
-  migrationsDir: string
-  models: string[] | string
-  getKysely: () => Kysely<unknown>
-}
-
 // ─── Schema Snapshot Types ──────────────────────────────────
 
 export interface SchemaColumn {

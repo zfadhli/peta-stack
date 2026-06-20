@@ -1,5 +1,6 @@
 import type { Kysely } from "kysely"
 import type { Column, ColumnShape, ModelDefinition } from "peta-orm"
+import { columnDataTypeToSql } from "./column-mapper.js"
 
 /**
  * Push current model schema directly to the database.
@@ -70,33 +71,5 @@ function buildColumn(col: Column, cb: any): any {
 }
 
 function mapPushType(col: Column): string {
-  switch (col.dataType) {
-    case "integer":
-    case "smallint":
-    case "bigint":
-    case "text":
-    case "boolean":
-    case "timestamp":
-    case "date":
-    case "float":
-    case "double":
-    case "uuid":
-      return col.dataType
-    case "string": {
-      const max = col.args[0] as number | undefined
-      return max != null ? `varchar(${max})` : "varchar"
-    }
-    case "json":
-    case "jsonb":
-      return "json"
-    case "decimal": {
-      const p = col.args[0] as number | undefined
-      const s = col.args[1] as number | undefined
-      return p != null ? `decimal(${p}, ${s ?? 0})` : "decimal"
-    }
-    case "enum":
-      return "text"
-    default:
-      return col.dataType
-  }
+  return columnDataTypeToSql(col.dataType, col.args)
 }

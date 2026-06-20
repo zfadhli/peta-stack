@@ -1,12 +1,9 @@
+import { readdirSync } from "node:fs"
 import { resolve } from "node:path"
 import type { ModelDefinition } from "peta-orm"
-import type { PetaMigrateConfig, ResolvedConfig } from "./types.js"
+import type { PetaMigrateConfig } from "./types.js"
 
-export function defineConfig(config: PetaMigrateConfig): PetaMigrateConfig {
-  return config
-}
-
-export async function loadConfig(): Promise<ResolvedConfig> {
+export async function loadConfig(): Promise<PetaMigrateConfig> {
   const candidates = ["peta.config.ts", "peta.config.js", "peta.config.mjs"]
   let mod: Record<string, unknown> | null = null
   for (const file of candidates) {
@@ -21,7 +18,6 @@ export async function loadConfig(): Promise<ResolvedConfig> {
 }
 
 export async function loadMigrationFiles(dir: string): Promise<import("./types.js").MigrationFile[]> {
-  const { readdirSync } = await import("node:fs")
   const files = readdirSync(dir)
     .filter((f) => f.endsWith(".ts") || f.endsWith(".js"))
     .sort()

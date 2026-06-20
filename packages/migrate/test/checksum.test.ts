@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test"
-import { mkdirSync, writeFileSync, unlinkSync, existsSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs"
 import { resolve } from "node:path"
+import { computeChecksum, loadChecksums, saveChecksums, verifyChecksum } from "../src/index.js"
 
 const tmpDir = resolve(import.meta.dirname, "../../.tmp/checksum-test")
 const storePath = resolve(tmpDir, ".checksums.json")
@@ -19,8 +20,7 @@ afterAll(() => {
 })
 
 describe("checksum", () => {
-  it("computeChecksum returns a 64-char hex string", async () => {
-    const { computeChecksum } = await import("../src/index.js")
+  it("computeChecksum returns a 64-char hex string", () => {
     const filePath = resolve(tmpDir, "001_test.ts")
     writeFileSync(filePath, "export async function up() {}", "utf-8")
 
@@ -29,8 +29,7 @@ describe("checksum", () => {
     unlinkSync(filePath)
   })
 
-  it("computeChecksum is deterministic for same content", async () => {
-    const { computeChecksum } = await import("../src/index.js")
+  it("computeChecksum is deterministic for same content", () => {
     const filePath = resolve(tmpDir, "001_test.ts")
     writeFileSync(filePath, "const x = 1", "utf-8")
 
@@ -40,8 +39,7 @@ describe("checksum", () => {
     unlinkSync(filePath)
   })
 
-  it("computeChecksum differs for different content", async () => {
-    const { computeChecksum } = await import("../src/index.js")
+  it("computeChecksum differs for different content", () => {
     const f1 = resolve(tmpDir, "001_test.ts")
     const f2 = resolve(tmpDir, "002_other.ts")
     writeFileSync(f1, "content a", "utf-8")
@@ -54,17 +52,15 @@ describe("checksum", () => {
     unlinkSync(f2)
   })
 
-  it("saveChecksums writes a valid JSON file", async () => {
-    const { saveChecksums } = await import("../src/index.js")
+  it("saveChecksums writes a valid JSON file", () => {
     saveChecksums(tmpDir, { "001_test": "abc123" })
 
-    const content = (await import("node:fs")).readFileSync(storePath, "utf-8")
+    const content = readFileSync(storePath, "utf-8")
     const parsed = JSON.parse(content)
     expect(parsed).toEqual({ "001_test": "abc123" })
   })
 
-  it("loadChecksums reads saved checksums", async () => {
-    const { saveChecksums, loadChecksums } = await import("../src/index.js")
+  it("loadChecksums reads saved checksums", () => {
     saveChecksums(tmpDir, { "001_test": "abc123", "002_migrate": "def456" })
 
     const loaded = loadChecksums(tmpDir)
@@ -72,8 +68,7 @@ describe("checksum", () => {
     expect(loaded["002_migrate"]).toBe("def456")
   })
 
-  it("loadChecksums returns empty object for missing file", async () => {
-    const { loadChecksums } = await import("../src/index.js")
+  it("loadChecksums returns empty object for missing file", () => {
     const emptyDir = resolve(tmpDir, "empty")
     mkdirSync(emptyDir, { recursive: true })
 
@@ -81,15 +76,13 @@ describe("checksum", () => {
     expect(loaded).toEqual({})
   })
 
-  it("loadChecksums returns empty object for corrupt JSON", async () => {
+  it("loadChecksums returns empty object for corrupt JSON", () => {
     writeFileSync(storePath, "not-json{", "utf-8")
-    const { loadChecksums } = await import("../src/index.js")
     const loaded = loadChecksums(tmpDir)
     expect(loaded).toEqual({})
   })
 
-  it("verifyChecksum returns true when no stored checksum exists", async () => {
-    const { verifyChecksum } = await import("../src/index.js")
+  it("verifyChecksum returns true when no stored checksum exists", () => {
     const emptyDir = resolve(tmpDir, "noverify")
     mkdirSync(emptyDir, { recursive: true })
 
@@ -97,8 +90,7 @@ describe("checksum", () => {
     expect(result).toBe(true)
   })
 
-  it("verifyChecksum returns true when checksum matches", async () => {
-    const { computeChecksum, saveChecksums, verifyChecksum } = await import("../src/index.js")
+  it("verifyChecksum returns true when checksum matches", () => {
     const filePath = resolve(tmpDir, "001_match.ts")
     writeFileSync(filePath, "matching content", "utf-8")
 
@@ -110,8 +102,7 @@ describe("checksum", () => {
     unlinkSync(filePath)
   })
 
-  it("verifyChecksum returns false when checksum differs", async () => {
-    const { saveChecksums, verifyChecksum } = await import("../src/index.js")
+  it("verifyChecksum returns false when checksum differs", () => {
     const filePath = resolve(tmpDir, "001_diff.ts")
     writeFileSync(filePath, "original content", "utf-8")
 
@@ -123,8 +114,7 @@ describe("checksum", () => {
     unlinkSync(filePath)
   })
 
-  it("round-trips: save → load → verify", async () => {
-    const { computeChecksum, saveChecksums, loadChecksums, verifyChecksum } = await import("../src/index.js")
+  it("round-trips: save → load → verify", () => {
     const filePath = resolve(tmpDir, "001_roundtrip.ts")
     writeFileSync(filePath, "round trip content", "utf-8")
 

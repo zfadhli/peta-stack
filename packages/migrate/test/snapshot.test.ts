@@ -1,6 +1,8 @@
 import { describe, expect, it } from "bun:test"
-import { t, defineModel, timestamps } from "peta-orm"
-import { createSnapshot } from "../src/index.js"
+import { mkdirSync, unlinkSync, writeFileSync } from "node:fs"
+import { resolve } from "node:path"
+import { defineModel, t, timestamps } from "peta-orm"
+import { createSnapshot, loadSnapshot, saveSnapshot } from "../src/index.js"
 
 const User = defineModel("users", {
   columns: {
@@ -223,18 +225,15 @@ describe("createSnapshot", () => {
 })
 
 describe("loadSnapshot / saveSnapshot", () => {
-  it("saveSnapshot writes JSON that loadSnapshot can read", async () => {
+  it("saveSnapshot writes JSON that loadSnapshot can read", () => {
     const snapshot = createSnapshot(buildMap(User, Post))
-    const tmpDir = import.meta.dirname + "/../../.tmp"
-    const filePath = tmpDir + "/snapshot-test.json"
-    const { mkdirSync, writeFileSync, unlinkSync } = await import("node:fs")
-    const { resolve } = await import("node:path")
-    const { saveSnapshot, loadSnapshot } = await import("../src/index.js")
+    const tmpDir = `${import.meta.dirname}/../../.tmp`
+    const filePath = resolve(tmpDir, "snapshot-test.json")
 
     mkdirSync(tmpDir, { recursive: true })
-    await saveSnapshot(filePath, snapshot)
+    saveSnapshot(filePath, snapshot)
 
-    const loaded = await loadSnapshot(filePath)
+    const loaded = loadSnapshot(filePath)
     expect(loaded).not.toBeNull()
     expect(loaded!.version).toBe(1)
     expect(loaded!.tables).toHaveLength(2)
@@ -242,22 +241,19 @@ describe("loadSnapshot / saveSnapshot", () => {
     unlinkSync(filePath)
   })
 
-  it("loadSnapshot returns null for missing file", async () => {
-    const { loadSnapshot } = await import("../src/index.js")
-    const result = await loadSnapshot("/tmp/nonexistent-snapshot-file.json")
+  it("loadSnapshot returns null for missing file", () => {
+    const result = loadSnapshot("/tmp/nonexistent-snapshot-file.json")
     expect(result).toBeNull()
   })
 
-  it("loadSnapshot returns null for corrupt file", async () => {
-    const tmpDir = import.meta.dirname + "/../../.tmp"
-    const filePath = tmpDir + "/corrupt-snapshot.json"
-    const { mkdirSync, writeFileSync, unlinkSync } = await import("node:fs")
-    const { loadSnapshot } = await import("../src/index.js")
+  it("loadSnapshot returns null for corrupt file", () => {
+    const tmpDir = `${import.meta.dirname}/../../.tmp`
+    const filePath = resolve(tmpDir, "corrupt-snapshot.json")
 
     mkdirSync(tmpDir, { recursive: true })
     writeFileSync(filePath, "not valid json{", "utf-8")
 
-    const result = await loadSnapshot(filePath)
+    const result = loadSnapshot(filePath)
     expect(result).toBeNull()
 
     unlinkSync(filePath)

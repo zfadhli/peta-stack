@@ -33,7 +33,7 @@ export async function run(): Promise<void> {
       spinner.text = "Generating migration..."
       const gen = createMigrationGenerator()
       const snapshotPath = resolve(config.migrationsDir, "snapshot.json")
-      const prevSnapshot = await loadSnapshot(snapshotPath)
+      const prevSnapshot = loadSnapshot(snapshotPath)
 
       let code: string
       if (prevSnapshot) {
@@ -44,12 +44,12 @@ export async function run(): Promise<void> {
           return
         }
         code = gen.generateMigrationFromDiff(diffs, { name: name ?? "changes" })
-        await saveSnapshot(snapshotPath, currentSnapshot)
+        saveSnapshot(snapshotPath, currentSnapshot)
         spinner.text = `Generated incremental migration (${diffs.length} change(s))`
       } else {
         code = gen.generateInitialMigration(models)
         const currentSnapshot = createSnapshot(models)
-        await saveSnapshot(snapshotPath, currentSnapshot)
+        saveSnapshot(snapshotPath, currentSnapshot)
         spinner.text = `Generated initial migration (${models.size} model(s))`
       }
 
@@ -74,7 +74,7 @@ export async function run(): Promise<void> {
   cli.command("migrate:diff", "Preview schema changes without writing a migration").action(async () => {
     const config = await loadConfig()
     const snapshotPath = resolve(config.migrationsDir, "snapshot.json")
-    const prevSnapshot = await loadSnapshot(snapshotPath)
+    const prevSnapshot = loadSnapshot(snapshotPath)
     if (!prevSnapshot) {
       console.log("No snapshot found. Run `migrate:generate` first to create one.")
       return
@@ -190,7 +190,7 @@ export async function run(): Promise<void> {
     // Update snapshot if it exists
     const snapshotPath = resolve(config.migrationsDir, "snapshot.json")
     const currentSnapshot = createSnapshot(models)
-    await saveSnapshot(snapshotPath, currentSnapshot)
+    saveSnapshot(snapshotPath, currentSnapshot)
 
     if (created.length === 0) {
       spinner.succeed("Schema is up to date (no new tables).")

@@ -1,4 +1,6 @@
+import { readFileSync, writeFileSync } from "node:fs"
 import type { Column, ModelDefinition } from "peta-orm"
+import { columnDataTypeToSql } from "./column-mapper.js"
 import type { SchemaColumn, SchemaIndex, SchemaSnapshot, SchemaTable } from "./types.js"
 
 /**
@@ -59,43 +61,14 @@ function columnToSchema(name: string, col: Column): SchemaColumn {
 }
 
 function mapSnapshotType(col: Column): string {
-  switch (col.dataType) {
-    case "integer":
-    case "smallint":
-    case "bigint":
-    case "text":
-    case "boolean":
-    case "timestamp":
-    case "date":
-    case "float":
-    case "double":
-    case "uuid":
-      return col.dataType
-    case "string": {
-      const max = col.args[0] as number | undefined
-      return max != null ? `varchar(${max})` : "varchar"
-    }
-    case "json":
-    case "jsonb":
-      return "json"
-    case "decimal": {
-      const p = col.args[0] as number | undefined
-      const s = col.args[1] as number | undefined
-      return p != null ? `decimal(${p}, ${s ?? 0})` : "decimal"
-    }
-    case "enum":
-      return "text"
-    default:
-      return col.dataType
-  }
+  return columnDataTypeToSql(col.dataType, col.args)
 }
 
 /**
  * Load snapshot from a JSON file path.
  */
-export async function loadSnapshot(filePath: string): Promise<SchemaSnapshot | null> {
+export function loadSnapshot(filePath: string): SchemaSnapshot | null {
   try {
-    const { readFileSync } = await import("node:fs")
     const data = readFileSync(filePath, "utf-8")
     return JSON.parse(data) as SchemaSnapshot
   } catch {
@@ -106,7 +79,6 @@ export async function loadSnapshot(filePath: string): Promise<SchemaSnapshot | n
 /**
  * Save snapshot to a JSON file path.
  */
-export async function saveSnapshot(filePath: string, snapshot: SchemaSnapshot): Promise<void> {
-  const { writeFileSync } = await import("node:fs")
+export function saveSnapshot(filePath: string, snapshot: SchemaSnapshot): void {
   writeFileSync(filePath, JSON.stringify(snapshot, null, 2))
 }
