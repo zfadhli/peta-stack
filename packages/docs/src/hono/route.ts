@@ -88,7 +88,7 @@ const onResponseValidationError: ValidationErrorHandler = (issues, c) => {
 }
 
 /** @internal */
-export function createValidator(
+function createValidator(
   target: "json" | "query" | "param" | "header",
   schema: ArkTypeSchema,
   onError: ValidationErrorHandler,
@@ -252,7 +252,9 @@ export class RouteBuilder<
     return this as unknown as RouteBuilder<B, Q, P, Hd, Pg, F, Sr, { include?: string[] }, Fs>
   }
 
-  fieldsets<R extends string[]>(resources: R): RouteBuilder<B, Q, P, Hd, Pg, F, Sr, Ir, FieldsetParams<R>> {
+  fieldsets<R extends string[]>(
+    resources: R,
+  ): RouteBuilder<B, Q, P, Hd, Pg, F, Sr, Ir, FieldsetParams<R>> {
     this._config.fieldsets = resources
     return this as unknown as RouteBuilder<B, Q, P, Hd, Pg, F, Sr, Ir, FieldsetParams<R>>
   }
@@ -308,7 +310,12 @@ export class RouteBuilder<
           const raw = value as Record<string, string | undefined>
 
           if (querySchema) {
-            const validated = await validateOrError<Record<string, unknown>>(querySchema, value, c, onError)
+            const validated = await validateOrError<Record<string, unknown>>(
+              querySchema,
+              value,
+              c,
+              onError,
+            )
             if (validated instanceof Response) return validated
             merged = { ...merged, ...validated }
           }
@@ -345,7 +352,14 @@ export class RouteBuilder<
               const allowed = new Set(sortFields.flatMap((f: string) => [f, `-${f}`]))
               for (const part of parts) {
                 if (!allowed.has(part)) {
-                  return onError([{ message: `Invalid sort field "${part}". Allowed: ${[...allowed].join(", ")}` }], c)
+                  return onError(
+                    [
+                      {
+                        message: `Invalid sort field "${part}". Allowed: ${[...allowed].join(", ")}`,
+                      },
+                    ],
+                    c,
+                  )
                 }
               }
               merged.sort = parts
@@ -360,7 +374,10 @@ export class RouteBuilder<
               const allowed = new Set(includeFields)
               for (const part of parts) {
                 if (!allowed.has(part)) {
-                  return onError([{ message: `Invalid include "${part}". Allowed: ${[...allowed].join(", ")}` }], c)
+                  return onError(
+                    [{ message: `Invalid include "${part}". Allowed: ${[...allowed].join(", ")}` }],
+                    c,
+                  )
                 }
               }
               merged.include = parts
@@ -381,7 +398,10 @@ export class RouteBuilder<
 
           if (pag) {
             const page = Math.floor(Number(raw.page ?? "1"))
-            const limit = Math.min(pag.maxLimit, Math.max(1, Math.floor(Number(raw.limit ?? String(pag.defaultLimit)))))
+            const limit = Math.min(
+              pag.maxLimit,
+              Math.max(1, Math.floor(Number(raw.limit ?? String(pag.defaultLimit)))),
+            )
             merged.page = Number.isFinite(page) && page >= 1 ? page : 1
             merged.limit = Number.isFinite(limit) ? limit : pag.defaultLimit
             merged.offset = ((merged.page as number) - 1) * (merged.limit as number)
@@ -425,7 +445,8 @@ export class RouteBuilder<
           const result = await validators[i]!(c, run.bind(null, i + 1) as unknown as Next)
           return result ?? undefined
         }
-        const response = (await handler(c as unknown as TypedContext<B, Q, P, Hd, Pg, F, Sr, Ir, Fs>)) ?? undefined
+        const response =
+          (await handler(c as unknown as TypedContext<B, Q, P, Hd, Pg, F, Sr, Ir, Fs>)) ?? undefined
         if (response) {
           const onError = this._config.onResponseValidationError ?? onResponseValidationError
           return (await this.validateResponse(response, c, onError)) ?? undefined
@@ -436,14 +457,22 @@ export class RouteBuilder<
     }
   }
 
-  private async validateResponse(response: Response, c: Context, onError: ValidationErrorHandler): Promise<Response> {
+  private async validateResponse(
+    response: Response,
+    c: Context,
+    onError: ValidationErrorHandler,
+  ): Promise<Response> {
     // Only validate JSON responses with a body
     const contentType = response.headers.get("content-type") ?? ""
     if (!contentType.includes("application/json")) return response
     if (response.status === 204) return response
 
     const schema = this._config.responses[String(response.status)]
-    if (!schema || (typeof schema !== "object" && typeof schema !== "function") || !("~standard" in schema))
+    if (
+      !schema ||
+      (typeof schema !== "object" && typeof schema !== "function") ||
+      !("~standard" in schema)
+    )
       return response
 
     try {
