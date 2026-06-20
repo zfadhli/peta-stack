@@ -1,8 +1,6 @@
 import { afterEach, describe, expect, it } from "bun:test"
 import {
   getOAuthRedirectURL,
-  handleInvalidState,
-  handleMissingConfiguration,
   handlePKCE,
   handleState,
   redirect,
@@ -55,22 +53,6 @@ describe("redirect", () => {
     const res = redirect("/home", "token=abc")
     const cookies = res.headers.getSetCookie()
     expect(cookies).toContain("token=abc")
-  })
-})
-
-describe("handleMissingConfiguration", () => {
-  it("returns 500 with JSON error", () => {
-    const res = handleMissingConfiguration("github", ["clientId", "clientSecret"])
-    expect(res.status).toBe(500)
-    expect(res.headers.get("content-type")).toContain("application/json")
-  })
-})
-
-describe("handleInvalidState", () => {
-  it("returns 500 with JSON error", () => {
-    const res = handleInvalidState("github")
-    expect(res.status).toBe(500)
-    expect(res.headers.get("content-type")).toContain("application/json")
   })
 })
 
@@ -132,6 +114,8 @@ describe("requestAccessToken", () => {
 
   it("throws on non-401 error", async () => {
     globalThis.fetch = async () => new Response("Server Error", { status: 500 })
-    expect(requestAccessToken("https://example.com/token", {})).rejects.toThrow("OAuth token request failed: 500")
+    expect(requestAccessToken("https://example.com/token", {})).rejects.toThrow(
+      "OAuth token request failed: 500",
+    )
   })
 })

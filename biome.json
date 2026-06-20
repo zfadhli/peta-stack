@@ -1,38 +1,39 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.5.0/schema.json",
-  "files": {
-    "includes": ["**", "!**/docs/.vitepress/dist", "!**/docs/.vitepress/cache", "!**/dist", "!**/examples"]
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true,
+    "defaultBranch": "main"
   },
+  "files": {
+    "ignoreUnknown": false,
+    "includes": ["**", "!**/dist", "!**/node_modules", "!**/.changeset"]
+  },
+  "formatter": {
+    "enabled": true,
+    "formatWithErrors": false,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100,
+    "lineEnding": "lf"
+  },
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
   "linter": {
     "enabled": true,
     "rules": {
       "preset": "recommended",
       "style": {
-        "noNonNullAssertion": "off",
-        "useConst": "warn",
-        "useNodejsImportProtocol": "off"
-      },
-      "complexity": {
-        "noBannedTypes": "warn",
-        "noForEach": "warn",
-        "noThisInStatic": "off"
-      },
-      "suspicious": {
-        "noExplicitAny": "warn"
+        "noNonNullAssertion": "off"
       }
     }
   },
-  "formatter": {
-    "enabled": true,
-    "indentStyle": "space",
-    "indentWidth": 2,
-    "lineWidth": 120
-  },
   "javascript": {
     "formatter": {
-      "trailingCommas": "all",
+      "quoteStyle": "double",
       "semicolons": "asNeeded",
-      "quoteStyle": "double"
+      "trailingCommas": "all",
+      "arrowParentheses": "always"
     }
   }
 }

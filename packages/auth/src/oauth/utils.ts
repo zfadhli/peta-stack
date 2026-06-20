@@ -6,24 +6,11 @@ const IS_DEVELOPMENT = process.env.NODE_ENV === "development"
 const OAUTH_COOKIE_MAX_AGE = 60 * 10
 
 function encodeBase64Url(input: Uint8Array): string {
-  return btoa(String.fromCharCode(...input))
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/g, "")
+  return Buffer.from(input).toString("base64url")
 }
 
 function getRandomBytes(size = 32): Uint8Array {
   return crypto.getRandomValues(new Uint8Array(size))
-}
-
-function oauthCookieOptions(maxAge: number) {
-  return {
-    path: "/" as const,
-    httpOnly: true as const,
-    sameSite: "lax" as const,
-    secure: !IS_DEVELOPMENT,
-    maxAge,
-  }
 }
 
 /**
@@ -65,7 +52,13 @@ export async function handlePKCE(request: Request): Promise<{
   return {
     codeChallenge,
     codeChallengeMethod: "S256",
-    setCookie: serialize("peta-auth-pkce", verifier, oauthCookieOptions(OAUTH_COOKIE_MAX_AGE)),
+    setCookie: serialize("peta-auth-pkce", verifier, {
+      path: "/",
+      httpOnly: true,
+      sameSite: "lax",
+      secure: !IS_DEVELOPMENT,
+      maxAge: OAUTH_COOKIE_MAX_AGE,
+    }),
   }
 }
 
@@ -94,7 +87,13 @@ export function handleState(request: Request): {
 
   return {
     state,
-    setCookie: serialize("peta-auth-state", state, oauthCookieOptions(OAUTH_COOKIE_MAX_AGE)),
+    setCookie: serialize("peta-auth-state", state, {
+      path: "/",
+      httpOnly: true,
+      sameSite: "lax",
+      secure: !IS_DEVELOPMENT,
+      maxAge: OAUTH_COOKIE_MAX_AGE,
+    }),
   }
 }
 
@@ -108,7 +107,10 @@ export interface RequestAccessTokenOptions {
 /**
  * Exchange an authorization code for an access token.
  */
-export async function requestAccessToken<T = unknown>(url: string, options: RequestAccessTokenOptions): Promise<T> {
+export async function requestAccessToken<T = unknown>(
+  url: string,
+  options: RequestAccessTokenOptions,
+): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/x-www-form-urlencoded",
     ...options.headers,
@@ -156,36 +158,6 @@ export function jsonError(error: Error, status: number): Response {
     status,
     headers: { "Content-Type": "application/json" },
   })
-}
-
-/**
- * Handle missing OAuth configuration.
- */
-export function handleMissingConfiguration(
-  provider: string,
-  missingKeys: string[],
-  onError?: (err: Error) => Response | Promise<Response>,
-): Response | Promise<Response> {
-  const envVars = missingKeys.map(
-    (key) => `PETA_OAUTH_${provider.toUpperCase()}_${key.replace(/([A-Z])/g, "_$1").toUpperCase()}`,
-  )
-  const error = new Error(`Missing ${envVars.join(" or ")} env ${missingKeys.length > 1 ? "variables" : "variable"}.`)
-  if (onError) return onError(error)
-  return jsonError(error, 500)
-}
-
-/**
- * Handle OAuth access token errors.
- */
-export function handleAccessTokenError(
-  provider: string,
-  errorData: Record<string, string>,
-  onError?: (err: Error) => Response | Promise<Response>,
-): Response | Promise<Response> {
-  const message = `${provider} login failed: ${errorData.error_description || errorData.error || "Unknown error"}`
-  const error = new Error(message)
-  if (onError) return onError(error)
-  return jsonError(error, 401)
 }
 
 /** Resolved config shape shared across OAuth providers. */
@@ -240,7 +212,11 @@ export function defineOAuthHandler<TTokens, TUser>(
   provider: OAuthProviderConfig<TTokens, TUser>,
   options: {
     config?: object
-    onSuccess: (data: { user: TUser; tokens: TTokens; request: Request }) => Response | Promise<Response>
+    onSuccess: (data: {
+      user: TUser
+      tokens: TTokens
+      request: Request
+    }) => Response | Promise<Response>
     onError?: (error: Error) => Response | Promise<Response>
   },
 ): (request: Request) => Promise<Response> {
@@ -264,7 +240,15 @@ export function defineOAuthHandler<TTokens, TUser>(
       const missing: string[] = []
       if (!config.clientId) missing.push("clientId")
       if (!config.clientSecret) missing.push("clientSecret")
-      return handleMissingConfiguration(provider.name, missing, onError)
+      const envVars = missing.map(
+        (key) =>
+          `PETA_OAUTH_${provider.name.toUpperCase()}_${key.replace(/([A-Z])/g, "_$1").toUpperCase()}`,
+      )
+      const err = new Error(
+        `Missing ${envVars.join(" or ")} env ${missing.length > 1 ? "variables" : "variable"}.`,
+      )
+      if (onError) return onError(err)
+      return jsonError(err, 500)
     }
 
     const redirectURL = config.redirectURL || getOAuthRedirectURL(request)
@@ -276,8 +260,14 @@ export function defineOAuthHandler<TTokens, TUser>(
       return redirect(authUrl, cookies)
     }
 
-    if (!queryState || !state.expectedState || !constantTimeEqual(queryState, state.expectedState)) {
-      return handleInvalidState(provider.name, onError)
+    if (
+      !queryState ||
+      !state.expectedState ||
+      !constantTimeEqual(queryState, state.expectedState)
+    ) {
+      const err = new Error(`${provider.name} login failed: state mismatch`)
+      if (onError) return onError(err)
+      return jsonError(err, 500)
     }
 
     const tokens = await requestAccessToken<TTokens>(config.tokenURL, {
@@ -285,23 +275,15 @@ export function defineOAuthHandler<TTokens, TUser>(
     })
 
     if ((tokens as unknown as Record<string, string | undefined>).error) {
-      return handleAccessTokenError(provider.name, tokens as unknown as Record<string, string>, onError)
+      const errorData = tokens as unknown as Record<string, string>
+      const message = `${provider.name} login failed: ${errorData.error_description || errorData.error || "Unknown error"}`
+      const err = new Error(message)
+      if (onError) return onError(err)
+      return jsonError(err, 401)
     }
 
     const user = await provider.fetchUser(config, tokens, request)
 
     return onSuccess({ user, tokens, request })
   }
-}
-
-/**
- * Handle OAuth state mismatch.
- */
-export function handleInvalidState(
-  provider: string,
-  onError?: (err: Error) => Response | Promise<Response>,
-): Response | Promise<Response> {
-  const error = new Error(`${provider} login failed: state mismatch`)
-  if (onError) return onError(error)
-  return jsonError(error, 500)
 }

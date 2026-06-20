@@ -13,82 +13,6 @@ export function normalizePassword(password: Password): PasswordsMap {
   return typeof password === "string" ? { 1: password } : password
 }
 
-function parseSeal(seal: string) {
-  const index = seal.lastIndexOf(VERSION_DELIMITER)
-  if (index === -1) return { sealWithoutVersion: seal, tokenVersion: null }
-  return {
-    sealWithoutVersion: seal.slice(0, index),
-    tokenVersion: parseInt(seal.slice(index + 1), 10) || null,
-  }
-}
-
-/**
- * Create a `sealData` function.
- *
- * @internal
- */
-export function createSealData() {
-  return async function sealData(
-    data: unknown,
-    { password, ttl = SEVEN_DAYS }: { password: Password; ttl?: number },
-  ): Promise<string> {
-    const map = normalizePassword(password)
-    const id = Math.max(...Object.keys(map).map(Number)).toString()
-    const secret = map[id]!
-
-    const seal = await ironSeal(
-      data,
-      { id, secret },
-      {
-        ...ironDefaults,
-        ttl: ttl * 1000,
-        encode: JSON.stringify,
-        decode: JSON.parse,
-      },
-    )
-
-    return `${seal}${VERSION_DELIMITER}${CURRENT_MAJOR_VERSION}`
-  }
-}
-
-/**
- * Create an `unsealData` function.
- *
- * @internal
- */
-export function createUnsealData() {
-  return async function unsealData<T>(
-    seal: string,
-    { password, ttl = SEVEN_DAYS }: { password: Password; ttl?: number },
-  ): Promise<T> {
-    const map = normalizePassword(password)
-    const { sealWithoutVersion, tokenVersion } = parseSeal(seal)
-
-    try {
-      const data = (await ironUnseal(sealWithoutVersion, map, {
-        ...ironDefaults,
-        ttl: ttl * 1000,
-        encode: JSON.stringify,
-        decode: JSON.parse,
-      })) as Record<string, unknown> | undefined
-
-      if (tokenVersion === 2) return data as T
-
-      return {
-        ...(data?.persistent ? { ...(data.persistent as Record<string, unknown>) } : {}),
-      } as T
-    } catch (err) {
-      if (
-        err instanceof Error &&
-        /^(Expired seal|Bad hmac value|Cannot find password|Incorrect number of sealed components)/.test(err.message)
-      ) {
-        return {} as T
-      }
-      throw err
-    }
-  }
-}
-
 /**
  * Seal arbitrary data with a password (uses iron-webcrypto).
  *
@@ -97,7 +21,27 @@ export function createUnsealData() {
  * const sealed = await sealData({ userId: 1 }, { password: "my-secret-key" })
  * ```
  */
-export const sealData = createSealData()
+export async function sealData(
+  data: unknown,
+  { password, ttl = SEVEN_DAYS }: { password: Password; ttl?: number },
+): Promise<string> {
+  const map = normalizePassword(password)
+  const id = Math.max(...Object.keys(map).map(Number)).toString()
+  const secret = map[id]!
+
+  const seal = await ironSeal(
+    data,
+    { id, secret },
+    {
+      ...ironDefaults,
+      ttl: ttl * 1000,
+      encode: JSON.stringify,
+      decode: JSON.parse,
+    },
+  )
+
+  return `${seal}${VERSION_DELIMITER}${CURRENT_MAJOR_VERSION}`
+}
 
 /**
  * Unseal data previously sealed with {@link sealData}.
@@ -107,4 +51,38 @@ export const sealData = createSealData()
  * const data = await unsealData<{ userId: number }>(sealed, { password: "my-secret-key" })
  * ```
  */
-export const unsealData = createUnsealData()
+export async function unsealData<T>(
+  seal: string,
+  { password, ttl = SEVEN_DAYS }: { password: Password; ttl?: number },
+): Promise<T> {
+  const map = normalizePassword(password)
+
+  const index = seal.lastIndexOf(VERSION_DELIMITER)
+  const sealWithoutVersion = index === -1 ? seal : seal.slice(0, index)
+  const tokenVersion = index === -1 ? null : parseInt(seal.slice(index + 1), 10) || null
+
+  try {
+    const data = (await ironUnseal(sealWithoutVersion, map, {
+      ...ironDefaults,
+      ttl: ttl * 1000,
+      encode: JSON.stringify,
+      decode: JSON.parse,
+    })) as Record<string, unknown> | undefined
+
+    if (tokenVersion === 2) return data as T
+
+    return {
+      ...(data?.persistent ? { ...(data.persistent as Record<string, unknown>) } : {}),
+    } as T
+  } catch (err) {
+    if (
+      err instanceof Error &&
+      /^(Expired seal|Bad hmac value|Cannot find password|Incorrect number of sealed components)/.test(
+        err.message,
+      )
+    ) {
+      return {} as T
+    }
+    throw err
+  }
+}

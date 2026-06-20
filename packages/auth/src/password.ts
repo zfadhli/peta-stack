@@ -1,14 +1,5 @@
 import { hash, verify } from "@node-rs/argon2"
 
-interface HashOptions {
-  /** Memory cost in KiB (default: 19456 = 19 MiB). */
-  memoryCost?: number
-  /** Time cost (iterations) (default: 2). */
-  timeCost?: number
-  /** Parallelism (default: 1). */
-  parallelism?: number
-}
-
 // OWASP recommended argon2id parameters
 const ARGON2_MEMORY_COST = 19456
 const ARGON2_TIME_COST = 2
@@ -22,7 +13,10 @@ const ARGON2_PARALLELISM = 1
  * const hash = await hashPassword("my-password")
  * ```
  */
-export async function hashPassword(password: string, options: HashOptions = {}): Promise<string> {
+export async function hashPassword(
+  password: string,
+  options: { memoryCost?: number; timeCost?: number; parallelism?: number } = {},
+): Promise<string> {
   return hash(password, {
     algorithm: 2, // Argon2id
     memoryCost: options.memoryCost ?? ARGON2_MEMORY_COST,
