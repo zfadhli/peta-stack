@@ -1,4 +1,5 @@
 import { defaults as ironDefaults, seal as ironSeal, unseal as ironUnseal } from "iron-webcrypto"
+import { PetaAuthError } from "./errors.js"
 
 /** A password that can be a plain string or a versioned map. */
 export type Password = string | Record<string, string>
@@ -28,6 +29,12 @@ export async function sealData(
   const map = normalizePassword(password)
   const id = Math.max(...Object.keys(map).map(Number)).toString()
   const secret = map[id]!
+  if (secret.length < 32) {
+    throw new PetaAuthError(
+      "PASSWORD_TOO_SHORT",
+      "peta-auth: password must be at least 32 characters",
+    )
+  }
 
   const seal = await ironSeal(
     data,
