@@ -2,9 +2,16 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test"
 import { createClient } from "@libsql/client"
 import { LibsqlDialect } from "@libsql/kysely-libsql"
 import { t } from "../src/columns/index.js"
-import { belongsTo, createPeta, defineModel, hasMany, hasManyThrough, hasOne, manyToMany } from "../src/index.js"
+import {
+  belongsTo,
+  createPeta,
+  defineModel,
+  hasMany,
+  hasManyThrough,
+  hasOne,
+  manyToMany,
+} from "../src/index.js"
 import type { ModelInstance } from "../src/model/types.js"
-
 
 const User = defineModel("users", {
   columns: {
@@ -88,13 +95,27 @@ beforeAll(async () => {
   })
   peta.registerAll(User, Profile, Post, Tag, Category, CategoryPost)
 
-  await client.execute("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
-  await client.execute("CREATE TABLE profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, bio TEXT)")
-  await client.execute("CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, title TEXT NOT NULL)")
-  await client.execute("CREATE TABLE tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
-  await client.execute("CREATE TABLE post_tags (id INTEGER PRIMARY KEY AUTOINCREMENT, postId INTEGER NOT NULL, tagId INTEGER NOT NULL)")
-  await client.execute("CREATE TABLE categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
-  await client.execute("CREATE TABLE category_posts (id INTEGER PRIMARY KEY AUTOINCREMENT, categoryId INTEGER NOT NULL, postId INTEGER NOT NULL)")
+  await client.execute(
+    "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)",
+  )
+  await client.execute(
+    "CREATE TABLE profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, bio TEXT)",
+  )
+  await client.execute(
+    "CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, title TEXT NOT NULL)",
+  )
+  await client.execute(
+    "CREATE TABLE tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)",
+  )
+  await client.execute(
+    "CREATE TABLE post_tags (id INTEGER PRIMARY KEY AUTOINCREMENT, postId INTEGER NOT NULL, tagId INTEGER NOT NULL)",
+  )
+  await client.execute(
+    "CREATE TABLE categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)",
+  )
+  await client.execute(
+    "CREATE TABLE category_posts (id INTEGER PRIMARY KEY AUTOINCREMENT, categoryId INTEGER NOT NULL, postId INTEGER NOT NULL)",
+  )
 
   const alice = await User.insert({ name: "Alice" })
   const bob = await User.insert({ name: "Bob" })
@@ -249,8 +270,31 @@ describe("$toJSON with relations", () => {
   })
 })
 
-describe("has / whereHas", () => {
+describe("has / whereHas / whereDoesntHave", () => {
   it("filters by relation existence", async () => {
+    const users = await User.query().has("posts").orderBy("id", "asc")
+    expect(users).toHaveLength(2)
+  })
+
+  it("whereHas filters by callback on related model", async () => {
+    const users = await User.query()
+      .whereHas("posts", (q) => q.where("title", "=", "Bob Post 1"))
+      .orderBy("id", "asc")
+    expect(users).toHaveLength(1)
+    expect(users[0]!.get("name")).toBe("Bob")
+  })
+
+  it("whereDoesntHave filters by callback negation", async () => {
+    const users = await User.query()
+      .whereDoesntHave("posts", (q) => q.where("title", "=", "Bob Post 1"))
+      .orderBy("id", "asc")
+    const names = users.map((u) => u.get("name"))
+    expect(names).toContain("Alice")
+    expect(names).toContain("Empty")
+    expect(names).not.toContain("Bob")
+  })
+
+  it("has() without callback still works (backward compat)", async () => {
     const users = await User.query().has("posts").orderBy("id", "asc")
     expect(users).toHaveLength(2)
   })
@@ -276,7 +320,10 @@ describe("allowGraph security", () => {
   // ── Recursive validation ─────────────────────────────────
 
   it("allows dotted path when full path is whitelisted", async () => {
-    const users = await User.query().allowGraph("posts.author").with("posts.author").orderBy("id", "asc")
+    const users = await User.query()
+      .allowGraph("posts.author")
+      .with("posts.author")
+      .orderBy("id", "asc")
     expect(users.length).toBeGreaterThanOrEqual(2)
   })
 
@@ -299,12 +346,18 @@ describe("allowGraph security", () => {
   })
 
   it("allows multiple relations via rest args", async () => {
-    const users = await User.query().allowGraph("posts", "profile").with("posts.author").orderBy("id", "asc")
+    const users = await User.query()
+      .allowGraph("posts", "profile")
+      .with("posts.author")
+      .orderBy("id", "asc")
     expect(users.length).toBeGreaterThanOrEqual(2)
   })
 
   it("allows each from multiple rest args", async () => {
-    const users = await User.query().allowGraph("posts", "profile").with("profile").orderBy("id", "asc")
+    const users = await User.query()
+      .allowGraph("posts", "profile")
+      .with("profile")
+      .orderBy("id", "asc")
     expect(users.length).toBeGreaterThanOrEqual(2)
   })
 
@@ -369,7 +422,10 @@ describe("$related() relation query builder", () => {
   it("supports chaining additional query methods", async () => {
     const alice = await User.find(1)
     expect(alice).toBeDefined()
-    const posts = await alice!.$related("posts").where("title", "like", "%Post 1%").orderBy("id", "asc")
+    const posts = await alice!
+      .$related("posts")
+      .where("title", "like", "%Post 1%")
+      .orderBy("id", "asc")
     expect(posts).toHaveLength(1)
     expect(posts[0]!.get("title")).toBe("Alice Post 1")
   })
