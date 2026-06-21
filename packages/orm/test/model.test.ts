@@ -5,7 +5,6 @@ import { t } from "../src/columns/index.js"
 import { createPeta, defineModel } from "../src/index.js"
 import { computeAtRuntime, computeBatchAtRuntime } from "../src/model/computed.js"
 
-
 const User = defineModel("users", {
   columns: {
     id: t.integer().primaryKey(),
@@ -165,6 +164,23 @@ describe("Validation", () => {
   })
 })
 
+describe("fill() column whitelisting", () => {
+  it("strips undeclared keys", async () => {
+    const model = await User.insert({ name: "test", email: "filltest@example.com", age: 20 })
+    model.fill({ name: "updated", is_admin: true, role: "admin" })
+    expect(model.get("name")).toBe("updated")
+    expect(model.get("is_admin")).toBeUndefined()
+    expect(model.get("role")).toBeUndefined()
+  })
+
+  it("ignores typos while keeping valid keys", async () => {
+    const model = await User.insert({ name: "original", email: "typotest@example.com", age: 25 })
+    model.fill({ name: "correct", emial: "typo" })
+    expect(model.get("name")).toBe("correct")
+    expect(model.get("emial")).toBeUndefined()
+  })
+})
+
 describe("Query Builder", () => {
   beforeAll(async () => {
     for (let i = 0; i < 5; i++) {
@@ -213,7 +229,7 @@ describe("Query Builder", () => {
     const users = await User.query().when(true, (q) => q.where("name", "like", "%Alice%"))
     expect(users.length).toBeGreaterThan(0)
     for (const u of users) {
-      expect((u.get("name")).toLowerCase()).toContain("alice")
+      expect(u.get("name").toLowerCase()).toContain("alice")
     }
   })
 
@@ -226,7 +242,7 @@ describe("Query Builder", () => {
     const users = await User.query().unless(false, (q) => q.where("name", "like", "%Alice%"))
     expect(users.length).toBeGreaterThan(0)
     for (const u of users) {
-      expect((u.get("name")).toLowerCase()).toContain("alice")
+      expect(u.get("name").toLowerCase()).toContain("alice")
     }
   })
 
@@ -339,7 +355,10 @@ describe("Computed columns", () => {
       }),
     })
 
-    const users = await ComputedUser.query().select("firstName", "greeting").orderBy("id", "asc").execute()
+    const users = await ComputedUser.query()
+      .select("firstName", "greeting")
+      .orderBy("id", "asc")
+      .execute()
     expect(users).toHaveLength(2)
     expect(users[0]!.get("greeting")).toBe("Hello, John!")
     expect(users[1]!.get("greeting")).toBe("Hello, Jane!")
