@@ -50,7 +50,7 @@ export function session<T extends Record<string, unknown> = Record<string, unkno
 export function requireSession(): (app: Elysia) => Elysia
 export function requireSession<K extends string>(key: K): (app: Elysia) => Elysia
 export function requireSession(key?: string) {
-  return (app: Elysia): Elysia =>
+  return (app: Elysia): Elysia => {
     app.onBeforeHandle((context) => {
       const session = (context as unknown as { session: IronSession }).session
       const hasData = sessionHasData(session, key)
@@ -60,5 +60,7 @@ export function requireSession(key?: string) {
           headers: { "Content-Type": "application/json" },
         })
       }
-    }) as unknown as Elysia
+    })
+    return app
+  }
 }
