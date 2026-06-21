@@ -59,6 +59,34 @@ export function defineModel<TColumns extends ColumnShape>(
       return mod.insertManyModel(def, dataArray) as Promise<ModelInstance<TColumns>[]>
     },
 
+    async updateMany(
+      data: Record<string, unknown>,
+      where: Record<string, unknown>[],
+    ): Promise<number> {
+      let qb = this.query().all()
+      // ponytail: batch OR via whereIn — all clauses use the same keys
+      if (where.length > 0) {
+        const keys = Object.keys(where[0]!)
+        for (const key of keys) {
+          const values = where.map((c) => c[key])
+          qb = qb.whereIn(key, values)
+        }
+      }
+      return (qb as any).updateMany(data)
+    },
+
+    async deleteMany(where: Record<string, unknown>[]): Promise<number> {
+      let qb = this.query().all()
+      if (where.length > 0) {
+        const keys = Object.keys(where[0]!)
+        for (const key of keys) {
+          const values = where.map((c) => c[key])
+          qb = qb.whereIn(key, values)
+        }
+      }
+      return (qb as any).deleteMany()
+    },
+
     async update(id, data) {
       const mod = await import("./save.js")
       return mod.updateModel(def, id, data) as Promise<ModelInstance<TColumns>>

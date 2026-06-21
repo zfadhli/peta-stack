@@ -437,13 +437,14 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
 
       try {
         const result = await updateQb.execute()
-        return Number(result.numUpdatedRows ?? 0)
+        return Number((result[0] as any)?.numUpdatedRows ?? 0)
       } catch (e: any) {
         const { normalizeError } = await import("../errors.js")
         throw normalizeError(e, def.table)
       }
     },
 
+    // ponytail: .execute() returns an array — access first element for numUpdatedRows
     async deleteMany(): Promise<number> {
       applyScopes()
       assertWhereForMutation()
@@ -492,7 +493,7 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
       let numDeleted = 0
       try {
         const result = await deleteQb.execute()
-        numDeleted = Number(result.numDeletedRows ?? 0)
+        numDeleted = Number((result[0] as any)?.numDeletedRows ?? 0)
       } catch (e: any) {
         const { normalizeError } = await import("../errors.js")
         throw normalizeError(e, def.table)

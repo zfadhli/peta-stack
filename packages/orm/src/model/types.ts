@@ -62,6 +62,8 @@ export interface ModelDefinition<TColumns extends ColumnShape = ColumnShape> {
   create(data: Record<string, unknown>): Promise<ModelInstance<TColumns>>
   insert(data: Record<string, unknown>): Promise<ModelInstance<TColumns>>
   insertMany(dataArray: Record<string, unknown>[]): Promise<ModelInstance<TColumns>[]>
+  updateMany(data: Record<string, unknown>, where: Record<string, unknown>[]): Promise<number>
+  deleteMany(where: Record<string, unknown>[]): Promise<number>
   update(id: number | string, data: Record<string, unknown>): Promise<ModelInstance<TColumns>>
   delete(id: number | string): Promise<void>
   deleteGraph(idOrInstance: any, options?: DeleteGraphOptions): Promise<void>
