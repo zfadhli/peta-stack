@@ -5,7 +5,6 @@ import { t } from "../src/columns/index.js"
 import { createCollection, createPeta, defineModel } from "../src/index.js"
 import { hasMany } from "../src/relations/index.js"
 
-
 const CollItem = defineModel("coll_items", {
   columns: {
     id: t.integer().primaryKey(),
@@ -30,7 +29,9 @@ let peta: ReturnType<typeof createPeta>
 beforeAll(async () => {
   const client = createClient({ url: ":memory:" })
   await client.execute("PRAGMA journal_mode = WAL")
-  await client.execute("CREATE TABLE coll_users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, role TEXT NOT NULL)")
+  await client.execute(
+    "CREATE TABLE coll_users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, role TEXT NOT NULL)",
+  )
   await client.execute(
     "CREATE TABLE coll_items (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, label TEXT NOT NULL)",
   )
@@ -132,7 +133,10 @@ describe("Collection", () => {
   })
 
   it("sortBy", () => {
-    const users = createCollection([CollUser.hydrate({ id: 2, name: "B" }), CollUser.hydrate({ id: 1, name: "A" })])
+    const users = createCollection([
+      CollUser.hydrate({ id: 2, name: "B" }),
+      CollUser.hydrate({ id: 1, name: "A" }),
+    ])
     const sorted = users.sortBy("name")
     expect(sorted.first()!.get("name")).toBe("A")
     expect(sorted.last()!.get("name")).toBe("B")
@@ -140,10 +144,18 @@ describe("Collection", () => {
 
   it("take/skip", () => {
     expect(
-      createCollection([CollUser.hydrate({ id: 1 }), CollUser.hydrate({ id: 2 }), CollUser.hydrate({ id: 3 })]).take(2),
+      createCollection([
+        CollUser.hydrate({ id: 1 }),
+        CollUser.hydrate({ id: 2 }),
+        CollUser.hydrate({ id: 3 }),
+      ]).take(2),
     ).toHaveLength(2)
     expect(
-      createCollection([CollUser.hydrate({ id: 1 }), CollUser.hydrate({ id: 2 }), CollUser.hydrate({ id: 3 })]).skip(1),
+      createCollection([
+        CollUser.hydrate({ id: 1 }),
+        CollUser.hydrate({ id: 2 }),
+        CollUser.hydrate({ id: 3 }),
+      ]).skip(1),
     ).toHaveLength(2)
   })
 
@@ -154,6 +166,49 @@ describe("Collection", () => {
       CollUser.hydrate({ id: 3 }),
     ]).chunk(2)
     expect(chunks).toHaveLength(2)
+  })
+
+  it("diff returns items not in other collection", () => {
+    const a = createCollection([CollUser.hydrate({ id: 1 }), CollUser.hydrate({ id: 2 })])
+    const b = createCollection([CollUser.hydrate({ id: 2 }), CollUser.hydrate({ id: 3 })])
+    const result = a.diff(b)
+    expect(result).toHaveLength(1)
+    expect(result.first()!.get("id")).toBe(1)
+  })
+
+  it("intersect returns items in both collections", () => {
+    const a = createCollection([CollUser.hydrate({ id: 1 }), CollUser.hydrate({ id: 2 })])
+    const b = createCollection([CollUser.hydrate({ id: 2 }), CollUser.hydrate({ id: 3 })])
+    const result = a.intersect(b)
+    expect(result).toHaveLength(1)
+    expect(result.first()!.get("id")).toBe(2)
+  })
+
+  it("concat merges two collections", () => {
+    const a = createCollection([CollUser.hydrate({ id: 1 })])
+    const b = createCollection([CollUser.hydrate({ id: 2 })])
+    const result = a.concat(b)
+    expect(result).toHaveLength(2)
+  })
+
+  it("push appends items in place", () => {
+    const col = createCollection([CollUser.hydrate({ id: 1 })])
+    col.push(CollUser.hydrate({ id: 2 }))
+    expect(col).toHaveLength(2)
+    expect(col.last()!.get("id")).toBe(2)
+  })
+
+  it("shuffle randomizes order", () => {
+    const col = createCollection([
+      CollUser.hydrate({ id: 1 }),
+      CollUser.hydrate({ id: 2 }),
+      CollUser.hydrate({ id: 3 }),
+    ])
+    const shuffled = col.shuffle()
+    expect(shuffled).toHaveLength(3)
+    const originalIds = [1, 2, 3]
+    const shuffledIds = shuffled.pluck("id")
+    expect(shuffledIds.sort()).toEqual(originalIds)
   })
 })
 
@@ -226,7 +281,11 @@ describe("Batch operations", () => {
   let peta: ReturnType<typeof createPeta>
 
   const BatchUser = defineModel("batch_users", {
-    columns: { id: t.integer().primaryKey(), name: t.string(255), role: t.string(50).default("user") },
+    columns: {
+      id: t.integer().primaryKey(),
+      name: t.string(255),
+      role: t.string(50).default("user"),
+    },
   })
 
   beforeAll(async () => {

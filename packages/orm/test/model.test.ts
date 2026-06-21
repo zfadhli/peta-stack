@@ -252,6 +252,32 @@ describe("Query Builder", () => {
   })
 })
 
+describe("Chunking", () => {
+  it("query().chunk() splits results into batches", async () => {
+    const ids: number[] = []
+    for (let i = 0; i < 10; i++) {
+      const post = await Post.insert({
+        userId: 1,
+        title: `Chunk Post ${i}`,
+        body: `chunk-test-${i}`,
+      })
+      ids.push(post.get("id") as number)
+    }
+    const callCount: number[] = []
+    await Post.query()
+      .where("body", "like", "chunk-test-%")
+      .orderBy("id", "asc")
+      .chunk(3, async (chunk) => {
+        callCount.push(chunk.length)
+      })
+    expect(callCount).toEqual([3, 3, 3, 1])
+    // Clean up so Pagination tests aren't affected
+    for (const id of ids) {
+      await Post.delete(id)
+    }
+  })
+})
+
 describe("Pagination", () => {
   beforeAll(async () => {
     for (let i = 0; i < 15; i++) {

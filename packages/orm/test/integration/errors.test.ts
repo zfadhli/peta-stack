@@ -20,7 +20,6 @@ import {
   it,
 } from "./setup.js"
 
-
 // ─── Schema builders ────────────────────────────────────────────────
 
 const userTable = (name: string, dialectName?: string): SchemaDef => ({
@@ -81,10 +80,9 @@ for (const dialect of await getAvailableDialects()) {
         try {
           await User.insert({ name: "Alice Dup", email: "alice@test.com" })
           expect.unreachable("Should have thrown")
-        } catch (e: any) {
-          // normalizeError may or may not be applied depending on the dialect
-          // But we expect some kind of error
-          expect(e).toBeDefined()
+        } catch (e: unknown) {
+          expect(e).toBeInstanceOf(DatabaseError)
+          expect((e as DatabaseError).code).toBe("UNIQUE_CONSTRAINT")
         }
       })
     })

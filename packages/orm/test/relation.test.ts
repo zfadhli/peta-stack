@@ -67,6 +67,7 @@ const Category = defineModel("categories", {
     posts: hasManyThrough(
       () => Post,
       () => CategoryPost,
+      { foreignKey: "categoryId", throughLocalKey: "postId", throughForeignKey: "id" },
     ),
   },
 })
@@ -384,6 +385,22 @@ describe("ManyToMany", () => {
     expect(post).toBeDefined()
     const tags = await Post.relations.tags.query(post!).execute()
     expect(tags).toHaveLength(2)
+  })
+})
+
+describe("HasManyThrough", () => {
+  it("loads posts through categories via hasManyThrough", async () => {
+    const cat = await Category.insert({ name: "Tech" })
+    const post1 = await Post.query().orderBy("id", "asc").first()
+    const category = cat
+    const post = post1!
+    await peta.kysely
+      .insertInto("category_posts")
+      .values({ categoryId: category.get("id"), postId: post.get("id") })
+      .execute()
+    const posts = await Category.relations.posts.query(category).execute()
+    expect(posts.length).toBeGreaterThanOrEqual(1)
+    expect(posts.some((p: any) => p.get("id") === post.get("id"))).toBe(true)
   })
 })
 

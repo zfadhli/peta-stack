@@ -2,9 +2,8 @@ import { describe, expect, it } from "bun:test"
 import { createClient } from "@libsql/client"
 import { LibsqlDialect } from "@libsql/kysely-libsql"
 import { t } from "../src/columns/index.js"
-import { createPeta, defineModel, softDeletes, timestamps } from "../src/index.js"
+import { createPeta, defineModel, softDeletes, timestamps, ulid } from "../src/index.js"
 import type { Plugin } from "../src/plugins/index.js"
-
 
 describe("Plugin system", () => {
   it(".use() accepts a plugin and chains", () => {
@@ -80,11 +79,17 @@ describe("Plugin system", () => {
   it("softDeletes() configures soft delete behavior", async () => {
     const db = createClient({ url: ":memory:" })
     await db.execute("PRAGMA journal_mode = WAL")
-    await db.execute("CREATE TABLE sd_plugin (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, deletedAt TEXT)")
+    await db.execute(
+      "CREATE TABLE sd_plugin (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, deletedAt TEXT)",
+    )
     const peta = createPeta({ dialect: new LibsqlDialect({ client: db }) })
 
     const SDModel = defineModel("sd_plugin", {
-      columns: { id: t.integer().primaryKey(), name: t.string(255), deletedAt: t.timestamp().nullable() },
+      columns: {
+        id: t.integer().primaryKey(),
+        name: t.string(255),
+        deletedAt: t.timestamp().nullable(),
+      },
     }).use(softDeletes())
 
     peta.registerAll(SDModel)
@@ -106,6 +111,88 @@ describe("Plugin system", () => {
     // Verify withTrashed includes it
     const withDeleted = await SDModel.query().withTrashed()
     expect(withDeleted.length).toBeGreaterThanOrEqual(1)
+
+    await peta.destroy()
+    db.close()
+  })
+
+  it("$restore() brings back a soft-deleted record", async () => {
+    const db = createClient({ url: ":memory:" })
+    await db.execute("PRAGMA journal_mode = WAL")
+    await db.execute(
+      "CREATE TABLE sd_restore (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, deletedAt TEXT)",
+    )
+    const peta = createPeta({ dialect: new LibsqlDialect({ client: db }) })
+
+    const SDModel = defineModel("sd_restore", {
+      columns: {
+        id: t.integer().primaryKey(),
+        name: t.string(255),
+        deletedAt: t.timestamp().nullable(),
+      },
+    }).use(softDeletes())
+
+    peta.registerAll(SDModel)
+    SDModel.registerSoftDeletes()
+
+    const record = await SDModel.insert({ name: "Restore Me" })
+    await record.$delete()
+    expect(record.$trashed()).toBe(true)
+
+    await record.$restore()
+    expect(record.$trashed()).toBe(false)
+    expect(record.get("deletedAt")).toBeNull()
+
+    await peta.destroy()
+    db.close()
+  })
+
+  it("$forceDelete() permanently removes a soft-deleted record", async () => {
+    const db = createClient({ url: ":memory:" })
+    await db.execute("PRAGMA journal_mode = WAL")
+    await db.execute(
+      "CREATE TABLE sd_force (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, deletedAt TEXT)",
+    )
+    const peta = createPeta({ dialect: new LibsqlDialect({ client: db }) })
+
+    const SDModel = defineModel("sd_force", {
+      columns: {
+        id: t.integer().primaryKey(),
+        name: t.string(255),
+        deletedAt: t.timestamp().nullable(),
+      },
+    }).use(softDeletes())
+
+    peta.registerAll(SDModel)
+    SDModel.registerSoftDeletes()
+
+    const record = await SDModel.insert({ name: "Force Delete Me" })
+    expect(record.get("id")).toBeGreaterThan(0)
+    await record.$forceDelete()
+
+    const found = await SDModel.query().withTrashed().where("id", "=", record.get("id"))
+    expect(found).toHaveLength(0)
+
+    await peta.destroy()
+    db.close()
+  })
+
+  it("ulid() plugin auto-generates ULID primary keys on insert", async () => {
+    const db = createClient({ url: ":memory:" })
+    await db.execute("PRAGMA journal_mode = WAL")
+    await db.execute("CREATE TABLE ulid_test (id TEXT PRIMARY KEY, name TEXT NOT NULL)")
+    const peta = createPeta({ dialect: new LibsqlDialect({ client: db }) })
+
+    const UlidModel = defineModel("ulid_test", {
+      columns: { id: t.string(26).primaryKey(), name: t.string(255) },
+    }).use(ulid())
+
+    peta.registerAll(UlidModel)
+
+    const record = await UlidModel.insert({ name: "ULID Test" })
+    expect(record.get("id")).toBeTruthy()
+    expect(typeof record.get("id")).toBe("string")
+    expect((record.get("id") as string).length).toBe(26)
 
     await peta.destroy()
     db.close()
