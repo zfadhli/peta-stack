@@ -394,7 +394,16 @@ cd packages/orm
 bun test test/integration/
 ```
 
-Set `INTEGRATION_SKIP_PG=1` or `INTEGRATION_SKIP_MYSQL=1` to skip specific databases.
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `INTEGRATION_PG_URL` | `postgres://postgres:postgres@localhost:5432/peta_orm_test` | PostgreSQL connection string |
+| `INTEGRATION_MYSQL_URL` | `mysql://root:mysqlroot@localhost:3306/peta_orm_test` | MySQL connection string |
+| `INTEGRATION_SKIP_PG` | — | Set to `1` to skip PostgreSQL integration tests |
+| `INTEGRATION_SKIP_MYSQL` | — | Set to `1` to skip MySQL integration tests |
+
+See [`.env.example`](./.env.example) for a copyable template.
 
 ---
 
