@@ -34,6 +34,7 @@ export function createInstance<TColumns extends ColumnShape = ColumnShape>(
   data: Record<string, unknown>,
   exists: boolean,
 ): ModelInstance<TColumns> {
+  const validColumns = new Set(Object.keys(def.columns))
   const instance: ModelInstance<TColumns> = {
     get exists() {
       return getExists(instance)
@@ -78,7 +79,7 @@ export function createInstance<TColumns extends ColumnShape = ColumnShape>(
     fill(data: Record<string, unknown>): void {
       const safe: Record<string, unknown> = {}
       for (const [key, value] of Object.entries(data)) {
-        if (!FORBIDDEN_KEYS.has(key)) {
+        if (!FORBIDDEN_KEYS.has(key) && validColumns.has(key)) {
           let v: unknown = value
           const attrDef = config.attributes?.[key]
           if (attrDef?.set) {
