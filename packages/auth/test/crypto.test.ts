@@ -24,6 +24,8 @@ describe("sealData / unsealData", () => {
   })
 
   it("rejects password shorter than 32 chars", async () => {
-    expect(sealData({ x: 1 }, { password: "short" })).rejects.toThrow("Password string too short")
+    expect(sealData({ x: 1 }, { password: "short" })).rejects.toThrow(
+      "peta-auth: password must be at least 32 characters",
+    )
   })
 })
