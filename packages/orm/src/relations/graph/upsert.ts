@@ -10,7 +10,6 @@ import {
   getPivotInfo,
   getPrimaryKeyColumn,
   resolveRefs,
-  resolveTargetId,
 } from "./parser.js"
 import {
   assertRelationAllowed,
@@ -292,6 +291,19 @@ async function upsertManyToMany(
       ? ((op as RelationOperationShape).create as Record<string, unknown>[])
       : []
 
+  // Batch-fetch existing items for update (Site 1: N+1 fix)
+  const needsUpdate = !isRelPathAllowed(relNameFromPath(path), options.noUpdate)
+  const pkCol = getPrimaryKeyColumn(relatedDef)
+  const itemIds = items
+    .filter((i) => i["#dbRef"] == null)
+    .map((i) => i[pkCol] ?? i.id)
+    .filter((id): id is string | number => id != null)
+  const batchMap = new Map<unknown, ModelInstance>()
+  if (needsUpdate && itemIds.length > 0) {
+    const records = await relatedDef.query().whereIn(pkCol, itemIds).execute()
+    for (const r of records) batchMap.set(r.get(pkCol), r)
+  }
+
   for (const item of items) {
     if (item["#dbRef"] != null) {
       const id = item["#dbRef"]
@@ -309,15 +321,14 @@ async function upsertManyToMany(
       continue
     }
 
-    const pkCol = getPrimaryKeyColumn(relatedDef)
     const itemId = item[pkCol] ?? item.id
 
     if (itemId != null) {
       incomingIds.add(itemId)
 
       // Update existing if not excluded
-      if (!isRelPathAllowed(relNameFromPath(path), options.noUpdate)) {
-        const existing = await relatedDef.find(itemId as number | string)
+      if (needsUpdate) {
+        const existing = batchMap.get(itemId)
         if (existing) {
           existing.fill(item as Record<string, unknown>)
           await existing.$save()
@@ -355,8 +366,32 @@ async function upsertManyToMany(
 
   // Handle connect items
   const connectItems = !Array.isArray(op) ? ((op as RelationOperationShape)?.connect ?? []) : []
+  // Batch-resolve object targets in connect (Site 2: N+1 fix)
+  const connectLookup = new Map<unknown, unknown>()
+  const connectObjects = connectItems.filter(
+    (t) => typeof t !== "number" && typeof t !== "string",
+  ) as Record<string, unknown>[]
+  if (connectObjects.length > 0) {
+    const byKey = new Map<string, unknown[]>()
+    for (const t of connectObjects) {
+      const k = Object.keys(t)[0]!
+      if (!byKey.has(k)) byKey.set(k, [])
+      byKey.get(k)!.push(t[k])
+    }
+    for (const [k, vals] of byKey) {
+      const records = await relatedDef
+        .query()
+        .whereIn(k, vals as any[])
+        .execute()
+      for (const r of records) connectLookup.set(r.get(k), r.get("id"))
+    }
+  }
   for (const target of connectItems) {
-    const targetId = await resolveTargetId(relatedDef, target)
+    let targetId: unknown = target
+    if (typeof target !== "number" && typeof target !== "string") {
+      const t = target as Record<string, unknown>
+      targetId = connectLookup.get(t[Object.keys(t)[0]!])
+    }
     if (targetId != null) {
       incomingIds.add(targetId)
       if (!existingPivotIds.has(targetId)) {
