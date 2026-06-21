@@ -33,14 +33,25 @@ export interface QueryBuilder<TColumns extends ColumnShape = ColumnShape>
 
   // Chunking & pagination
   chunk(size: number, callback: (chunk: ModelInstance<TColumns>[]) => Promise<void>): Promise<void>
-  paginate(page: number, perPage?: number): Promise<import("../pagination/index.js").Paginator<TColumns>>
+  paginate(
+    page: number,
+    perPage?: number,
+  ): Promise<import("../pagination/index.js").Paginator<TColumns>>
 
   // Graph operations (insert/upsert full relation graphs)
-  insertGraph(data: Record<string, unknown> | Record<string, unknown>[], options?: InsertGraphOptions): Promise<any>
-  upsertGraph(data: Record<string, unknown> | Record<string, unknown>[], options?: UpsertGraphOptions): Promise<any>
+  insertGraph(
+    data: Record<string, unknown> | Record<string, unknown>[],
+    options?: InsertGraphOptions,
+  ): Promise<any>
+  upsertGraph(
+    data: Record<string, unknown> | Record<string, unknown>[],
+    options?: UpsertGraphOptions,
+  ): Promise<any>
 
   // Eager loading
-  with(...relations: (string | Record<string, (qb: QueryBuilder<TColumns>) => void>)[]): QueryBuilder<TColumns>
+  with(
+    ...relations: (string | Record<string, (qb: QueryBuilder<TColumns>) => void>)[]
+  ): QueryBuilder<TColumns>
   /**
    * Whitelist allowed relations (and nested paths) for eager loading.
    * Throws if a relation path is not in the allow list.
@@ -64,10 +75,15 @@ export interface QueryBuilder<TColumns extends ColumnShape = ColumnShape>
 
   // Where conditions
   whereIn(column: string, values: unknown[]): QueryBuilder<TColumns>
-  whereInPivot(column: string, values: unknown[]): QueryBuilder<TColumns>
   has(relationName: string): QueryBuilder<TColumns>
-  whereHas(relationName: string, callback?: (qb: QueryBuilder<TColumns>) => void): QueryBuilder<TColumns>
-  whereDoesntHave(relationName: string, callback?: (qb: QueryBuilder<TColumns>) => void): QueryBuilder<TColumns>
+  whereHas(
+    relationName: string,
+    callback?: (qb: QueryBuilder<TColumns>) => void,
+  ): QueryBuilder<TColumns>
+  whereDoesntHave(
+    relationName: string,
+    callback?: (qb: QueryBuilder<TColumns>) => void,
+  ): QueryBuilder<TColumns>
   where(column: string, operator: unknown, value?: unknown): QueryBuilder<TColumns>
   whereRef(col1: string, operator: string, col2: string): QueryBuilder<TColumns>
   orWhere(column: string, operator: unknown, value?: unknown): QueryBuilder<TColumns>
@@ -102,6 +118,12 @@ export interface QueryBuilder<TColumns extends ColumnShape = ColumnShape>
   _replaceKyselyQb(newQb: any): void
 
   // Conditional chaining
-  when(condition: unknown, callback: (q: QueryBuilder<TColumns>) => QueryBuilder<TColumns>): QueryBuilder<TColumns>
-  unless(condition: unknown, callback: (q: QueryBuilder<TColumns>) => QueryBuilder<TColumns>): QueryBuilder<TColumns>
+  when(
+    condition: unknown,
+    callback: (q: QueryBuilder<TColumns>) => QueryBuilder<TColumns>,
+  ): QueryBuilder<TColumns>
+  unless(
+    condition: unknown,
+    callback: (q: QueryBuilder<TColumns>) => QueryBuilder<TColumns>,
+  ): QueryBuilder<TColumns>
 }
