@@ -22,6 +22,9 @@ export {
 export type { HookCallback, HookManager, LifecycleEvent } from "./hooks/index.js"
 export { createHookManager } from "./hooks/index.js"
 export { createDb } from "./init.js"
+export { petaPlugin } from "./integrations/elysia.js"
+// ─── Integrations ─────────────────────────────────────────
+export { petaMiddleware } from "./integrations/hono.js"
 export { defineModel } from "./model/define.js"
 // ─── Model System ──────────────────────────────────────────
 export { Attribute } from "./model/index.js"
@@ -58,6 +61,5 @@ export type { MorphManyOptions, MorphOneOptions, MorphToOptions } from "./relati
 export type { QueryMethod, RepoMethods } from "./repo/index.js"
 // ─── Repository Pattern ───────────────────────────────────
 export { createRepo } from "./repo/index.js"
-
 // ─── Types ─────────────────────────────────────────────────
 export type { ModelId, ORMLike } from "./types.js"
