@@ -79,7 +79,8 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
     }
     const cols = def.columns as Record<string, Column>
     const hasDeletedColumn =
-      "deletedAt" in cols || Object.values(cols).some((c) => c.dataType === "timestamp" && c.isNullable)
+      "deletedAt" in cols ||
+      Object.values(cols).some((c) => c.dataType === "timestamp" && c.isNullable)
     if (hasDeletedColumn) {
       if (onlyTrashedMode) {
         qb = qb.where("deletedAt", "is not", null)
@@ -106,7 +107,10 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
     const computedConfig = getComputedConfig(def)
     const sqlColumns = selectedColumns?.filter((col) => !computedConfig?.[col])
     const allSelectedAreComputed =
-      selectedColumns !== null && sqlColumns !== undefined && sqlColumns.length === 0 && selectedColumns.length > 0
+      selectedColumns !== null &&
+      sqlColumns !== undefined &&
+      sqlColumns.length === 0 &&
+      selectedColumns.length > 0
     const queryBuilder =
       sqlColumns && sqlColumns.length > 0
         ? qb.select(sqlColumns.map(validateColumn))
@@ -159,7 +163,9 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
     async collect(): Promise<import("../collection/index.js").Collection<TColumns>> {
       const items = await runExecute()
       const { createCollection } = await import("../collection/index.js")
-      return createCollection(items) as unknown as import("../collection/index.js").Collection<TColumns>
+      return createCollection(
+        items,
+      ) as unknown as import("../collection/index.js").Collection<TColumns>
     },
 
     async executeTakeFirst() {
@@ -322,7 +328,10 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
     },
 
     // ─── Chunking ─────────────────────────────────────────
-    async chunk(size: number, callback: (chunk: ModelInstance<TColumns>[]) => Promise<void>): Promise<void> {
+    async chunk(
+      size: number,
+      callback: (chunk: ModelInstance<TColumns>[]) => Promise<void>,
+    ): Promise<void> {
       let offset = 0
       let hasMore = true
 
@@ -378,7 +387,9 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
       return self
     },
 
-    with(...relations: (string | Record<string, (qb: QueryBuilder) => void>)[]): QueryBuilder<TColumns> {
+    with(
+      ...relations: (string | Record<string, (qb: QueryBuilder) => void>)[]
+    ): QueryBuilder<TColumns> {
       for (const rel of relations) {
         if (typeof rel === "string") {
           // Validate against allowGraph if set — recursive prefix check
@@ -532,7 +543,11 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
           return selectQb
         }
         for (const hook of hooks) {
-          await hook({ asFindQuery: afterAsFindQuery, cancelQuery: () => {}, inputItems: undefined })
+          await hook({
+            asFindQuery: afterAsFindQuery,
+            cancelQuery: () => {},
+            inputItems: undefined,
+          })
         }
       }
 
@@ -560,14 +575,6 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
       return self
     },
 
-    whereInPivot(column: string, values: unknown[]): QueryBuilder<TColumns> {
-      qb = qb.where(validateColumn(column), "in", values)
-      whereOps.push((q) => q.where(validateColumn(column), "in", values))
-      _hasWhere = true
-      hasEffectiveWhere = values.length > 0
-      return self
-    },
-
     has(relationName: string): QueryBuilder<TColumns> {
       const rel = def.relations[relationName]
       if (!rel) throw new RelationNotFoundError(def.name, relationName)
@@ -584,11 +591,17 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
       return self
     },
 
-    whereHas(relationName: string, _callback?: (qb: QueryBuilder<TColumns>) => void): QueryBuilder<TColumns> {
+    whereHas(
+      relationName: string,
+      _callback?: (qb: QueryBuilder<TColumns>) => void,
+    ): QueryBuilder<TColumns> {
       return self.has(relationName)
     },
 
-    whereDoesntHave(relationName: string, _callback?: (qb: QueryBuilder<TColumns>) => void): QueryBuilder<TColumns> {
+    whereDoesntHave(
+      relationName: string,
+      _callback?: (qb: QueryBuilder<TColumns>) => void,
+    ): QueryBuilder<TColumns> {
       const rel = def.relations[relationName]
       if (!rel) throw new RelationNotFoundError(def.name, relationName)
       const relatedTable = rel.relatedModelClass.table
@@ -703,7 +716,10 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
     },
 
     // ─── Conditional chaining ─────────────────────────────
-    when(condition: unknown, callback: (q: QueryBuilder<TColumns>) => QueryBuilder<TColumns>): QueryBuilder<TColumns> {
+    when(
+      condition: unknown,
+      callback: (q: QueryBuilder<TColumns>) => QueryBuilder<TColumns>,
+    ): QueryBuilder<TColumns> {
       if (condition) return callback(self)
       return self
     },

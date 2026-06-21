@@ -134,9 +134,7 @@
       "version": "0.5.0",
       "dependencies": {
         "arktype": "^2.2.0",
-        "cac": "^7.0.0",
         "fast-glob": "^3.3.3",
-        "ora": "^9.4.0",
         "ulid": "^3.0.2",
       },
       "devDependencies": {
