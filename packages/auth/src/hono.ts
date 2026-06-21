@@ -1,7 +1,12 @@
 import { parse } from "cookie"
 import type { MiddlewareHandler } from "hono"
 import { createMiddleware } from "hono/factory"
-import { createSessionFromAdapter, type IronSession, type SessionOptions, sessionHasData } from "./session.js"
+import {
+  createSessionFromAdapter,
+  type IronSession,
+  type SessionOptions,
+  sessionHasData,
+} from "./session.js"
 
 /**
  * Hono middleware that creates a session and makes it available
@@ -15,7 +20,7 @@ import { createSessionFromAdapter, type IronSession, type SessionOptions, sessio
  */
 export function session<T extends Record<string, unknown> = Record<string, unknown>>(
   options: SessionOptions,
-): MiddlewareHandler<{ Variables: { session: T & IronSession } }> {
+): MiddlewareHandler<{ Variables: { session: IronSession<T> } }> {
   return createMiddleware(async (c, next) => {
     c.set(
       "session",

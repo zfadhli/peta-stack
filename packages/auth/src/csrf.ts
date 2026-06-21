@@ -29,7 +29,10 @@ export function constantTimeEqual(a: string, b: string): boolean {
  * // send `token` to the client via form field or header
  * ```
  */
-export async function generateCsrf(session: IronSession, options?: CSRFOptions): Promise<string> {
+export async function generateCsrf(
+  session: IronSession<Record<string, unknown>>,
+  options?: CSRFOptions,
+): Promise<string> {
   const key = options?.key ?? "_csrfToken"
   const token = crypto.randomUUID()
   session[key] = token
@@ -48,7 +51,11 @@ export async function generateCsrf(session: IronSession, options?: CSRFOptions):
  * }
  * ```
  */
-export function validateCsrf(session: IronSession, token: string, options?: CSRFOptions): boolean {
+export function validateCsrf(
+  session: IronSession<Record<string, unknown>>,
+  token: string,
+  options?: CSRFOptions,
+): boolean {
   const key = options?.key ?? "_csrfToken"
   const stored = session[key]
   return typeof stored === "string" && constantTimeEqual(stored, token)
