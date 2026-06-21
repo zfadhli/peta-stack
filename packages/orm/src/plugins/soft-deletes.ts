@@ -1,3 +1,4 @@
+import { isUniqueConstraintError, ModelNotRegisteredError, normalizeError } from "../errors.js"
 import type { Plugin } from "./index.js"
 
 // Lazy-loaded module references
@@ -30,8 +31,7 @@ export function softDeletes(opts?: { column?: string }): Plugin {
       const pkValue = model.get(pk)
       if (pkValue == null) return
 
-      const db = (def._orm as any)?.kysely
-      if (!db) return
+      const db = getDb(def)
 
       try {
         await db
@@ -39,11 +39,17 @@ export function softDeletes(opts?: { column?: string }): Plugin {
           .set({ [column]: new Date().toISOString() })
           .where(pk, "=", pkValue)
           .execute()
-      } catch {
-        // Soft delete fails silently — the record may already be deleted
+      } catch (e) {
+        // The record may already be deleted — that's fine
+        if (!isUniqueConstraintError(e)) throw normalizeError(e, def.table)
       }
     })
   }
+}
+
+function getDb(def: any): any {
+  if (!def._orm) throw new ModelNotRegisteredError(def.name)
+  return (def._orm as any).kysely
 }
 
 function getPrimaryKeyColumn(def: any): string {

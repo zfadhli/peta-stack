@@ -1,4 +1,4 @@
-import { DatabaseError } from "../../errors.js"
+import { DatabaseError, isUniqueConstraintError, normalizeError } from "../../errors.js"
 import type { ModelDefinition, ModelInstance } from "../../model/types.js"
 import type { Relation } from "../base.js"
 import {
@@ -59,7 +59,9 @@ export async function insertGraph(
     const node = nodes[i]
     if (typeof node === "object" && node !== null && "#ref" in node) {
       if (!context.allowRefs) {
-        throw new Error(`#ref is used but allowRefs option is not enabled. Set { allowRefs: true } to use #ref.`)
+        throw new Error(
+          `#ref is used but allowRefs option is not enabled. Set { allowRefs: true } to use #ref.`,
+        )
       }
       const refId = node["#ref"] as string | undefined
       if (!refId) throw new Error(`#ref must be a string`)
@@ -149,7 +151,8 @@ export async function processNode(
   // Phase 3: Process post-insert relations (hasMany, hasOne, manyToMany)
   const pkCol = getPrimaryKeyColumn(def)
   const pkValue = instance.get(pkCol)
-  if (pkValue == null) throw new DatabaseError("Cannot process relations without primary key", "MISSING_ID")
+  if (pkValue == null)
+    throw new DatabaseError("Cannot process relations without primary key", "MISSING_ID")
 
   for (const [relName, op] of Object.entries(relationOps)) {
     const relation = def.relations[relName]
@@ -193,7 +196,8 @@ export async function processBelongsTo(
   if (op["#dbRef"] != null) {
     const id = op["#dbRef"]
     const existing = await relatedDef.find(id as number | string)
-    if (!existing) throw new DatabaseError(`#dbRef ${id} not found on ${relatedDef.name}`, "UNKNOWN")
+    if (!existing)
+      throw new DatabaseError(`#dbRef ${id} not found on ${relatedDef.name}`, "UNKNOWN")
     return existing
   }
 
@@ -202,12 +206,22 @@ export async function processBelongsTo(
     const conditions = op.connect as Record<string, unknown>
     const existing = await findRelated(relatedDef, conditions)
     if (existing) return existing
-    throw new DatabaseError(`Cannot connect: ${JSON.stringify(conditions)} not found on ${relatedDef.name}`, "UNKNOWN")
+    throw new DatabaseError(
+      `Cannot connect: ${JSON.stringify(conditions)} not found on ${relatedDef.name}`,
+      "UNKNOWN",
+    )
   }
 
   // { create: { ... } }: create related with relations
   if (op.create && typeof op.create === "object") {
-    return processNode(op.create as Record<string, unknown>, relatedDef, null, options, context, path)
+    return processNode(
+      op.create as Record<string, unknown>,
+      relatedDef,
+      null,
+      options,
+      context,
+      path,
+    )
   }
 
   // Graph style: plain nested object { name: "John", ... }
@@ -275,7 +289,8 @@ async function processMorphTo(
   if (op["#dbRef"] != null) {
     const id = op["#dbRef"]
     const existing = await relatedDef.find(id as number | string)
-    if (!existing) throw new DatabaseError(`#dbRef ${id} not found on ${relatedDef.name}`, "UNKNOWN")
+    if (!existing)
+      throw new DatabaseError(`#dbRef ${id} not found on ${relatedDef.name}`, "UNKNOWN")
     instance = existing
   } else if (op.connect && typeof op.connect === "object") {
     const conditions = op.connect as Record<string, unknown>
@@ -289,7 +304,14 @@ async function processMorphTo(
       )
     }
   } else if (op.create && typeof op.create === "object") {
-    instance = await processNode(op.create as Record<string, unknown>, relatedDef, null, options, context, path)
+    instance = await processNode(
+      op.create as Record<string, unknown>,
+      relatedDef,
+      null,
+      options,
+      context,
+      path,
+    )
   } else {
     // Graph style: plain nested object — strip type/morph column keys before creating
     const createData = { ...op } as Record<string, unknown>
@@ -332,7 +354,10 @@ async function processHasMany(
     items = []
   } else if (Array.isArray(op)) {
     items = op
-  } else if ((op as RelationOperationShape)?.create && Array.isArray((op as RelationOperationShape).create)) {
+  } else if (
+    (op as RelationOperationShape)?.create &&
+    Array.isArray((op as RelationOperationShape).create)
+  ) {
     items = (op as RelationOperationShape).create as Record<string, unknown>[]
   } else if (typeof op === "object" && !("connect" in (op as RelationOperationShape))) {
     // Single object for hasOne — wrap in array
@@ -345,7 +370,8 @@ async function processHasMany(
     if (item["#dbRef"] != null) {
       const id = item["#dbRef"]
       const existing = await relatedDef.find(id as number | string)
-      if (!existing) throw new DatabaseError(`#dbRef ${id} not found on ${relatedDef.name}`, "UNKNOWN")
+      if (!existing)
+        throw new DatabaseError(`#dbRef ${id} not found on ${relatedDef.name}`, "UNKNOWN")
       existing.set(fk, pkValue)
       await existing.$save()
       continue
@@ -401,8 +427,8 @@ async function processManyToMany(
           .insertInto(throughTable)
           .values({ [foreignPivotKey]: pkValue, [relatedPivotKey]: id })
           .execute()
-      } catch {
-        /* skip duplicate */
+      } catch (e) {
+        if (!isUniqueConstraintError(e)) throw normalizeError(e, throughTable)
       }
       continue
     }
@@ -415,8 +441,8 @@ async function processManyToMany(
           .insertInto(throughTable)
           .values({ [foreignPivotKey]: pkValue, [relatedPivotKey]: relatedId })
           .execute()
-      } catch {
-        /* skip duplicate */
+      } catch (e) {
+        if (!isUniqueConstraintError(e)) throw normalizeError(e, throughTable)
       }
     }
   }
@@ -431,8 +457,8 @@ async function processManyToMany(
           .insertInto(throughTable)
           .values({ [foreignPivotKey]: pkValue, [relatedPivotKey]: targetId })
           .execute()
-      } catch {
-        /* skip duplicate */
+      } catch (e) {
+        if (!isUniqueConstraintError(e)) throw normalizeError(e, throughTable)
       }
     }
   }
