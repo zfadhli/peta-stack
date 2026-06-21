@@ -79,7 +79,8 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
     }
     const cols = def.columns as Record<string, Column>
     const hasDeletedColumn =
-      "deletedAt" in cols || Object.values(cols).some((c) => c.dataType === "timestamp" && c.isNullable)
+      "deletedAt" in cols ||
+      Object.values(cols).some((c) => c.dataType === "timestamp" && c.isNullable)
     if (hasDeletedColumn) {
       if (onlyTrashedMode) {
         qb = qb.where("deletedAt", "is not", null)
@@ -106,7 +107,10 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
     const computedConfig = getComputedConfig(def)
     const sqlColumns = selectedColumns?.filter((col) => !computedConfig?.[col])
     const allSelectedAreComputed =
-      selectedColumns !== null && sqlColumns !== undefined && sqlColumns.length === 0 && selectedColumns.length > 0
+      selectedColumns !== null &&
+      sqlColumns !== undefined &&
+      sqlColumns.length === 0 &&
+      selectedColumns.length > 0
     const queryBuilder =
       sqlColumns && sqlColumns.length > 0
         ? qb.select(sqlColumns.map(validateColumn))
@@ -143,6 +147,27 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
 
     return models
   }
+
+  const _withAggregate = (
+    relationName: string,
+    aggregateSql: string,
+    alias: string,
+    isExists = false,
+  ): QueryBuilder<TColumns> => {
+    const rel = def.relations[relationName]
+    if (!rel) throw new RelationNotFoundError(def.name, relationName)
+    const relatedTable = rel.relatedModelClass.table
+    const fk = rel.foreignKey
+    const lk = rel.localKey
+
+    const sql = isExists
+      ? `(SELECT EXISTS(SELECT 1 FROM ${relatedTable} WHERE ${relatedTable}.${fk} = ${def.table}.${lk})) as ${alias}`
+      : `(SELECT ${aggregateSql} FROM ${relatedTable} WHERE ${relatedTable}.${fk} = ${def.table}.${lk}) as ${alias}`
+    aggregateColumns.push(sql)
+    aggregateAliases.push(alias)
+    return self
+  }
+
   const self: QueryBuilder<TColumns> = {
     // ─── PromiseLike ──────────────────────────────────────
     // biome-ignore lint/suspicious/noThenProperty: Intentional thenable for await support
@@ -159,7 +184,9 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
     async collect(): Promise<import("../collection/index.js").Collection<TColumns>> {
       const items = await runExecute()
       const { createCollection } = await import("../collection/index.js")
-      return createCollection(items) as unknown as import("../collection/index.js").Collection<TColumns>
+      return createCollection(
+        items,
+      ) as unknown as import("../collection/index.js").Collection<TColumns>
     },
 
     async executeTakeFirst() {
@@ -235,94 +262,40 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
       return Number((result as { max: number })?.max ?? 0)
     },
 
-    // ─── Aggregate subqueries (withCount, etc.) ─────────────
+    // ─── Aggregate subqueries ──────────────────────────────
     withCount(relation: string): QueryBuilder<TColumns> {
-      const alias = `${relation}_count`
-      const rel = def.relations[relation]
-      if (!rel) throw new RelationNotFoundError(def.name, relation)
-      const relatedTable = rel.relatedModelClass.table
-      const fk = rel.foreignKey
-      const lk = rel.localKey
-
-      aggregateColumns.push(
-        `(SELECT COUNT(*) FROM ${relatedTable} WHERE ${relatedTable}.${fk} = ${def.table}.${lk}) as ${alias}`,
-      )
-      aggregateAliases.push(alias)
-      return self
+      return _withAggregate(relation, "COUNT(*)", `${relation}_count`)
     },
 
     withSum(relation: string, column: string): QueryBuilder<TColumns> {
-      const alias = `${relation}_sum_${column}`
-      const rel = def.relations[relation]
-      if (!rel) throw new RelationNotFoundError(def.name, relation)
-      const relatedTable = rel.relatedModelClass.table
-      const fk = rel.foreignKey
-      const lk = rel.localKey
-      aggregateColumns.push(
-        `(SELECT COALESCE(SUM(${relatedTable}.${validateColumn(column)}), 0) FROM ${relatedTable} WHERE ${relatedTable}.${fk} = ${def.table}.${lk}) as ${alias}`,
+      return _withAggregate(
+        relation,
+        `COALESCE(SUM(${validateColumn(column)}), 0)`,
+        `${relation}_sum_${column}`,
       )
-      aggregateAliases.push(alias)
-      return self
     },
 
     withAvg(relation: string, column: string): QueryBuilder<TColumns> {
-      const alias = `${relation}_avg_${column}`
-      const rel = def.relations[relation]
-      if (!rel) throw new RelationNotFoundError(def.name, relation)
-      const relatedTable = rel.relatedModelClass.table
-      const fk = rel.foreignKey
-      const lk = rel.localKey
-      aggregateColumns.push(
-        `(SELECT AVG(${relatedTable}.${validateColumn(column)}) FROM ${relatedTable} WHERE ${relatedTable}.${fk} = ${def.table}.${lk}) as ${alias}`,
-      )
-      aggregateAliases.push(alias)
-      return self
+      return _withAggregate(relation, `AVG(${validateColumn(column)})`, `${relation}_avg_${column}`)
     },
 
     withMin(relation: string, column: string): QueryBuilder<TColumns> {
-      const alias = `${relation}_min_${column}`
-      const rel = def.relations[relation]
-      if (!rel) throw new RelationNotFoundError(def.name, relation)
-      const relatedTable = rel.relatedModelClass.table
-      const fk = rel.foreignKey
-      const lk = rel.localKey
-      aggregateColumns.push(
-        `(SELECT MIN(${relatedTable}.${validateColumn(column)}) FROM ${relatedTable} WHERE ${relatedTable}.${fk} = ${def.table}.${lk}) as ${alias}`,
-      )
-      aggregateAliases.push(alias)
-      return self
+      return _withAggregate(relation, `MIN(${validateColumn(column)})`, `${relation}_min_${column}`)
     },
 
     withMax(relation: string, column: string): QueryBuilder<TColumns> {
-      const alias = `${relation}_max_${column}`
-      const rel = def.relations[relation]
-      if (!rel) throw new RelationNotFoundError(def.name, relation)
-      const relatedTable = rel.relatedModelClass.table
-      const fk = rel.foreignKey
-      const lk = rel.localKey
-      aggregateColumns.push(
-        `(SELECT MAX(${relatedTable}.${validateColumn(column)}) FROM ${relatedTable} WHERE ${relatedTable}.${fk} = ${def.table}.${lk}) as ${alias}`,
-      )
-      aggregateAliases.push(alias)
-      return self
+      return _withAggregate(relation, `MAX(${validateColumn(column)})`, `${relation}_max_${column}`)
     },
 
     withExists(relation: string): QueryBuilder<TColumns> {
-      const alias = `${relation}_exists`
-      const rel = def.relations[relation]
-      if (!rel) throw new RelationNotFoundError(def.name, relation)
-      const relatedTable = rel.relatedModelClass.table
-      const fk = rel.foreignKey
-      const lk = rel.localKey
-      aggregateColumns.push(
-        `(SELECT EXISTS(SELECT 1 FROM ${relatedTable} WHERE ${relatedTable}.${fk} = ${def.table}.${lk})) as ${alias}`,
-      )
-      aggregateAliases.push(alias)
-      return self
+      return _withAggregate(relation, "", `${relation}_exists`, true)
     },
 
     // ─── Chunking ─────────────────────────────────────────
-    async chunk(size: number, callback: (chunk: ModelInstance<TColumns>[]) => Promise<void>): Promise<void> {
+    async chunk(
+      size: number,
+      callback: (chunk: ModelInstance<TColumns>[]) => Promise<void>,
+    ): Promise<void> {
       let offset = 0
       let hasMore = true
 
@@ -378,7 +351,9 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
       return self
     },
 
-    with(...relations: (string | Record<string, (qb: QueryBuilder) => void>)[]): QueryBuilder<TColumns> {
+    with(
+      ...relations: (string | Record<string, (qb: QueryBuilder) => void>)[]
+    ): QueryBuilder<TColumns> {
       for (const rel of relations) {
         if (typeof rel === "string") {
           // Validate against allowGraph if set — recursive prefix check
@@ -532,7 +507,11 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
           return selectQb
         }
         for (const hook of hooks) {
-          await hook({ asFindQuery: afterAsFindQuery, cancelQuery: () => {}, inputItems: undefined })
+          await hook({
+            asFindQuery: afterAsFindQuery,
+            cancelQuery: () => {},
+            inputItems: undefined,
+          })
         }
       }
 
@@ -584,11 +563,17 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
       return self
     },
 
-    whereHas(relationName: string, _callback?: (qb: QueryBuilder<TColumns>) => void): QueryBuilder<TColumns> {
+    whereHas(
+      relationName: string,
+      _callback?: (qb: QueryBuilder<TColumns>) => void,
+    ): QueryBuilder<TColumns> {
       return self.has(relationName)
     },
 
-    whereDoesntHave(relationName: string, _callback?: (qb: QueryBuilder<TColumns>) => void): QueryBuilder<TColumns> {
+    whereDoesntHave(
+      relationName: string,
+      _callback?: (qb: QueryBuilder<TColumns>) => void,
+    ): QueryBuilder<TColumns> {
       const rel = def.relations[relationName]
       if (!rel) throw new RelationNotFoundError(def.name, relationName)
       const relatedTable = rel.relatedModelClass.table
@@ -703,7 +688,10 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
     },
 
     // ─── Conditional chaining ─────────────────────────────
-    when(condition: unknown, callback: (q: QueryBuilder<TColumns>) => QueryBuilder<TColumns>): QueryBuilder<TColumns> {
+    when(
+      condition: unknown,
+      callback: (q: QueryBuilder<TColumns>) => QueryBuilder<TColumns>,
+    ): QueryBuilder<TColumns> {
       if (condition) return callback(self)
       return self
     },

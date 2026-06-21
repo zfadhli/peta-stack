@@ -1,5 +1,5 @@
-import type { ModelDefinition } from "../../model/types.js"
 import type { Relation } from "../base.js"
+import { resolveThunk } from "../helpers.js"
 
 /** Whether this relation is a MorphTo (polymorphic belongsTo) */
 export function isMorphToRelation(relation: Relation): boolean {
@@ -26,13 +26,4 @@ export function getMorphId(relation: Relation): string | undefined {
   return relation._morphId
 }
 
-// Inlined resolveThunk to avoid circular dep via morph.ts → query/index.ts
-const THUNK_CACHE = new WeakMap<object, ModelDefinition>()
-export function resolveThunk(thunk: () => ModelDefinition): ModelDefinition {
-  let cls = THUNK_CACHE.get(thunk)
-  if (!cls) {
-    cls = thunk()
-    THUNK_CACHE.set(thunk, cls)
-  }
-  return cls
-}
+export { resolveThunk }
