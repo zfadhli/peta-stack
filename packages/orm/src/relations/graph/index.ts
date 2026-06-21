@@ -1,3 +1,5 @@
+export type { DeleteGraphOptions } from "./delete.js"
+export { deleteGraph } from "./delete.js"
 export { insertGraph } from "./insert.js"
 export { isRelationAllowed } from "./security.js"
 export type { InsertGraphOptions, UpsertGraphOptions } from "./types.js"

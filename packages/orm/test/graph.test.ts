@@ -12,7 +12,6 @@ import {
   RelationNotAllowedError,
 } from "../src/index.js"
 
-
 // ─── Models ────────────────────────────────────────────────────
 
 const User = defineModel("graph_users", {
@@ -80,15 +79,21 @@ let peta: ReturnType<typeof createPeta>
 beforeAll(async () => {
   db = createClient({ url: ":memory:" })
   await db.execute("PRAGMA journal_mode = WAL")
-  await db.execute("CREATE TABLE graph_users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
-  await db.execute("CREATE TABLE graph_profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER, bio TEXT)")
+  await db.execute(
+    "CREATE TABLE graph_users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)",
+  )
+  await db.execute(
+    "CREATE TABLE graph_profiles (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER, bio TEXT)",
+  )
   await db.execute(
     "CREATE TABLE graph_posts (id INTEGER PRIMARY KEY AUTOINCREMENT, userId INTEGER NOT NULL, title TEXT NOT NULL)",
   )
   await db.execute(
     "CREATE TABLE graph_comments (id INTEGER PRIMARY KEY AUTOINCREMENT, postId INTEGER NOT NULL, body TEXT NOT NULL)",
   )
-  await db.execute("CREATE TABLE graph_tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
+  await db.execute(
+    "CREATE TABLE graph_tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)",
+  )
   await db.execute("CREATE TABLE graph_post_tags (postId INTEGER NOT NULL, tagId INTEGER NOT NULL)")
 
   peta = createPeta({ dialect: new LibsqlDialect({ client: db }) })
@@ -153,9 +158,7 @@ describe("insertGraph", () => {
 
     expect(user.get("name")).toBe("Mixed Graph")
 
-    const profile = await Profile.query()
-      .where("userId", "=", user.get("id"))
-      .executeTakeFirst()
+    const profile = await Profile.query().where("userId", "=", user.get("id")).executeTakeFirst()
     expect(profile).toBeDefined()
     expect(profile!.get("bio")).toBe("My bio")
 
@@ -179,7 +182,12 @@ describe("insertGraph", () => {
     expect(post.get("title")).toBe("ManyToMany Post")
 
     // Check pivot rows
-    const pivots = (await db.execute({ sql: "SELECT * FROM graph_post_tags WHERE postId = ?", args: [post.get("id")] })).rows
+    const pivots = (
+      await db.execute({
+        sql: "SELECT * FROM graph_post_tags WHERE postId = ?",
+        args: [post.get("id")],
+      })
+    ).rows
     expect(pivots).toHaveLength(2)
   })
 
@@ -192,7 +200,12 @@ describe("insertGraph", () => {
       },
     })
 
-    const pivots = (await db.execute({ sql: "SELECT * FROM graph_post_tags WHERE postId = ?", args: [post.get("id")] })).rows
+    const pivots = (
+      await db.execute({
+        sql: "SELECT * FROM graph_post_tags WHERE postId = ?",
+        args: [post.get("id")],
+      })
+    ).rows
     expect(pivots).toHaveLength(2)
   })
 
@@ -248,7 +261,9 @@ describe("insertGraph", () => {
   })
 
   it("10. throws when #ref used without allowRefs", async () => {
-    expect(User.insertGraph([{ "#id": "x", name: "X" }, { "#ref": "x" }])).rejects.toThrow("allowRefs")
+    expect(User.insertGraph([{ "#id": "x", name: "X" }, { "#ref": "x" }])).rejects.toThrow(
+      "allowRefs",
+    )
   })
 
   it("11. inserts with #dbRef (relate to existing)", async () => {
@@ -262,7 +277,12 @@ describe("insertGraph", () => {
       },
     })
 
-    const pivots = (await db.execute({ sql: "SELECT * FROM graph_post_tags WHERE postId = ?", args: [post.get("id")] })).rows
+    const pivots = (
+      await db.execute({
+        sql: "SELECT * FROM graph_post_tags WHERE postId = ?",
+        args: [post.get("id")],
+      })
+    ).rows
     expect(pivots).toHaveLength(1)
     expect(pivots[0] as any).toMatchObject({ tagId: tag.get("id") })
   })
@@ -400,9 +420,7 @@ describe("upsertGraph", () => {
     const updatedPost = await Post.find(post.get("id"))
     expect(updatedPost!.get("title")).toBe("Nested Parent Updated")
 
-    const comments = await Comment.query()
-      .where("postId", "=", post.get("id"))
-      .orderBy("id", "asc")
+    const comments = await Comment.query().where("postId", "=", post.get("id")).orderBy("id", "asc")
     expect(comments).toHaveLength(2)
     expect(comments[0]!.get("body")).toBe("Updated Comment")
     expect(comments[1]!.get("body")).toBe("New Comment")
@@ -431,7 +449,12 @@ describe("upsertGraph", () => {
       },
     })
 
-    const pivots = (await db.execute({ sql: "SELECT tagId FROM graph_post_tags WHERE postId = ?", args: [post.get("id")] })).rows as {
+    const pivots = (
+      await db.execute({
+        sql: "SELECT tagId FROM graph_post_tags WHERE postId = ?",
+        args: [post.get("id")],
+      })
+    ).rows as {
       tagId: number
     }[]
     const pivotTagIds = pivots.map((p) => p.tagId)
@@ -529,5 +552,113 @@ describe("allowGraph with insertGraph/upsertGraph", () => {
           profile: { bio: "Blocked" },
         }),
     ).rejects.toThrow(RelationNotAllowedError)
+  })
+})
+
+// ─── Tests: deleteGraph ─────────────────────────────────────────
+
+describe("deleteGraph", () => {
+  it("27. deletes a root node with hasMany children", async () => {
+    const user = await User.insertGraph({
+      name: "DG HasMany",
+      posts: [{ title: "Child Post 1" }, { title: "Child Post 2" }],
+    })
+    const userId = user.get("id")
+
+    await User.deleteGraph(user)
+
+    // Root deleted
+    const found = await User.find(userId)
+    expect(found).toBeUndefined()
+
+    // Children deleted
+    const posts = await Post.query().where("userId", "=", userId)
+    expect(posts).toHaveLength(0)
+  })
+
+  it("28. deletes a root node with hasOne child", async () => {
+    const user = await User.insertGraph({
+      name: "DG HasOne",
+      profile: { bio: "deleteGraph hasOne" },
+    })
+    const userId = user.get("id")
+
+    await User.deleteGraph(user)
+
+    const profile = await Profile.query().where("userId", "=", userId).first()
+    expect(profile).toBeUndefined()
+    const found = await User.find(userId)
+    expect(found).toBeUndefined()
+  })
+
+  it("29. removes manyToMany pivot entries when deleting graph", async () => {
+    const tag = await Tag.insert({ name: "dg-m2m" })
+    const user = await User.insert({ name: "DG M2M" })
+    const post = await Post.insertGraph({
+      title: "DG M2M Post",
+      userId: user.get("id"),
+      tags: { connect: [tag.get("id")] },
+    })
+    const postId = post.get("id")
+
+    // Verify pivot exists
+    const pivotsBefore = (
+      await db.execute({
+        sql: "SELECT COUNT(*) as cnt FROM graph_post_tags WHERE postId = ?",
+        args: [postId],
+      })
+    ).rows as any[]
+    expect(pivotsBefore[0].cnt).toBe(1)
+
+    await Post.deleteGraph(post)
+
+    // Pivot rows removed
+    const pivotsAfter = (
+      await db.execute({
+        sql: "SELECT COUNT(*) as cnt FROM graph_post_tags WHERE postId = ?",
+        args: [postId],
+      })
+    ).rows as any[]
+    expect(pivotsAfter[0].cnt).toBe(0)
+
+    // Post deleted
+    const found = await Post.find(postId)
+    expect(found).toBeUndefined()
+  })
+
+  it("30. only deletes allowedRelations when specified", async () => {
+    const user = await User.insertGraph({
+      name: "DG Filtered",
+      profile: { bio: "Should survive" },
+      posts: [{ title: "Should be deleted" }],
+    })
+    const userId = user.get("id")
+
+    // Only delete posts, not profile
+    await User.deleteGraph(user, { allowedRelations: ["posts"] })
+
+    // Profile should still exist
+    const profile = await Profile.query().where("userId", "=", userId).first()
+    expect(profile).toBeDefined()
+    expect(profile!.get("bio")).toBe("Should survive")
+
+    // Posts deleted
+    const posts = await Post.query().where("userId", "=", userId)
+    expect(posts).toHaveLength(0)
+  })
+
+  it("31. accepts a model ID instead of instance", async () => {
+    const user = await User.insert({ name: "DG By ID" })
+    const userId = user.get("id")
+
+    await User.deleteGraph(userId)
+
+    const found = await User.find(userId)
+    expect(found).toBeUndefined()
+  })
+
+  it("32. does nothing when ID not found", async () => {
+    await User.deleteGraph(99999)
+    // Should not throw
   })
 })

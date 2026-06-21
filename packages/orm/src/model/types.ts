@@ -1,7 +1,11 @@
 import type { Column, ColumnShape, ColumnValue } from "../columns/column.js"
 import type { QueryBuilder } from "../query/index.js"
 import type { Relation } from "../relations/base.js"
-import type { InsertGraphOptions, UpsertGraphOptions } from "../relations/graph/index.js"
+import type {
+  DeleteGraphOptions,
+  InsertGraphOptions,
+  UpsertGraphOptions,
+} from "../relations/graph/index.js"
 import type { ORMLike } from "../types.js"
 import type { Attribute } from "./attribute.js"
 
@@ -60,13 +64,22 @@ export interface ModelDefinition<TColumns extends ColumnShape = ColumnShape> {
   insertMany(dataArray: Record<string, unknown>[]): Promise<ModelInstance<TColumns>[]>
   update(id: number | string, data: Record<string, unknown>): Promise<ModelInstance<TColumns>>
   delete(id: number | string): Promise<void>
-  insertGraph(data: Record<string, unknown> | Record<string, unknown>[], options?: InsertGraphOptions): Promise<any>
-  upsertGraph(data: Record<string, unknown> | Record<string, unknown>[], options?: UpsertGraphOptions): Promise<any>
+  deleteGraph(idOrInstance: any, options?: DeleteGraphOptions): Promise<void>
+  insertGraph(
+    data: Record<string, unknown> | Record<string, unknown>[],
+    options?: InsertGraphOptions,
+  ): Promise<any>
+  upsertGraph(
+    data: Record<string, unknown> | Record<string, unknown>[],
+    options?: UpsertGraphOptions,
+  ): Promise<any>
 
   hydrate(row: Record<string, unknown>): ModelInstance<TColumns>
 
   use(plugin: import("../plugins/index.js").Plugin): ModelDefinition<TColumns>
-  makeHelper<A extends any[], R>(fn: (qb: import("../query/index.js").QueryBuilder, ...args: A) => R): (...args: A) => R
+  makeHelper<A extends any[], R>(
+    fn: (qb: import("../query/index.js").QueryBuilder, ...args: A) => R,
+  ): (...args: A) => R
   on(event: string, callback: (model: ModelInstance<TColumns>) => void | Promise<void>): () => void
   getHooks(): import("../hooks/index.js").HookManager
 
