@@ -1,35 +1,13 @@
 import type { ModelDefinition, ModelInstance } from "../model/types.js"
 import { createQueryBuilder } from "../query/index.js"
 import type { Relation, RelationOptions, RelationType } from "./base.js"
-
-const THUNK_CACHE = new WeakMap<object, ModelDefinition>()
+import { resolveThunk } from "./helpers.js"
 
 /** Stores pivot data for many-to-many relation results (instead of attaching to the model). */
 const pivotData = new WeakMap<ModelInstance, Record<string, unknown>>()
 
-function resolveThunk(thunk: () => ModelDefinition): ModelDefinition {
-  let cls = THUNK_CACHE.get(thunk)
-  if (!cls) {
-    cls = thunk()
-    THUNK_CACHE.set(thunk, cls)
-  }
-  return cls
-}
-
 function snakeCase(str: string): string {
   return str.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`).replace(/^_/, "")
-}
-
-function _groupByArray(items: ModelInstance[], key: string): Record<string, ModelInstance[]> {
-  const result: Record<string, ModelInstance[]> = {}
-  for (const item of items) {
-    const v = item.get(key)
-    if (v == null) continue
-    const k = String(v)
-    if (!result[k]) result[k] = []
-    result[k].push(item)
-  }
-  return result
 }
 
 export function manyToMany(
@@ -93,7 +71,10 @@ export function manyToMany(
       return qb
     },
 
-    addEagerConstraints(_query: import("../query/index.js").QueryBuilder, _models: ModelInstance[]): void {
+    addEagerConstraints(
+      _query: import("../query/index.js").QueryBuilder,
+      _models: ModelInstance[],
+    ): void {
       // The query builder's join approach handles this differently
       // We use WHERE IN on the pivot table
     },
@@ -183,7 +164,8 @@ export function hasManyThrough(
   const through = resolveThunk(throughThunk)
   const foreignKey = options.foreignKey ?? `${snakeCase(through.table)}Id`
   const localKey = options.localKey ?? "id"
-  const throughForeignKey = options.throughForeignKey ?? `${snakeCase(resolveThunk(relatedThunk).table)}Id`
+  const throughForeignKey =
+    options.throughForeignKey ?? `${snakeCase(resolveThunk(relatedThunk).table)}Id`
   const throughLocalKey = options.throughLocalKey ?? "id"
 
   return {
@@ -208,15 +190,26 @@ export function hasManyThrough(
         qb.where(localKey, "=", -1)
         return qb
       }
-      qb.innerJoin(through.table, `${through.table}.${throughLocalKey}`, `${related.table}.${throughForeignKey}`)
+      qb.innerJoin(
+        through.table,
+        `${through.table}.${throughLocalKey}`,
+        `${related.table}.${throughForeignKey}`,
+      )
       qb.where(`${through.table}.${foreignKey}`, "=", pkValue)
       return qb
     },
 
-    addEagerConstraints(query: import("../query/index.js").QueryBuilder, models: ModelInstance[]): void {
+    addEagerConstraints(
+      query: import("../query/index.js").QueryBuilder,
+      models: ModelInstance[],
+    ): void {
       const ids = models.map((m) => m.get(localKey)).filter((id) => id != null)
       if (ids.length > 0) {
-        query.innerJoin(through.table, `${through.table}.${throughLocalKey}`, `${related.table}.${throughForeignKey}`)
+        query.innerJoin(
+          through.table,
+          `${through.table}.${throughLocalKey}`,
+          `${related.table}.${throughForeignKey}`,
+        )
         query.where(`${through.table}.${foreignKey}`, "in", ids)
       }
     },

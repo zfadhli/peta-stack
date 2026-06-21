@@ -43,28 +43,7 @@ export interface MorphOneOptions {
 
 // ─── HELPERS ───────────────────────────────────────────────────
 
-function groupByArray(items: ModelInstance[], key: string): Record<string, ModelInstance[]> {
-  const result: Record<string, ModelInstance[]> = {}
-  for (const item of items) {
-    const v = item.get(key)
-    if (v == null) continue
-    const k = String(v)
-    if (!result[k]) result[k] = []
-    result[k].push(item)
-  }
-  return result
-}
-
-const THUNK_CACHE = new WeakMap<object, ModelDefinition>()
-
-export function resolveThunk(thunk: () => ModelDefinition): ModelDefinition {
-  let cls = THUNK_CACHE.get(thunk)
-  if (!cls) {
-    cls = thunk()
-    THUNK_CACHE.set(thunk, cls)
-  }
-  return cls
-}
+import { groupByArray, resolveThunk } from "./helpers.js"
 
 /**
  * Resolve the related model for a MorphTo relation given a parent instance.
@@ -74,7 +53,10 @@ export function resolveThunk(thunk: () => ModelDefinition): ModelDefinition {
  * Returns `undefined` if the type column is null, the morph map entry is
  * missing, or the relation is not a morphTo.
  */
-export function resolveMorphRelation(relation: Relation, parent: ModelInstance): ModelDefinition | undefined {
+export function resolveMorphRelation(
+  relation: Relation,
+  parent: ModelInstance,
+): ModelDefinition | undefined {
   const morphMap = relation._morphMap
   const morphType = relation._morphType
   if (!morphMap || !morphType) return undefined
@@ -155,7 +137,9 @@ export function defineMorphTo(options: MorphToOptions): Relation {
     query(parent: ModelInstance): ReturnType<typeof createQueryBuilder> {
       const typeValue = parent.get(morphType) as string | undefined
       if (!typeValue) {
-        throw new Error(`Cannot resolve morphTo "${options.name}": "${morphType}" is null on ${defName(parent)}`)
+        throw new Error(
+          `Cannot resolve morphTo "${options.name}": "${morphType}" is null on ${defName(parent)}`,
+        )
       }
 
       const thunk = morphMap[typeValue]
@@ -169,7 +153,9 @@ export function defineMorphTo(options: MorphToOptions): Relation {
       const relatedDef = resolveThunk(thunk)
       const id = parent.get(morphId)
       if (id == null) {
-        throw new Error(`Cannot resolve morphTo "${options.name}": "${morphId}" is null on ${defName(parent)}`)
+        throw new Error(
+          `Cannot resolve morphTo "${options.name}": "${morphId}" is null on ${defName(parent)}`,
+        )
       }
       return relatedDef.query().where("id", "=", id)
     },

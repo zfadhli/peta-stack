@@ -147,6 +147,27 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
 
     return models
   }
+
+  const _withAggregate = (
+    relationName: string,
+    aggregateSql: string,
+    alias: string,
+    isExists = false,
+  ): QueryBuilder<TColumns> => {
+    const rel = def.relations[relationName]
+    if (!rel) throw new RelationNotFoundError(def.name, relationName)
+    const relatedTable = rel.relatedModelClass.table
+    const fk = rel.foreignKey
+    const lk = rel.localKey
+
+    const sql = isExists
+      ? `(SELECT EXISTS(SELECT 1 FROM ${relatedTable} WHERE ${relatedTable}.${fk} = ${def.table}.${lk})) as ${alias}`
+      : `(SELECT ${aggregateSql} FROM ${relatedTable} WHERE ${relatedTable}.${fk} = ${def.table}.${lk}) as ${alias}`
+    aggregateColumns.push(sql)
+    aggregateAliases.push(alias)
+    return self
+  }
+
   const self: QueryBuilder<TColumns> = {
     // ─── PromiseLike ──────────────────────────────────────
     // biome-ignore lint/suspicious/noThenProperty: Intentional thenable for await support
@@ -241,90 +262,33 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
       return Number((result as { max: number })?.max ?? 0)
     },
 
-    // ─── Aggregate subqueries (withCount, etc.) ─────────────
+    // ─── Aggregate subqueries ──────────────────────────────
     withCount(relation: string): QueryBuilder<TColumns> {
-      const alias = `${relation}_count`
-      const rel = def.relations[relation]
-      if (!rel) throw new RelationNotFoundError(def.name, relation)
-      const relatedTable = rel.relatedModelClass.table
-      const fk = rel.foreignKey
-      const lk = rel.localKey
-
-      aggregateColumns.push(
-        `(SELECT COUNT(*) FROM ${relatedTable} WHERE ${relatedTable}.${fk} = ${def.table}.${lk}) as ${alias}`,
-      )
-      aggregateAliases.push(alias)
-      return self
+      return _withAggregate(relation, "COUNT(*)", `${relation}_count`)
     },
 
     withSum(relation: string, column: string): QueryBuilder<TColumns> {
-      const alias = `${relation}_sum_${column}`
-      const rel = def.relations[relation]
-      if (!rel) throw new RelationNotFoundError(def.name, relation)
-      const relatedTable = rel.relatedModelClass.table
-      const fk = rel.foreignKey
-      const lk = rel.localKey
-      aggregateColumns.push(
-        `(SELECT COALESCE(SUM(${relatedTable}.${validateColumn(column)}), 0) FROM ${relatedTable} WHERE ${relatedTable}.${fk} = ${def.table}.${lk}) as ${alias}`,
+      return _withAggregate(
+        relation,
+        `COALESCE(SUM(${validateColumn(column)}), 0)`,
+        `${relation}_sum_${column}`,
       )
-      aggregateAliases.push(alias)
-      return self
     },
 
     withAvg(relation: string, column: string): QueryBuilder<TColumns> {
-      const alias = `${relation}_avg_${column}`
-      const rel = def.relations[relation]
-      if (!rel) throw new RelationNotFoundError(def.name, relation)
-      const relatedTable = rel.relatedModelClass.table
-      const fk = rel.foreignKey
-      const lk = rel.localKey
-      aggregateColumns.push(
-        `(SELECT AVG(${relatedTable}.${validateColumn(column)}) FROM ${relatedTable} WHERE ${relatedTable}.${fk} = ${def.table}.${lk}) as ${alias}`,
-      )
-      aggregateAliases.push(alias)
-      return self
+      return _withAggregate(relation, `AVG(${validateColumn(column)})`, `${relation}_avg_${column}`)
     },
 
     withMin(relation: string, column: string): QueryBuilder<TColumns> {
-      const alias = `${relation}_min_${column}`
-      const rel = def.relations[relation]
-      if (!rel) throw new RelationNotFoundError(def.name, relation)
-      const relatedTable = rel.relatedModelClass.table
-      const fk = rel.foreignKey
-      const lk = rel.localKey
-      aggregateColumns.push(
-        `(SELECT MIN(${relatedTable}.${validateColumn(column)}) FROM ${relatedTable} WHERE ${relatedTable}.${fk} = ${def.table}.${lk}) as ${alias}`,
-      )
-      aggregateAliases.push(alias)
-      return self
+      return _withAggregate(relation, `MIN(${validateColumn(column)})`, `${relation}_min_${column}`)
     },
 
     withMax(relation: string, column: string): QueryBuilder<TColumns> {
-      const alias = `${relation}_max_${column}`
-      const rel = def.relations[relation]
-      if (!rel) throw new RelationNotFoundError(def.name, relation)
-      const relatedTable = rel.relatedModelClass.table
-      const fk = rel.foreignKey
-      const lk = rel.localKey
-      aggregateColumns.push(
-        `(SELECT MAX(${relatedTable}.${validateColumn(column)}) FROM ${relatedTable} WHERE ${relatedTable}.${fk} = ${def.table}.${lk}) as ${alias}`,
-      )
-      aggregateAliases.push(alias)
-      return self
+      return _withAggregate(relation, `MAX(${validateColumn(column)})`, `${relation}_max_${column}`)
     },
 
     withExists(relation: string): QueryBuilder<TColumns> {
-      const alias = `${relation}_exists`
-      const rel = def.relations[relation]
-      if (!rel) throw new RelationNotFoundError(def.name, relation)
-      const relatedTable = rel.relatedModelClass.table
-      const fk = rel.foreignKey
-      const lk = rel.localKey
-      aggregateColumns.push(
-        `(SELECT EXISTS(SELECT 1 FROM ${relatedTable} WHERE ${relatedTable}.${fk} = ${def.table}.${lk})) as ${alias}`,
-      )
-      aggregateAliases.push(alias)
-      return self
+      return _withAggregate(relation, "", `${relation}_exists`, true)
     },
 
     // ─── Chunking ─────────────────────────────────────────
