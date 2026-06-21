@@ -50,14 +50,15 @@ const githubProvider: OAuthProviderConfig<GitHubTokens, GitHubUser> = {
   buildAuthUrl(config, redirectURL, state, _pkce) {
     const c = config as ReturnType<typeof githubProvider.resolveConfig>
 
-    if (c.emailRequired && !c.scope.includes("user:email")) {
-      c.scope.push("user:email")
+    let scope = c.scope
+    if (c.emailRequired && !scope.includes("user:email")) {
+      scope = [...c.scope, "user:email"]
     }
 
     const authUrl = new URL(c.authorizationURL)
     authUrl.searchParams.set("client_id", c.clientId)
     authUrl.searchParams.set("redirect_uri", redirectURL)
-    authUrl.searchParams.set("scope", c.scope.join(" "))
+    authUrl.searchParams.set("scope", scope.join(" "))
     authUrl.searchParams.set("state", state.state ?? "")
 
     for (const [key, value] of Object.entries(c.authorizationParams)) {
@@ -103,7 +104,8 @@ const githubProvider: OAuthProviderConfig<GitHubTokens, GitHubUser> = {
       })
 
       if (emailsResponse.ok) {
-        const emails: Array<{ email: string; primary: boolean; verified: boolean }> = await emailsResponse.json()
+        const emails: Array<{ email: string; primary: boolean; verified: boolean }> =
+          await emailsResponse.json()
         const primaryEmail = emails.find((entry) => entry.primary)
         if (primaryEmail) {
           user.email = primaryEmail.email
@@ -130,7 +132,11 @@ const githubProvider: OAuthProviderConfig<GitHubTokens, GitHubUser> = {
  */
 export function defineOAuthGitHubEventHandler(options: {
   config?: OAuthGitHubConfig
-  onSuccess: (event: { user: GitHubUser; tokens: GitHubTokens; request: Request }) => Response | Promise<Response>
+  onSuccess: (event: {
+    user: GitHubUser
+    tokens: GitHubTokens
+    request: Request
+  }) => Response | Promise<Response>
   onError?: (error: Error) => Response | Promise<Response>
 }): (request: Request) => Promise<Response> {
   return defineOAuthHandler<GitHubTokens, GitHubUser>(githubProvider, options)
