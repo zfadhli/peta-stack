@@ -555,27 +555,45 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
       return self
     },
 
-    whereHas(
-      relationName: string,
-      _callback?: (qb: QueryBuilder<TColumns>) => void,
-    ): QueryBuilder<TColumns> {
-      return self.has(relationName)
-    },
-
-    whereDoesntHave(
-      relationName: string,
-      _callback?: (qb: QueryBuilder<TColumns>) => void,
-    ): QueryBuilder<TColumns> {
+    whereHas(relationName: string, callback?: (subQb: any) => any): QueryBuilder<TColumns> {
       const rel = def.relations[relationName]
       if (!rel) throw new RelationNotFoundError(def.name, relationName)
       const relatedTable = rel.relatedModelClass.table
       const fk = rel.foreignKey
       const lk = rel.localKey
 
-      const notExistsExpr = rawSql(
-        `NOT EXISTS (SELECT 1 FROM ${relatedTable} WHERE ${relatedTable}.${fk} = ${def.table}.${lk})`,
-      )
-      qb = qb.where(notExistsExpr)
+      let subQuery: any = db
+        .selectFrom(relatedTable)
+        .select(kyselySql`1`.as("dummy"))
+        .whereRef(`${relatedTable}.${fk}`, "=", `${def.table}.${lk}`)
+
+      if (callback) {
+        subQuery = callback(subQuery) ?? subQuery
+      }
+
+      qb = qb.where(kyselySql`EXISTS ${subQuery}`)
+      _hasWhere = true
+      hasEffectiveWhere = true
+      return self
+    },
+
+    whereDoesntHave(relationName: string, callback?: (subQb: any) => any): QueryBuilder<TColumns> {
+      const rel = def.relations[relationName]
+      if (!rel) throw new RelationNotFoundError(def.name, relationName)
+      const relatedTable = rel.relatedModelClass.table
+      const fk = rel.foreignKey
+      const lk = rel.localKey
+
+      let subQuery: any = db
+        .selectFrom(relatedTable)
+        .select(kyselySql`1`.as("dummy"))
+        .whereRef(`${relatedTable}.${fk}`, "=", `${def.table}.${lk}`)
+
+      if (callback) {
+        subQuery = callback(subQuery) ?? subQuery
+      }
+
+      qb = qb.where(kyselySql`NOT EXISTS ${subQuery}`)
       _hasWhere = true
       hasEffectiveWhere = true
       return self

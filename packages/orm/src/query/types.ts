@@ -76,14 +76,17 @@ export interface QueryBuilder<TColumns extends ColumnShape = ColumnShape>
   // Where conditions
   whereIn(column: string, values: unknown[]): QueryBuilder<TColumns>
   has(relationName: string): QueryBuilder<TColumns>
-  whereHas(
-    relationName: string,
-    callback?: (qb: QueryBuilder<TColumns>) => void,
-  ): QueryBuilder<TColumns>
-  whereDoesntHave(
-    relationName: string,
-    callback?: (qb: QueryBuilder<TColumns>) => void,
-  ): QueryBuilder<TColumns>
+  /**
+   * Filter rows by related model existence with optional subquery filtering.
+   * The callback receives a raw Kysely subquery builder for the related table,
+   * not a peta-orm QueryBuilder. Chain `.where(...)` etc. directly on it.
+   */
+  whereHas(relationName: string, callback?: (subQb: any) => any): QueryBuilder<TColumns>
+  /**
+   * Filter rows by absence of related model, with optional subquery filtering.
+   * Same callback semantics as `whereHas`.
+   */
+  whereDoesntHave(relationName: string, callback?: (subQb: any) => any): QueryBuilder<TColumns>
   where(column: string, operator: unknown, value?: unknown): QueryBuilder<TColumns>
   whereRef(col1: string, operator: string, col2: string): QueryBuilder<TColumns>
   orWhere(column: string, operator: unknown, value?: unknown): QueryBuilder<TColumns>
