@@ -1,4 +1,4 @@
-import { DatabaseError, normalizeError } from "../errors.js"
+import { DatabaseError, ModelNotRegisteredError, normalizeError } from "../errors.js"
 import { applyCastsToData, prepareForDb } from "./casts.js"
 import { createInstance } from "./factory.js"
 import { getHooksFor } from "./hooks.js"
@@ -19,12 +19,15 @@ function getTable(def: ModelDefinition): string {
 }
 
 function getDb(def: ModelDefinition): any {
-  if (!def._orm) throw new Error("Model not registered")
+  if (!def._orm) throw new ModelNotRegisteredError(def.name)
   return (def._orm as any).kysely
 }
 
 // ─── SAVE MODEL ──────────────────────────────────────────────
-export async function saveModel(def: ModelDefinition, model: ModelInstance): Promise<ModelInstance> {
+export async function saveModel(
+  def: ModelDefinition,
+  model: ModelInstance,
+): Promise<ModelInstance> {
   const hm = getHooksFor(def)
   const exists = getExists(model)
   const pk = getPrimaryKeyColumn(def)
@@ -39,7 +42,9 @@ export async function saveModel(def: ModelDefinition, model: ModelInstance): Pro
 
     for (const key of Object.keys(dirty)) {
       if (dirty[key] !== original[key]) {
-        changed[key] = config?.casts?.[key] ? prepareForDb(dirty[key], config.casts[key]) : dirty[key]
+        changed[key] = config?.casts?.[key]
+          ? prepareForDb(dirty[key], config.casts[key])
+          : dirty[key]
       }
     }
 
@@ -72,10 +77,16 @@ export async function saveModel(def: ModelDefinition, model: ModelInstance): Pro
     }
 
     try {
-      const result = await db.insertInto(getTable(def)).values(data).returningAll().executeTakeFirst()
+      const result = await db
+        .insertInto(getTable(def))
+        .values(data)
+        .returningAll()
+        .executeTakeFirst()
 
       if (result) {
-        const applied = config?.casts ? applyCastsToData(config as any, result as any, "get") : result
+        const applied = config?.casts
+          ? applyCastsToData(config as any, result as any, "get")
+          : result
         for (const [key, value] of Object.entries(applied as Record<string, unknown>)) {
           getState(model).attributes[key] = value
         }
@@ -94,7 +105,10 @@ export async function saveModel(def: ModelDefinition, model: ModelInstance): Pro
 }
 
 // ─── INSERT MODEL (with nested relation support) ─────────────
-export async function insertModel(def: ModelDefinition, data: Record<string, unknown>): Promise<ModelInstance> {
+export async function insertModel(
+  def: ModelDefinition,
+  data: Record<string, unknown>,
+): Promise<ModelInstance> {
   const config = getConfig(def) ?? { columns: def.columns }
 
   // Check if data has relation operations
@@ -134,7 +148,10 @@ export async function insertModel(def: ModelDefinition, data: Record<string, unk
           create: Record<string, unknown>
         }
         const whereKey = Object.keys(where)[0]!
-        const found = await relatedDef.query().where(whereKey, "=", where[whereKey]).executeTakeFirst()
+        const found = await relatedDef
+          .query()
+          .where(whereKey, "=", where[whereKey])
+          .executeTakeFirst()
         if (found) {
           columnData[relation.foreignKey] = found.get(relation.localKey)
         } else {
@@ -200,10 +217,11 @@ export async function insertManyModel(
 
   let results: Record<string, unknown>[]
   try {
-    results = (await db.insertInto(getTable(def)).values(prepared).returningAll().execute()) as Record<
-      string,
-      unknown
-    >[]
+    results = (await db
+      .insertInto(getTable(def))
+      .values(prepared)
+      .returningAll()
+      .execute()) as Record<string, unknown>[]
   } catch (e: any) {
     throw normalizeError(e, getTable(def))
   }
@@ -321,7 +339,11 @@ export async function updateModel(
         const queries = Array.isArray(hop.update?.where) ? hop.update.where : [hop.update?.where]
         for (const where of queries) {
           const whereKey = Object.keys(where)[0]!
-          await relatedDef.query().where(whereKey, "=", where[whereKey]).all().updateMany(hop.update.data)
+          await relatedDef
+            .query()
+            .where(whereKey, "=", where[whereKey])
+            .all()
+            .updateMany(hop.update.data)
         }
       }
 
@@ -390,7 +412,11 @@ export async function updateModel(
             const key = Object.keys(where)[0]
             const val = Object.values(where)[0]
             if (key === "id") {
-              await db.deleteFrom(throughTable).where(fpk, "=", pkValue).where(rpk, "=", val).execute()
+              await db
+                .deleteFrom(throughTable)
+                .where(fpk, "=", pkValue)
+                .where(rpk, "=", val)
+                .execute()
             }
           }
         }
@@ -402,7 +428,11 @@ export async function updateModel(
         const rpk = relation.relatedPivotKey!
 
         // Get current IDs
-        const current = await db.selectFrom(throughTable).select(rpk).where(fpk, "=", pkValue).execute()
+        const current = await db
+          .selectFrom(throughTable)
+          .select(rpk)
+          .where(fpk, "=", pkValue)
+          .execute()
         const currentIds = new Set(current.map((r: any) => r[rpk]))
         const desiredIds = new Set<unknown>()
 
@@ -444,11 +474,16 @@ export async function updateModel(
 export async function reloadModel(def: ModelDefinition, model: ModelInstance): Promise<void> {
   const pk = getPrimaryKeyColumn(def)
   const pkValue = model.get(pk)
-  if (pkValue == null) throw new DatabaseError("Cannot reload model without primary key", "MISSING_ID")
+  if (pkValue == null)
+    throw new DatabaseError("Cannot reload model without primary key", "MISSING_ID")
 
   const db = getDb(def)
   try {
-    const row = await db.selectFrom(getTable(def)).selectAll().where(pk, "=", pkValue).executeTakeFirst()
+    const row = await db
+      .selectFrom(getTable(def))
+      .selectAll()
+      .where(pk, "=", pkValue)
+      .executeTakeFirst()
 
     if (row) {
       const config = getConfig(def)

@@ -1,3 +1,4 @@
+import { ModelNotRegisteredError } from "../../errors.js"
 import type { ModelDefinition, ModelInstance } from "../../model/types.js"
 import type { Relation } from "../base.js"
 import type { GraphContext, RefEntry } from "./types.js"
@@ -13,7 +14,7 @@ export function getPrimaryKeyColumn(def: ModelDefinition): string {
 }
 
 export function getDb(def: ModelDefinition): any {
-  if (!def._orm) throw new Error("Model not registered")
+  if (!def._orm) throw new ModelNotRegisteredError(def.name)
   return (def._orm as any).kysely
 }
 
@@ -86,7 +87,11 @@ export function extractGraphRelationData(
 
 // ─── REF COLLECTION & RESOLUTION ──────────────────────────────
 
-export function collectRefs(node: Record<string, unknown>, def: ModelDefinition, refMap: Map<string, RefEntry>): void {
+export function collectRefs(
+  node: Record<string, unknown>,
+  def: ModelDefinition,
+  refMap: Map<string, RefEntry>,
+): void {
   const id = node["#id"]
   if (id && typeof id === "string") {
     if (refMap.has(id)) {
@@ -112,7 +117,9 @@ export function collectRefs(node: Record<string, unknown>, def: ModelDefinition,
       } else if (value && typeof value === "object") {
         // For belongsTo/hasOne, the object might have #id inside,
         // or it could have { create: { ... } } wrapper
-        const inner = (value as Record<string, unknown>).create as Record<string, unknown> | undefined
+        const inner = (value as Record<string, unknown>).create as
+          | Record<string, unknown>
+          | undefined
         if (inner && typeof inner === "object") {
           collectRefs(inner, relatedDef, refMap)
         } else {

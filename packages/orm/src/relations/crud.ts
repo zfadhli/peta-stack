@@ -1,4 +1,4 @@
-import { DatabaseError, RelationNotFoundError } from "../errors.js"
+import { DatabaseError, ModelNotRegisteredError, RelationNotFoundError } from "../errors.js"
 import type { ModelDefinition, ModelInstance } from "../model/types.js"
 import type { Relation } from "./base.js"
 
@@ -52,13 +52,23 @@ export function extractRelationData(
   const relationOps: Record<string, RelationData> = {}
 
   for (const [key, value] of Object.entries(data)) {
-    if (def.relations[key] && typeof value === "object" && value !== null && !Array.isArray(value)) {
+    if (
+      def.relations[key] &&
+      typeof value === "object" &&
+      value !== null &&
+      !Array.isArray(value)
+    ) {
       // belongsTo/hasOne style: { create: {}, connect: {} }
       relationOps[key] = value as unknown as RelationData
     } else if (def.relations[key] && Array.isArray(value)) {
       // hasMany style: [{ create: ... }, { connect: ... }] or flat array for connect
       relationOps[key] = { connect: value } as ManyToManyOp
-    } else if (def.relations[key] && typeof value === "object" && value !== null && "create" in (value as any)) {
+    } else if (
+      def.relations[key] &&
+      typeof value === "object" &&
+      value !== null &&
+      "create" in (value as any)
+    ) {
       // hasMany/manyToMany style: { create: [...], connect: [...] }
       relationOps[key] = value as unknown as RelationData
     } else {
@@ -72,7 +82,7 @@ export function extractRelationData(
 // ─── GET DB ───────────────────────────────────────────────────
 
 function getDb(def: ModelDefinition): any {
-  if (!def._orm) throw new Error("Model not registered")
+  if (!def._orm) throw new ModelNotRegisteredError(def.name)
   return (def._orm as any).kysely
 }
 
@@ -96,7 +106,8 @@ export async function processCreateRelations(
     if (!relation) throw new RelationNotFoundError(def.name, relName)
     const _relatedDef = relation.relatedModelClass
     const pkValue = instance.get(relation.localKey)
-    if (pkValue == null) throw new DatabaseError("Cannot create relations without primary key", "MISSING_ID")
+    if (pkValue == null)
+      throw new DatabaseError("Cannot create relations without primary key", "MISSING_ID")
 
     if (relation.type === "belongsTo") {
       await processBelongsToCreate(instance, relation, op as BelongsToOp, pkValue)
@@ -201,7 +212,11 @@ async function processManyToManyCreate(
 
 // ─── HELPERS ──────────────────────────────────────────────────
 
-function getPivotInfo(relation: Relation): { throughTable: string; foreignPivotKey: string; relatedPivotKey: string } {
+function getPivotInfo(relation: Relation): {
+  throughTable: string
+  foreignPivotKey: string
+  relatedPivotKey: string
+} {
   if (relation.type !== "manyToMany" || !relation.throughTable) {
     throw new Error("Not a many-to-many relation")
   }
