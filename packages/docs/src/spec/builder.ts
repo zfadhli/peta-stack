@@ -9,7 +9,12 @@ import type {
   RouteEntry,
   SchemaObject,
 } from "../types.ts"
-import { mapContentSchemas, normalizeRequestBody, normalizeResponse, toOpenAPISchema } from "./schema.ts"
+import {
+  mapContentSchemas,
+  normalizeRequestBody,
+  normalizeResponse,
+  toOpenAPISchema,
+} from "./schema.ts"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -30,11 +35,15 @@ function parsePathParams(path: string): string[] {
   return params
 }
 
-function extractProperties(schema: SchemaObject): Array<{ name: string; schema: SchemaObject; required: boolean }> {
+function extractProperties(
+  schema: SchemaObject,
+): Array<{ name: string; schema: SchemaObject; required: boolean }> {
   const props = schema.properties as Record<string, unknown> | undefined
   if (!props) return []
 
-  const requiredSet = new Set<string>(Array.isArray(schema.required) ? (schema.required as string[]) : [])
+  const requiredSet = new Set<string>(
+    Array.isArray(schema.required) ? (schema.required as string[]) : [],
+  )
 
   return Object.entries(props).map(([name, propSchema]) => ({
     name,
@@ -81,6 +90,48 @@ export function buildOpenAPISpec(
   const s = (schema: unknown) => toOpenAPISchema(schema)
   const paths: PathsObject = {}
 
+  // Pre-scan: count ArkType schema usage for $ref deduplication
+  const schemaCount = new Map<unknown, number>()
+  for (const { config } of routes) {
+    if (config.requestBody) {
+      const normalized = normalizeRequestBody(config.requestBody)
+      if (normalized?.content) {
+        for (const { schema } of Object.values(normalized.content)) {
+          if (typeof schema === "function" && "toJsonSchema" in schema) {
+            schemaCount.set(schema, (schemaCount.get(schema) ?? 0) + 1)
+          }
+        }
+      }
+    }
+    for (const [status, rawResponse] of Object.entries(config.responses)) {
+      const normalized = normalizeResponse(status, rawResponse)
+      if (normalized?.content) {
+        for (const { schema } of Object.values(normalized.content)) {
+          if (typeof schema === "function" && "toJsonSchema" in schema) {
+            schemaCount.set(schema, (schemaCount.get(schema) ?? 0) + 1)
+          }
+        }
+      }
+    }
+  }
+
+  const schemaRegistry = new Map<unknown, string>()
+  const componentSchemas: Record<string, Record<string, unknown>> = {}
+
+  function refOrInline(schema: unknown): Record<string, unknown> {
+    const isArkType = typeof schema === "function" && "toJsonSchema" in schema
+    if (!isArkType) return toOpenAPISchema(schema)
+    // Only $ref when the same object is used more than once
+    if ((schemaCount.get(schema) ?? 0) <= 1) return toOpenAPISchema(schema)
+    if (schemaRegistry.has(schema)) {
+      return { $ref: `#/components/schemas/${schemaRegistry.get(schema)}` }
+    }
+    const name = `Schema${schemaRegistry.size + 1}`
+    schemaRegistry.set(schema, name)
+    componentSchemas[name] = toOpenAPISchema(schema)
+    return { $ref: `#/components/schemas/${name}` }
+  }
+
   const tagged = routes
     .map((r) => ({
       ...r,
@@ -89,7 +140,9 @@ export function buildOpenAPISpec(
     .sort((a, b) => {
       if (a.tag !== b.tag) return a.tag < b.tag ? -1 : 1
       if (a.path !== b.path) return a.path < b.path ? -1 : 1
-      return (METHOD_ORDER[a.method.toLowerCase()] ?? 99) - (METHOD_ORDER[b.method.toLowerCase()] ?? 99)
+      return (
+        (METHOD_ORDER[a.method.toLowerCase()] ?? 99) - (METHOD_ORDER[b.method.toLowerCase()] ?? 99)
+      )
     })
 
   for (const { path: rawPath, method, config } of tagged) {
@@ -173,16 +226,21 @@ export function buildOpenAPISpec(
     }
 
     if (config.sort) {
-      const enumValues = config.sort.flatMap((f: string) => [f, `-${f}`])
+      const itemEnum = config.sort.flatMap((f: string) => [f, `-${f}`])
       parameters.push({
         name: "sort",
         in: "query",
         required: false,
+        style: "form",
+        explode: false,
         schema: {
-          type: "string",
-          enum: enumValues,
-          description: "Comma-separated sort fields. Prefix with - for descending.",
+          type: "array",
+          items: {
+            type: "string",
+            enum: itemEnum,
+          },
         },
+        description: "Comma-separated sort fields. Prefix with - for descending.",
       })
     }
 
@@ -191,11 +249,16 @@ export function buildOpenAPISpec(
         name: "include",
         in: "query",
         required: false,
+        style: "form",
+        explode: false,
         schema: {
-          type: "string",
-          enum: config.include,
-          description: "Comma-separated related resources to sideload.",
+          type: "array",
+          items: {
+            type: "string",
+            enum: config.include,
+          },
         },
+        description: "Comma-separated related resources to sideload.",
       })
     }
 
@@ -230,6 +293,7 @@ export function buildOpenAPISpec(
     }
     if (config.summary) operation.summary = config.summary
     if (config.description) operation.description = config.description
+    if (config.deprecated) operation.deprecated = config.deprecated
     if (config.tags) operation.tags = config.tags
     else operation.tags = autoTags(path, basePath)
     if (config.security) {
@@ -243,7 +307,7 @@ export function buildOpenAPISpec(
         operation.requestBody = {
           description: normalized.description,
           required: normalized.required,
-          content: mapContentSchemas(normalized.content, s),
+          content: mapContentSchemas(normalized.content, refOrInline),
         }
       }
     }
@@ -258,14 +322,20 @@ export function buildOpenAPISpec(
         description: normalized.description,
       }
       if (normalized.content) {
-        resp.content = mapContentSchemas(normalized.content, s)
+        resp.content = mapContentSchemas(normalized.content, refOrInline)
       }
       responses[status] = resp
     }
     operation.responses = responses
 
     const methodLower = method.toLowerCase()
-    const validMethods = ["get", "post", "put", "delete", "patch"] as const satisfies readonly (keyof PathItemObject)[]
+    const validMethods = [
+      "get",
+      "post",
+      "put",
+      "delete",
+      "patch",
+    ] as const satisfies readonly (keyof PathItemObject)[]
     const key = validMethods.includes(methodLower as (typeof validMethods)[number])
       ? (methodLower as (typeof validMethods)[number])
       : undefined
@@ -279,7 +349,12 @@ export function buildOpenAPISpec(
     info,
     paths,
   }
-  if (options?.components) {
+  if (Object.keys(componentSchemas).length > 0) {
+    spec.components = {
+      ...((options?.components as Record<string, unknown>) ?? {}),
+      schemas: componentSchemas,
+    }
+  } else if (options?.components) {
     spec.components = options.components
   }
   return spec

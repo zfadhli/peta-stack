@@ -1,10 +1,13 @@
 /**
- * peta-docs/elysia — Elysia framework adapter (coming soon).
+ * peta-docs/elysia — Elysia framework adapter.
  *
- * This module will provide the same RouteBuilder API, an Elysia
- * route scanner, and a filesystem route loader for Elysia.
+ * Provides an Elysia route scanner for `getOpenAPISpec()`.
+ * Uses the same RouteBuilder fluent API from the Hono adapter.
+ *
+ * Pass `elysiaScanner` explicitly to `getOpenAPISpec(app, info, elysiaScanner)`.
  *
  * @module
  */
 
-export {}
+export { elysiaRoute } from "./route.ts"
+export { elysiaScanner } from "./scanner.ts"

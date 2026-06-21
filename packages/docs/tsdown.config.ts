@@ -1,7 +1,7 @@
 import { defineConfig } from "tsdown"
 
 export default defineConfig({
-  entry: ["./src/index.ts", "./src/hono/index.ts"],
+  entry: ["./src/index.ts", "./src/hono/index.ts", "./src/elysia/index.ts"],
   format: "esm",
   target: "esnext",
   dts: true,

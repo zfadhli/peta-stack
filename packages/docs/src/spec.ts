@@ -7,10 +7,7 @@ export { toOpenAPISchema } from "./spec/schema.ts"
 
 let _defaultScanner: RouteScanner | null = null
 
-/**
- * Register a default scanner for `getOpenAPISpec`.
- * Called automatically by framework adapter modules (e.g., `peta-docs/hono`).
- */
+/** @deprecated Import 'peta-docs/hono' which auto-registers the Hono scanner. Pass the scanner as the 3rd argument to getOpenAPISpec instead. */
 export function setDefaultScanner(scanner: RouteScanner): void {
   _defaultScanner = scanner
 }
@@ -24,8 +21,7 @@ export function getOpenAPISpec(
   const active = scanner ?? _defaultScanner
   if (!active) {
     throw new Error(
-      "No RouteScanner provided. Pass one explicitly or import from 'peta-docs/hono' which registers " +
-        "a default scanner.",
+      "No RouteScanner provided. Import 'peta-docs/hono' or pass a scanner explicitly.",
     )
   }
   return buildOpenAPISpec(active.scan(app), info, options)

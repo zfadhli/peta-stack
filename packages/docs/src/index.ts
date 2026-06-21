@@ -8,6 +8,8 @@
  * @module
  */
 
+export type { Diagnostic, DiagnosticLevel } from "./lib/diagnostics.ts"
+export { emitDiagnostic, setOnDiagnostic } from "./lib/diagnostics.ts"
 export type { ScalarUIOptions } from "./scalar.ts"
 export { serveScalarUI } from "./scalar.ts"
 export type { RouteScanner } from "./scanner.ts"

@@ -16,6 +16,7 @@ import { honoScanner } from "./scanner.ts"
 // Register the Hono scanner as the default for getOpenAPISpec
 setDefaultScanner(honoScanner)
 
+export { createHonoDocsApp, type HonoDocsConfig } from "./create-app.ts"
 export { loadRoutes } from "./loader.ts"
 export type { PaginationOptions, ValidationErrorHandler } from "./route.ts"
 export { getRouteMeta, RouteBuilder, route, setOnValidationError } from "./route.ts"

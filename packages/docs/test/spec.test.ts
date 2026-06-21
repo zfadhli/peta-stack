@@ -217,7 +217,11 @@ describe("buildOpenAPISpec", () => {
     )
     const spec = getOpenAPISpec(app, { title: "Test", version: "1.0.0" })
     const params = spec.paths!["/pets"]?.get?.parameters ?? []
-    expect(params.find((p) => p!.name === "page")?.schema).toMatchObject({ type: "integer", minimum: 1, default: 1 })
+    expect(params.find((p) => p!.name === "page")?.schema).toMatchObject({
+      type: "integer",
+      minimum: 1,
+      default: 1,
+    })
     expect(params.find((p) => p!.name === "limit")?.schema).toMatchObject({
       type: "integer",
       minimum: 1,
@@ -253,9 +257,14 @@ describe("buildOpenAPISpec", () => {
     const spec = getOpenAPISpec(app, { title: "Test", version: "1.0.0" })
     const sortParam = spec.paths!["/pets"]?.get?.parameters?.find((p) => p!.name === "sort")
     expect(sortParam?.schema).toMatchObject({
-      type: "string",
-      enum: ["name", "-name", "age", "-age"],
+      type: "array",
+      items: {
+        type: "string",
+        enum: ["name", "-name", "age", "-age"],
+      },
     })
+    expect(sortParam?.style).toBe("form")
+    expect(sortParam?.explode).toBe(false)
   })
 
   it("builds include parameter", () => {
@@ -269,7 +278,91 @@ describe("buildOpenAPISpec", () => {
     )
     const spec = getOpenAPISpec(app, { title: "Test", version: "1.0.0" })
     const incParam = spec.paths!["/pets"]?.get?.parameters?.find((p) => p!.name === "include")
-    expect(incParam?.schema).toMatchObject({ type: "string", enum: ["owner", "vet"] })
+    expect(incParam?.schema).toMatchObject({
+      type: "array",
+      items: { type: "string", enum: ["owner", "vet"] },
+    })
+    expect(incParam?.style).toBe("form")
+    expect(incParam?.explode).toBe(false)
+  })
+
+  it("includes deprecated flag on operation", () => {
+    const app = new Hono()
+    app.get(
+      "/old-endpoint",
+      route()
+        .deprecated()
+        .response(200, { description: "OK" })
+        .handle(() => new Response()),
+    )
+    const spec = getOpenAPISpec(app, { title: "Test", version: "1.0.0" })
+    expect(spec.paths!["/old-endpoint"]?.get?.deprecated).toBe(true)
+  })
+
+  it("omits deprecated when not set", () => {
+    const app = new Hono()
+    app.get(
+      "/fresh-endpoint",
+      route()
+        .response(200, { description: "OK" })
+        .handle(() => new Response()),
+    )
+    const spec = getOpenAPISpec(app, { title: "Test", version: "1.0.0" })
+    expect(spec.paths!["/fresh-endpoint"]?.get?.deprecated).toBeUndefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Schema deduplication ($ref)
+// ---------------------------------------------------------------------------
+
+describe("schema deduplication", () => {
+  it("reuses the same ArkType object via $ref", () => {
+    const Pet = type({ id: "number", name: "string" })
+    const app = new Hono()
+
+    app.get(
+      "/pets/:id",
+      route()
+        .params(type({ id: "string" }))
+        .response(200, Pet)
+        .handle(() => new Response()),
+    )
+    app.post(
+      "/pets",
+      route()
+        .response(201, Pet)
+        .handle(() => new Response()),
+    )
+
+    const spec = getOpenAPISpec(app, { title: "T", version: "1.0.0" })
+
+    const getResp = spec.paths!["/pets/{id}"]?.get?.responses?.["200"]
+    const postResp = spec.paths!["/pets"]?.post?.responses?.["201"]
+
+    expect(getResp?.content?.["application/json"]?.schema).toHaveProperty("$ref")
+    expect(postResp?.content?.["application/json"]?.schema).toHaveProperty("$ref")
+    expect(getResp?.content?.["application/json"]?.schema).toEqual(
+      postResp?.content?.["application/json"]?.schema,
+    )
+
+    expect(spec.components).toBeDefined()
+    expect((spec.components as Record<string, unknown>).schemas).toBeDefined()
+  })
+
+  it("inlines schemas that are only used once", () => {
+    const app = new Hono()
+    app.get(
+      "/pets",
+      route()
+        .response(200, type({ name: "string" }))
+        .handle(() => new Response()),
+    )
+
+    const spec = getOpenAPISpec(app, { title: "T", version: "1.0.0" })
+    const resp = spec.paths!["/pets"]?.get?.responses?.["200"]
+    expect(resp?.content?.["application/json"]?.schema).toHaveProperty("type")
+    expect(resp?.content?.["application/json"]?.schema).not.toHaveProperty("$ref")
   })
 })
 
@@ -309,5 +402,22 @@ describe("getOpenAPISpec", () => {
     }
     const spec = getOpenAPISpec(null, { title: "Test", version: "1.0.0" }, customScanner)
     expect(spec.paths!["/custom"]?.get?.responses?.["200"]?.description).toBe("OK")
+  })
+
+  it("uses explicit scanner over global default", () => {
+    const explicitScanner: RouteScanner = {
+      scan: () => [
+        {
+          path: "/explicit",
+          method: "GET",
+          config: {
+            responses: { "200": { description: "Explicit" } },
+            handler: () => new Response(),
+          },
+        },
+      ],
+    }
+    const spec = getOpenAPISpec(null, { title: "T", version: "1.0.0" }, explicitScanner)
+    expect(spec.paths!["/explicit"]?.get?.responses?.["200"]?.description).toBe("Explicit")
   })
 })

@@ -14,7 +14,17 @@ export type Pagination = {
   offset: number
 }
 
-export type FilterOperator = "eq" | "ne" | "gte" | "gt" | "lte" | "lt" | "contains" | "startsWith" | "endsWith" | "in"
+export type FilterOperator =
+  | "eq"
+  | "ne"
+  | "gte"
+  | "gt"
+  | "lte"
+  | "lt"
+  | "contains"
+  | "startsWith"
+  | "endsWith"
+  | "in"
 
 export interface FilterDef {
   name: string
@@ -85,6 +95,8 @@ export interface ParameterObject {
   description?: string
   required?: boolean
   deprecated?: boolean
+  style?: string
+  explode?: boolean
   schema: SchemaObject
 }
 
@@ -161,13 +173,16 @@ export type StatusCode =
   | "503"
   | (string & {})
 
-export type ResponseValue = string | { description?: string; content?: Record<string, { schema: unknown }> }
+export type ResponseValue =
+  | string
+  | { description?: string; content?: Record<string, { schema: unknown }> }
 
 export interface RouteConfig {
   summary?: string
   description?: string
   operationId?: string
   tags?: string[]
+  deprecated?: boolean
   query?: unknown
   params?: unknown
   headers?: unknown

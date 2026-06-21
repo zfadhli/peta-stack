@@ -119,9 +119,10 @@ function authGuard(schemes: string[]): MiddlewareHandler {
         }
       }
       if (scheme === "sessionAuth" || scheme === "cookieAuth") {
-        if (!c.req.header("Cookie")?.includes("session=")) {
-          return c.json({ error: "unauthorized" }, 401)
-        }
+        const cookie = c.req.header("Cookie")
+        if (!cookie) return c.json({ error: "unauthorized" }, 401)
+        const hasSession = cookie.split(";").some((pair) => pair.trim().split("=")[0] === "session")
+        if (!hasSession) return c.json({ error: "unauthorized" }, 401)
       }
       // Extensible: add "apiKey", "basicAuth", etc. here
     }

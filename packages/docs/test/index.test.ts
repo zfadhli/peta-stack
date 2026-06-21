@@ -71,6 +71,35 @@ describe("route()", () => {
     expect(meta!.tags).toEqual(["pets"])
     expect((meta!.responses["400"] as any)?.description).toBe("Bad request")
   })
+
+  it("stores deprecated flag", () => {
+    const handler = route()
+      .deprecated()
+      .response(200, { description: "OK" })
+      .handle(() => new Response())
+
+    const meta = getRouteMeta(handler)
+    expect(meta!.deprecated).toBe(true)
+  })
+
+  it("stores deprecated(false) flag", () => {
+    const handler = route()
+      .deprecated(false)
+      .response(200, { description: "OK" })
+      .handle(() => new Response())
+
+    const meta = getRouteMeta(handler)
+    expect(meta!.deprecated).toBe(false)
+  })
+
+  it("deprecated defaults to undefined when not called", () => {
+    const handler = route()
+      .response(200, { description: "OK" })
+      .handle(() => new Response())
+
+    const meta = getRouteMeta(handler)
+    expect(meta!.deprecated).toBeUndefined()
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -777,7 +806,9 @@ describe("shorthand integration with Hono", () => {
     const spec = getOpenAPISpec(app, { title: "Test", version: "1.0.0" })
     const s = spec as any
     expect(s.paths["/pets"].get.responses["200"].description).toBe("OK")
-    expect(s.paths["/pets"].get.responses["200"].content["application/json"].schema.properties).toBeDefined()
+    expect(
+      s.paths["/pets"].get.responses["200"].content["application/json"].schema.properties,
+    ).toBeDefined()
   })
 })
 
@@ -1276,6 +1307,72 @@ describe("auth", () => {
     const meta = getRouteMeta(handler)
     expect(meta?.security).toEqual(["bearerAuth", "apiKey"])
   })
+
+  it("sessionAuth rejects request with no Cookie header", async () => {
+    const app = new Hono()
+    const handler = route()
+      .auth("sessionAuth")
+      .response(200, { description: "OK" })
+      .handle(() => new Response("ok"))
+    app.get("/test", handler)
+    const res = await app.request("/test")
+    expect(res.status).toBe(401)
+    expect(await res.json()).toEqual({ error: "unauthorized" })
+  })
+
+  it("sessionAuth rejects request with wrong cookie name", async () => {
+    const app = new Hono()
+    const handler = route()
+      .auth("sessionAuth")
+      .response(200, { description: "OK" })
+      .handle(() => new Response("ok"))
+    app.get("/test", handler)
+    const res = await app.request("/test", {
+      headers: { Cookie: "token=abc123" },
+    })
+    expect(res.status).toBe(401)
+    expect(await res.json()).toEqual({ error: "unauthorized" })
+  })
+
+  it("sessionAuth rejects cookie name substring match", async () => {
+    const app = new Hono()
+    const handler = route()
+      .auth("sessionAuth")
+      .response(200, { description: "OK" })
+      .handle(() => new Response("ok"))
+    app.get("/test", handler)
+    const res = await app.request("/test", {
+      headers: { Cookie: "session_legacy=abc123" },
+    })
+    expect(res.status).toBe(401)
+    expect(await res.json()).toEqual({ error: "unauthorized" })
+  })
+
+  it("sessionAuth allows request with session cookie present", async () => {
+    const app = new Hono()
+    const handler = route()
+      .auth("sessionAuth")
+      .response(200, { description: "OK" })
+      .handle(() => new Response("ok"))
+    app.get("/test", handler)
+    const res = await app.request("/test", {
+      headers: { Cookie: "session=abc123" },
+    })
+    expect(res.status).toBe(200)
+    expect(await res.text()).toBe("ok")
+  })
+
+  it("cookieAuth rejects request with no cookie", async () => {
+    const app = new Hono()
+    const handler = route()
+      .auth("cookieAuth")
+      .response(200, { description: "OK" })
+      .handle(() => new Response("ok"))
+    app.get("/test", handler)
+    const res = await app.request("/test")
+    expect(res.status).toBe(401)
+    expect(await res.json()).toEqual({ error: "unauthorized" })
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -1355,8 +1452,11 @@ describe("filter", () => {
     expect(params).toHaveLength(1)
     expect(params[0]!.name).toBe("sort")
     expect(params[0]!.schema).toMatchObject({
-      type: "string",
-      enum: ["name", "-name", "price", "-price"],
+      type: "array",
+      items: {
+        type: "string",
+        enum: ["name", "-name", "price", "-price"],
+      },
     })
   })
 
@@ -1450,8 +1550,11 @@ describe("include", () => {
     expect(params).toHaveLength(1)
     expect(params[0]!.name).toBe("include")
     expect(params[0]!.schema).toMatchObject({
-      type: "string",
-      enum: ["author", "comments"],
+      type: "array",
+      items: {
+        type: "string",
+        enum: ["author", "comments"],
+      },
     })
   })
 

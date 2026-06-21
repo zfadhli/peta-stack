@@ -27,6 +27,11 @@
       "types": "./dist/hono/index.d.mts",
       "import": "./dist/hono/index.mjs",
       "default": "./dist/hono/index.mjs"
+    },
+    "./elysia": {
+      "types": "./dist/elysia/index.d.mts",
+      "import": "./dist/elysia/index.mjs",
+      "default": "./dist/elysia/index.mjs"
     }
   },
   "dependencies": {
@@ -49,6 +54,7 @@
   "devDependencies": {
     "@biomejs/biome": "^2.5.0",
     "@types/bun": "^1.3.14",
+    "elysia": "^1.4.29",
     "tsdown": "^0.22.1"
   }
 }

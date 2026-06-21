@@ -1,6 +1,7 @@
 import { readdirSync, statSync } from "node:fs"
 import { join, resolve } from "node:path"
 import { Hono } from "hono"
+import { emitDiagnostic } from "../lib/diagnostics.ts"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -69,7 +70,12 @@ async function walkDir(parentRouter: AnyHono, dir: string, accumulatedPath: stri
           parentRouter.route(mountPath, honoRouter)
         }
       } catch (err) {
-        console.warn(`[peta-docs] could not load routes from "${entry}": ${err instanceof Error ? err.message : err}`)
+        emitDiagnostic({
+          level: "warn",
+          message: `[peta-docs] could not load routes from "${entry}": ${err instanceof Error ? err.message : err}`,
+          code: "LOADER_IMPORT_FAILED",
+          source: "loadRoutes",
+        })
       }
     } else {
       const nextPath = accumulatedPath ? `${accumulatedPath}/${segment}` : `/${segment}`
@@ -105,14 +111,23 @@ async function walkDir(parentRouter: AnyHono, dir: string, accumulatedPath: stri
  * @param dir    Path to the routes directory
  * @param options.basePath  URL prefix (default "/api")
  */
-export async function loadRoutes(app: AnyHono, dir: string, options?: { basePath?: string }): Promise<void> {
+export async function loadRoutes(
+  app: AnyHono,
+  dir: string,
+  options?: { basePath?: string },
+): Promise<void> {
   const basePath = (options?.basePath ?? "/api").replace(/\/+$/, "")
   const resolvedDir = resolve(dir)
 
   try {
     readdirSync(resolvedDir)
   } catch {
-    console.warn(`[peta-docs] could not read routes directory: ${dir}`)
+    emitDiagnostic({
+      level: "warn",
+      message: `[peta-docs] could not read routes directory: ${dir}`,
+      code: "LOADER_DIR_NOT_FOUND",
+      source: "loadRoutes",
+    })
     return
   }
 
