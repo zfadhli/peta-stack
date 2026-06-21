@@ -30,7 +30,6 @@ export interface Collection<TColumns extends ColumnShape = ColumnShape> {
   filter(fn: (item: ModelInstance<TColumns>, index: number) => boolean): Collection<TColumns>
   reduce<T>(fn: (acc: T, item: ModelInstance<TColumns>, index: number) => T, initial: T): T
   forEach(fn: (item: ModelInstance<TColumns>, index: number) => void): void
-  each(fn: (item: ModelInstance<TColumns>, index: number) => void): Collection<TColumns>
 
   // Sorting & slicing
   unique(key?: string): Collection<TColumns>
@@ -146,11 +145,6 @@ export function createCollection<TColumns extends ColumnShape = ColumnShape>(
       data.forEach(fn)
     },
 
-    each(fn: (item: ModelInstance<TColumns>, index: number) => void): Collection<TColumns> {
-      data.forEach(fn)
-      return collection
-    },
-
     unique(key?: string): Collection<TColumns> {
       if (!key) {
         const seen = new Set<number>()
@@ -246,9 +240,8 @@ export function createCollection<TColumns extends ColumnShape = ColumnShape>(
       if (data.length === 0) return collection
       const { EagerLoader } = await import("../relations/eager.js")
       const { getModelDefFromInstance } = await import("../model/factory.js")
-      const { getModelDef } = await import("../model/relation.js")
       const first = data[0]!
-      const def = getModelDefFromInstance(first) ?? getModelDef(first)
+      const def = getModelDefFromInstance(first)
       if (def) {
         const loader = new EagerLoader()
         for (const rel of relations) {

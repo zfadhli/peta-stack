@@ -61,7 +61,4 @@ jobs:
 
       - name: Create GitHub Release
         if: github.event_name == 'push'
-        uses: softprops/action-gh-release@v2
-        with:
-          name: ${{ steps.tag.outputs.package }} v${{ steps.tag.outputs.version }}
-          generate_release_notes: true
+        run: gh release create "${{ steps.tag.outputs.package }}@${{ steps.tag.outputs.version }}" --generate-notes --target main

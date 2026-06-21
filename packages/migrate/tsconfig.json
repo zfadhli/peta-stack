@@ -1,18 +1,7 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "lib": ["ESNext"],
     "module": "Preserve",
-    "moduleDetection": "force",
-    "allowJs": true,
-    "types": ["bun"],
-    "verbatimModuleSyntax": true,
-    "noFallthroughCasesInSwitch": true,
-    "noUncheckedIndexedAccess": true,
-    "noImplicitOverride": true,
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
-    "noPropertyAccessFromIndexSignature": false,
     "paths": {
       "peta-orm": ["../../packages/orm/src/index.ts"]
     }

@@ -26,11 +26,6 @@ export interface QueryBuilder<TColumns extends ColumnShape = ColumnShape>
   // Aggregates with subquery (withCount)
   withCount(relation: string): QueryBuilder<TColumns>
   withSum(relation: string, column: string): QueryBuilder<TColumns>
-  withAvg(relation: string, column: string): QueryBuilder<TColumns>
-  withMin(relation: string, column: string): QueryBuilder<TColumns>
-  withMax(relation: string, column: string): QueryBuilder<TColumns>
-  withExists(relation: string): QueryBuilder<TColumns>
-
   // Chunking & pagination
   chunk(size: number, callback: (chunk: ModelInstance<TColumns>[]) => Promise<void>): Promise<void>
   paginate(

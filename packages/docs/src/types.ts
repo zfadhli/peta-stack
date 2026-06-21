@@ -208,3 +208,7 @@ export interface RouteEntry {
   method: string
   config: RouteConfig
 }
+
+export interface RouteScanner {
+  scan(app: unknown): RouteEntry[]
+}

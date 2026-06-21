@@ -1,7 +1,6 @@
 import { readdirSync, statSync } from "node:fs"
 import { join, resolve } from "node:path"
 import { Hono } from "hono"
-import { emitDiagnostic } from "../lib/diagnostics.ts"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -70,12 +69,9 @@ async function walkDir(parentRouter: AnyHono, dir: string, accumulatedPath: stri
           parentRouter.route(mountPath, honoRouter)
         }
       } catch (err) {
-        emitDiagnostic({
-          level: "warn",
-          message: `[peta-docs] could not load routes from "${entry}": ${err instanceof Error ? err.message : err}`,
-          code: "LOADER_IMPORT_FAILED",
-          source: "loadRoutes",
-        })
+        console.warn(
+          `[peta-docs] could not load routes from "${entry}": ${err instanceof Error ? err.message : err}`,
+        )
       }
     } else {
       const nextPath = accumulatedPath ? `${accumulatedPath}/${segment}` : `/${segment}`
@@ -122,12 +118,7 @@ export async function loadRoutes(
   try {
     readdirSync(resolvedDir)
   } catch {
-    emitDiagnostic({
-      level: "warn",
-      message: `[peta-docs] could not read routes directory: ${dir}`,
-      code: "LOADER_DIR_NOT_FOUND",
-      source: "loadRoutes",
-    })
+    console.warn(`[peta-docs] could not read routes directory: ${dir}`)
     return
   }
 

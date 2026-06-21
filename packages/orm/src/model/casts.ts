@@ -57,13 +57,12 @@ export function castForSet(value: unknown, type: string): unknown {
 export function applyCastsToData(
   config: ModelConfig,
   data: Record<string, unknown>,
-  mode: "get" | "set",
 ): Record<string, unknown> {
   if (!config.casts) return { ...data }
   const result: Record<string, unknown> = { ...data }
   for (const [key, type] of Object.entries(config.casts)) {
     if (key in result) {
-      result[key] = mode === "get" ? castValue(result[key], type) : prepareForDb(result[key], type)
+      result[key] = castValue(result[key], type)
     }
   }
   return result

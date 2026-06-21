@@ -1,14 +1,7 @@
 import { DatabaseError, isUniqueConstraintError, normalizeError } from "../../errors.js"
 import type { ModelDefinition, ModelInstance } from "../../model/types.js"
 import type { Relation } from "../base.js"
-import {
-  getMorphId,
-  getMorphType,
-  getMorphTypeValue,
-  isMorphManyRelation,
-  isMorphToRelation,
-  resolveThunk,
-} from "./morph.js"
+import { resolveThunk } from "../helpers.js"
 import {
   collectRefs,
   extractGraphRelationData,
@@ -186,7 +179,7 @@ export async function processBelongsTo(
   parentColumnData?: Record<string, unknown>,
 ): Promise<ModelInstance | null> {
   // Handle MorphTo (polymorphic belongsTo)
-  if (isMorphToRelation(relation)) {
+  if (relation._morphMap !== undefined) {
     return processMorphTo(relation, op, options, context, path, parentColumnData)
   }
 
@@ -247,8 +240,8 @@ async function processMorphTo(
   parentColumnData?: Record<string, unknown>,
 ): Promise<ModelInstance | null> {
   const morphMap = relation._morphMap
-  const morphType = getMorphType(relation)!
-  const morphId = getMorphId(relation)!
+  const morphType = relation._morphType!
+  const morphId = relation._morphId!
 
   if (!morphMap || Object.keys(morphMap).length === 0) {
     throw new Error(
@@ -378,9 +371,9 @@ async function processHasMany(
     }
     // Build parent FK, including type column for MorphMany/MorphOne
     const parentData: Record<string, unknown> = { [fk]: pkValue }
-    if (isMorphManyRelation(relation)) {
-      const typeCol = getMorphType(relation)!
-      const typeVal = getMorphTypeValue(relation)
+    if (relation._morphType !== undefined && relation._morphMap === undefined) {
+      const typeCol = relation._morphType!
+      const typeVal = relation._morphTypeValue
       if (typeVal !== undefined) parentData[typeCol] = typeVal
     }
     await processNode(item, relatedDef, parentData, options, context, path)

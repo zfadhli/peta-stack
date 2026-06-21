@@ -8,11 +8,8 @@
  * @module
  */
 
-export type { Diagnostic, DiagnosticLevel } from "./lib/diagnostics.ts"
-export { emitDiagnostic, setOnDiagnostic } from "./lib/diagnostics.ts"
 export type { ScalarUIOptions } from "./scalar.ts"
 export { serveScalarUI } from "./scalar.ts"
-export type { RouteScanner } from "./scanner.ts"
 export { buildOpenAPISpec, getOpenAPISpec, toOpenAPISchema } from "./spec.ts"
 export type {
   ArkTypeSchema,
@@ -27,6 +24,7 @@ export type {
   ResponseValue,
   RouteConfig,
   RouteEntry,
+  RouteScanner,
   SchemaObject,
   StatusCode,
   TypedContext,

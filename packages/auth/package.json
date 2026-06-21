@@ -54,7 +54,6 @@
   "scripts": {
     "build": "tsdown",
     "lint": "biome check --write .",
-    "lint:ci": "biome ci .",
     "prepublishOnly": "bun run build",
     "test": "bun test",
     "typecheck": "tsc --noEmit"

@@ -1,6 +1,5 @@
-import type { RouteScanner } from "./scanner.ts"
 import { buildOpenAPISpec } from "./spec/builder.ts"
-import type { InfoObject, OpenAPIObject } from "./types.ts"
+import type { InfoObject, OpenAPIObject, RouteScanner } from "./types.ts"
 
 export { buildOpenAPISpec } from "./spec/builder.ts"
 export { toOpenAPISchema } from "./spec/schema.ts"

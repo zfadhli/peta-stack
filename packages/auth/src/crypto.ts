@@ -7,8 +7,6 @@ export type Password = string | Record<string, string>
 type PasswordsMap = Record<string, string>
 
 const SEVEN_DAYS = 14 * 24 * 3600
-const CURRENT_MAJOR_VERSION = 2
-const VERSION_DELIMITER = "~"
 
 export function normalizePassword(password: Password): PasswordsMap {
   return typeof password === "string" ? { 1: password } : password
@@ -47,7 +45,7 @@ export async function sealData(
     },
   )
 
-  return `${seal}${VERSION_DELIMITER}${CURRENT_MAJOR_VERSION}`
+  return seal
 }
 
 /**
@@ -64,23 +62,15 @@ export async function unsealData<T>(
 ): Promise<T> {
   const map = normalizePassword(password)
 
-  const index = seal.lastIndexOf(VERSION_DELIMITER)
-  const sealWithoutVersion = index === -1 ? seal : seal.slice(0, index)
-  const tokenVersion = index === -1 ? null : parseInt(seal.slice(index + 1), 10) || null
-
   try {
-    const data = (await ironUnseal(sealWithoutVersion, map, {
+    const data = (await ironUnseal(seal, map, {
       ...ironDefaults,
       ttl: ttl * 1000,
       encode: JSON.stringify,
       decode: JSON.parse,
     })) as Record<string, unknown> | undefined
 
-    if (tokenVersion === 2) return data as T
-
-    return {
-      ...(data?.persistent ? { ...(data.persistent as Record<string, unknown>) } : {}),
-    } as T
+    return data as T
   } catch (err) {
     if (
       err instanceof Error &&

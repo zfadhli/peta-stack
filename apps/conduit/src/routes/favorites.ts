@@ -2,7 +2,7 @@ import { type } from "arktype"
 import { Hono } from "hono"
 import { route } from "peta-docs/hono"
 import type { ModelInstance } from "peta-orm"
-import { Article, Favorite, Follow, User } from "../db/schema.js"
+import { Article, Favorite, Follow, Tag, User } from "../db/schema.js"
 import { requireAuth } from "../middleware/auth.js"
 import { onValidationError } from "../middleware/error.js"
 import { http } from "../middleware/http-error.js"
@@ -40,7 +40,6 @@ const SlugParams = type({ slug: "string" })
 // ---------------------------------------------------------------------------
 
 async function getTagListForArticle(articleId: string): Promise<string[]> {
-  const { Tag } = await import("../db/schema.js")
   const tags = await Tag.query()
     .select("name")
     .innerJoin("article_tags", "article_tags.tagId", "tags.id")
@@ -67,7 +66,10 @@ async function buildArticleResponse(article: ModelInstance, currentUserId?: stri
 
   const favorited = await (async () => {
     if (!currentUserId) return false
-    const fav = await Favorite.query().where("userId", "=", currentUserId).where("articleId", "=", articleId).first()
+    const fav = await Favorite.query()
+      .where("userId", "=", currentUserId)
+      .where("articleId", "=", articleId)
+      .first()
     return !!fav
   })()
 
@@ -158,7 +160,10 @@ app.delete(
 
       const articleId = article.get("id")
 
-      await Favorite.query().where("userId", "=", currentUserId).where("articleId", "=", articleId).deleteMany()
+      await Favorite.query()
+        .where("userId", "=", currentUserId)
+        .where("articleId", "=", articleId)
+        .deleteMany()
 
       return c.json(await buildArticleResponse(article, currentUserId))
     }),

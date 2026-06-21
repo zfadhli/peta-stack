@@ -20,7 +20,6 @@ export interface HookManager {
   on(event: LifecycleEvent, callback: HookCallback): () => void
   off(event: LifecycleEvent, callback: HookCallback): void
   trigger(event: LifecycleEvent, model: ModelLike): Promise<void>
-  clone(): HookManager
 }
 
 export function createHookManager(): HookManager {
@@ -53,15 +52,5 @@ export function createHookManager(): HookManager {
     }
   }
 
-  function clone(): HookManager {
-    const cloned = createHookManager()
-    for (const [event, cbs] of listeners) {
-      for (const cb of cbs) {
-        cloned.on(event, cb)
-      }
-    }
-    return cloned
-  }
-
-  return { on, off, trigger, clone }
+  return { on, off, trigger }
 }

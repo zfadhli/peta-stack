@@ -43,7 +43,7 @@ export async function run(): Promise<void> {
           spinner.succeed("No schema changes detected since last snapshot.")
           return
         }
-        code = gen.generateMigrationFromDiff(diffs, { name: name ?? "changes" })
+        code = gen.generateMigrationFromDiff(diffs)
         saveSnapshot(snapshotPath, currentSnapshot)
         spinner.text = `Generated incremental migration (${diffs.length} change(s))`
       } else {

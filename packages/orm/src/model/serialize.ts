@@ -1,7 +1,7 @@
 import { castValue } from "./casts.js"
 import { getConfig as getSaveConfig } from "./save.js"
 import { getRawRelations, getState } from "./state.js"
-import type { ModelConfig, ModelDefinition, ModelInstance } from "./types.js"
+import type { ModelDefinition, ModelInstance } from "./types.js"
 
 const VISITED = new WeakSet<object>()
 
@@ -13,11 +13,15 @@ interface SerializableModel {
 
 /** Type guard: checks if a value looks like a SerializableModel. */
 function isSerializableModel(value: unknown): value is SerializableModel {
-  return value !== null && typeof value === "object" && typeof (value as Record<string, unknown>).$toJSON === "function"
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    typeof (value as Record<string, unknown>).$toJSON === "function"
+  )
 }
 
 export function modelToJSON(def: ModelDefinition, model: ModelInstance): Record<string, unknown> {
-  const config = getSaveConfig(def) ?? getConfig(def)
+  const config = getSaveConfig(def)
   const state = getState(model)
   const result: Record<string, unknown> = {}
 
@@ -85,14 +89,4 @@ export function modelToJSON(def: ModelDefinition, model: ModelInstance): Record<
   }
 
   return result
-}
-
-const configMap = new WeakMap<ModelDefinition, ModelConfig>()
-
-export function setConfig(def: ModelDefinition, config: ModelConfig): void {
-  configMap.set(def, config)
-}
-
-export function getConfig(def: ModelDefinition): ModelConfig | undefined {
-  return configMap.get(def)
 }

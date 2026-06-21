@@ -33,14 +33,6 @@ export interface MorphManyOptions {
   typeValue?: string
 }
 
-export interface MorphOneOptions {
-  name: string
-  related: () => ModelDefinition
-  type?: string
-  id?: string
-  typeValue?: string
-}
-
 // ─── HELPERS ───────────────────────────────────────────────────
 
 import { groupByArray, resolveThunk } from "./helpers.js"
@@ -138,7 +130,9 @@ export function defineMorphTo(options: MorphToOptions): Relation {
       const typeValue = parent.get(morphType) as string | undefined
       if (!typeValue) {
         throw new Error(
-          `Cannot resolve morphTo "${options.name}": "${morphType}" is null on ${defName(parent)}`,
+          `Cannot resolve morphTo "${options.name}": "${morphType}" is null on ${
+            (parent as { constructor?: { name?: string } }).constructor?.name ?? "model"
+          }`,
         )
       }
 
@@ -154,7 +148,9 @@ export function defineMorphTo(options: MorphToOptions): Relation {
       const id = parent.get(morphId)
       if (id == null) {
         throw new Error(
-          `Cannot resolve morphTo "${options.name}": "${morphId}" is null on ${defName(parent)}`,
+          `Cannot resolve morphTo "${options.name}": "${morphId}" is null on ${
+            (parent as { constructor?: { name?: string } }).constructor?.name ?? "model"
+          }`,
         )
       }
       return relatedDef.query().where("id", "=", id)
@@ -320,39 +316,4 @@ export function defineMorphMany(options: MorphManyOptions): Relation {
     },
   }
   return morphManyRelation
-}
-
-// ─── DEFINE MORPH ONE (polymorphic hasOne) ────────────────────
-
-/**
- * Define a polymorphic hasOne relationship.
- */
-export function defineMorphOne(options: MorphOneOptions): Relation {
-  const base = defineMorphMany(options as MorphManyOptions)
-  const morphOneRelation: Relation = {
-    ...base,
-    type: "hasOne",
-
-    async getResults(parent: ModelInstance): Promise<ModelInstance | null> {
-      const results = await base.getResults(parent)
-      return (results as ModelInstance[])[0] ?? null
-    },
-
-    match(models: ModelInstance[], results: ModelInstance[], relationName: string): void {
-      const grouped = groupByArray(results, base.foreignKey)
-      for (const model of models) {
-        const key = String(model.get("id"))
-        const related = grouped[key] ?? []
-        model.$setRelation(relationName, related[0] ?? null)
-      }
-    },
-  }
-  return morphOneRelation
-}
-
-// ─── INTERNAL HELPERS ──────────────────────────────────────────
-
-function defName(instance: ModelInstance): string {
-  // ModelInstance is a plain object, not a class — use a best-effort identifier
-  return (instance as { constructor?: { name?: string } }).constructor?.name ?? "model"
 }

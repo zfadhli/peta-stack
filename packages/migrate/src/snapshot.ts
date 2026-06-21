@@ -53,17 +53,13 @@ function columnToSchema(name: string, col: Column): SchemaColumn {
 
   return {
     name,
-    type: mapSnapshotType(col),
+    type: columnDataTypeToSql(col.dataType, col.args),
     isNullable: col.isNullable ?? false,
     isPrimaryKey: col.isPrimaryKey ?? false,
     isUnique: col.isUnique ?? false,
     defaultValue: col.defaultValue,
     references,
   }
-}
-
-function mapSnapshotType(col: Column): string {
-  return columnDataTypeToSql(col.dataType, col.args)
 }
 
 /**

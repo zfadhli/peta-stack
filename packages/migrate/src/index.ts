@@ -1,7 +1,7 @@
 export { computeChecksum, loadChecksums, saveChecksums, verifyChecksum } from "./checksum.js"
 export { loadConfig, loadMigrationFiles, loadModels } from "./config.js"
 export { diffSnapshots } from "./differ.js"
-export type { GeneratorOptions, MigrationGenerator } from "./generator.js"
+export type { MigrationGenerator } from "./generator.js"
 export { createMigrationGenerator } from "./generator.js"
 export { pushSchema } from "./pusher.js"
 export type { MigrationRunner } from "./runner.js"

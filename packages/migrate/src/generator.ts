@@ -2,17 +2,8 @@ import type { Column, ColumnShape, ModelDefinition } from "peta-orm"
 import { columnDataTypeToSql } from "./column-mapper.js"
 import type { SchemaColumn, SchemaDiff } from "./types.js"
 
-export interface GeneratorOptions {
-  name?: string
-}
-
-export interface MigrationGenerator {
-  generateInitialMigration(models: Map<string, ModelDefinition>, options?: GeneratorOptions): string
-  generateMigrationFromDiff(diffs: SchemaDiff[], options?: GeneratorOptions): string
-}
-
-export function createMigrationGenerator(): MigrationGenerator {
-  function generateInitialMigration(models: Map<string, ModelDefinition>, _options: GeneratorOptions = {}): string {
+export function createMigrationGenerator() {
+  function generateInitialMigration(models: Map<string, ModelDefinition>): string {
     const parts: string[] = []
     const indexParts: string[] = []
     const warnings: string[] = []
@@ -23,7 +14,9 @@ export function createMigrationGenerator(): MigrationGenerator {
       parts.push(generateCreateTable(table, modelDef.columns))
       for (const [colName, col] of Object.entries(modelDef.columns)) {
         if (col.hasConstraint("index") && !col.isPrimaryKey && !col.isUnique)
-          indexParts.push(generateCreateIndexFromSchema(table, `${table}_${colName}_index`, [colName]))
+          indexParts.push(
+            generateCreateIndexFromSchema(table, `${table}_${colName}_index`, [colName]),
+          )
       }
       for (const [, rel] of Object.entries(modelDef.relations ?? {})) {
         if (rel.type === "manyToMany") {
@@ -45,7 +38,7 @@ export function createMigrationGenerator(): MigrationGenerator {
     return `import type { Kysely } from "kysely"\n\nexport async function up(db: Kysely<any>): Promise<void> {\n${warningBlock}${upBody}\n}\n\nexport async function down(db: Kysely<any>): Promise<void> {\n${downTables}\n}\n`
   }
 
-  function generateMigrationFromDiff(diffs: SchemaDiff[], _options: GeneratorOptions = {}): string {
+  function generateMigrationFromDiff(diffs: SchemaDiff[]): string {
     const upParts: string[] = []
     const downParts: string[] = []
     const warnings: string[] = []
@@ -54,7 +47,10 @@ export function createMigrationGenerator(): MigrationGenerator {
       switch (diff.type) {
         case "createTable": {
           const cols = (diff.details?.columns ?? []) as SchemaColumn[]
-          const indexes = (diff.details?.indexes ?? []) as Array<{ name: string; columns: string[] }>
+          const indexes = (diff.details?.indexes ?? []) as Array<{
+            name: string
+            columns: string[]
+          }>
           upParts.push(generateCreateTableFromSchema(diff.table, cols))
           for (const idx of indexes) {
             upParts.push(generateCreateIndexFromSchema(diff.table, idx.name, idx.columns))
@@ -64,8 +60,12 @@ export function createMigrationGenerator(): MigrationGenerator {
         }
         case "dropTable": {
           upParts.push(`  await db.schema.dropTable("${diff.table}").ifExists().execute()`)
-          downParts.push(`  // ⚠ Cannot auto-restore dropped table "${diff.table}" — manual recovery needed`)
-          warnings.push(`// ⚠ Dropped table "${diff.table}". The down() function cannot restore it.`)
+          downParts.push(
+            `  // ⚠ Cannot auto-restore dropped table "${diff.table}" — manual recovery needed`,
+          )
+          warnings.push(
+            `// ⚠ Dropped table "${diff.table}". The down() function cannot restore it.`,
+          )
           break
         }
         case "addColumn": {
@@ -73,20 +73,28 @@ export function createMigrationGenerator(): MigrationGenerator {
           upParts.push(
             `  await db.schema.alterTable("${diff.table}").addColumn("${col.name}", "${col.type}"${columnCallbackFromSchema(col)}).execute()`,
           )
-          downParts.push(`  await db.schema.alterTable("${diff.table}").dropColumn("${col.name}").execute()`)
+          downParts.push(
+            `  await db.schema.alterTable("${diff.table}").dropColumn("${col.name}").execute()`,
+          )
           break
         }
         case "dropColumn": {
-          upParts.push(`  await db.schema.alterTable("${diff.table}").dropColumn("${diff.column}").execute()`)
+          upParts.push(
+            `  await db.schema.alterTable("${diff.table}").dropColumn("${diff.column}").execute()`,
+          )
           downParts.push(
             `  // ⚠ Cannot auto-restore dropped column "${diff.table}.${diff.column}" — manual recovery needed`,
           )
-          warnings.push(`// ⚠ Dropped column "${diff.table}.${diff.column}". The down() function cannot restore it.`)
+          warnings.push(
+            `// ⚠ Dropped column "${diff.table}.${diff.column}". The down() function cannot restore it.`,
+          )
           break
         }
         case "alterColumn": {
           const details = diff.details as { from: SchemaColumn; to: SchemaColumn } | undefined
-          upParts.push(`  // ⚠ ALTER COLUMN "${diff.table}.${diff.column}" — manual review recommended`)
+          upParts.push(
+            `  // ⚠ ALTER COLUMN "${diff.table}.${diff.column}" — manual review recommended`,
+          )
           if (details) {
             upParts.push(`  //   from: ${details.from.type} → to: ${details.to.type}`)
             upParts.push(`  //   nullable: ${details.from.isNullable} → ${details.to.isNullable}`)
@@ -94,7 +102,9 @@ export function createMigrationGenerator(): MigrationGenerator {
           upParts.push(
             `  await db.schema.alterTable("${diff.table}").alterColumn("${diff.column}", (col) => col.setDataType("${details?.to.type ?? "text"}")).execute()`,
           )
-          warnings.push(`// ⚠ ALTER COLUMN "${diff.table}.${diff.column}". Down migration is not auto-generated.`)
+          warnings.push(
+            `// ⚠ ALTER COLUMN "${diff.table}.${diff.column}". Down migration is not auto-generated.`,
+          )
           break
         }
         case "addIndex": {
@@ -109,7 +119,9 @@ export function createMigrationGenerator(): MigrationGenerator {
           const idxDetails = diff.details as { indexName?: string } | undefined
           const idxName = idxDetails?.indexName ?? `${diff.table}_idx`
           upParts.push(`  await db.schema.dropIndex("${idxName}").ifExists().execute()`)
-          downParts.push(`  // ⚠ Cannot auto-restore dropped index "${idxName}" — manual recovery needed`)
+          downParts.push(
+            `  // ⚠ Cannot auto-restore dropped index "${idxName}" — manual recovery needed`,
+          )
           warnings.push(`// ⚠ Dropped index "${idxName}". The down() function cannot restore it.`)
           break
         }
@@ -131,7 +143,9 @@ export function createMigrationGenerator(): MigrationGenerator {
 function generateCreateTable(table: string, columns: ColumnShape): string {
   const lines = [`  await db.schema.createTable("${table}").ifNotExists()`]
   for (const [name, col] of Object.entries(columns))
-    lines.push(`    .addColumn("${name}", "${mapType(col)}"${columnCallback(col)})`)
+    lines.push(
+      `    .addColumn("${name}", "${columnDataTypeToSql(col.dataType, col.args)}"${columnCallback(col)})`,
+    )
   lines.push("    .execute()")
   return lines.join("\n")
 }
@@ -141,7 +155,9 @@ function generateCreateTable(table: string, columns: ColumnShape): string {
 function generateCreateTableFromSchema(table: string, columns: SchemaColumn[]): string {
   const lines = [`  await db.schema.createTable("${table}").ifNotExists()`]
   for (const col of columns) {
-    const ref = col.references ? `, (c) => c.references("${col.references.table}.${col.references.column}")` : ""
+    const ref = col.references
+      ? `, (c) => c.references("${col.references.table}.${col.references.column}")`
+      : ""
     const extras: string[] = []
     if (col.isPrimaryKey) extras.push("primaryKey()")
     if (!col.isNullable && !col.isPrimaryKey) extras.push("notNull()")
@@ -149,14 +165,19 @@ function generateCreateTableFromSchema(table: string, columns: SchemaColumn[]): 
     if (col.defaultValue !== undefined && col.defaultValue !== null) {
       extras.push(`defaultTo(${JSON.stringify(col.defaultValue)})`)
     }
-    const cb = extras.length > 0 ? `, (c) => c.${extras.join(".")}${ref ? `.${ref.slice(5)}` : ""}` : ref
+    const cb =
+      extras.length > 0 ? `, (c) => c.${extras.join(".")}${ref ? `.${ref.slice(5)}` : ""}` : ref
     lines.push(`    .addColumn("${col.name}", "${col.type}"${cb})`)
   }
   lines.push("    .execute()")
   return lines.join("\n")
 }
 
-function generateCreateIndexFromSchema(table: string, indexName: string, columns: string[]): string {
+function generateCreateIndexFromSchema(
+  table: string,
+  indexName: string,
+  columns: string[],
+): string {
   const lines = [`  await db.schema.createIndex("${indexName}").on("${table}")`]
   for (const col of columns) {
     lines.push(`    .column("${col}")`)
@@ -179,7 +200,8 @@ function columnCallback(col: Column): string {
   if (col.isUnique && !col.isPrimaryKey) calls.push("unique()")
   const refConstraint = col.constraints.find((c) => c.type === "references")
   if (refConstraint?.args[0]) {
-    const targetClass = typeof refConstraint.args[0] === "function" ? refConstraint.args[0]() : refConstraint.args[0]
+    const targetClass =
+      typeof refConstraint.args[0] === "function" ? refConstraint.args[0]() : refConstraint.args[0]
     const targetTable = (targetClass as Record<string, unknown>)?.table as string | undefined
     const targetColumns = refConstraint.args[1] as string[] | undefined
     if (typeof targetTable === "string" && targetTable && targetColumns?.length)
@@ -194,7 +216,11 @@ function columnCallbackFromSchema(col: SchemaColumn): string {
     calls.push("primaryKey()")
   }
   if (!col.isNullable && !col.isPrimaryKey) calls.push("notNull()")
-  if (col.defaultValue !== undefined && col.defaultValue !== null && typeof col.defaultValue !== "function")
+  if (
+    col.defaultValue !== undefined &&
+    col.defaultValue !== null &&
+    typeof col.defaultValue !== "function"
+  )
     calls.push(`defaultTo(${JSON.stringify(col.defaultValue)})`)
   if (col.isUnique && !col.isPrimaryKey) calls.push("unique()")
   if (col.references) {
@@ -203,6 +229,4 @@ function columnCallbackFromSchema(col: SchemaColumn): string {
   return calls.length === 0 ? "" : `, (c) => c.${calls.join(".")}`
 }
 
-function mapType(col: Column): string {
-  return columnDataTypeToSql(col.dataType, col.args)
-}
+export type MigrationGenerator = ReturnType<typeof createMigrationGenerator>

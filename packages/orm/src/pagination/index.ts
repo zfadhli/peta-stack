@@ -15,8 +15,6 @@ export interface Paginator<TColumns extends ColumnShape = ColumnShape> {
   readonly lastItem: number
   readonly onFirstPage: boolean
   readonly onLastPage: boolean
-  readonly count: number
-  map<T>(fn: (item: ModelInstance<TColumns>) => T): T[]
   toJSON(): PaginatorJson<TColumns>
 }
 
@@ -33,8 +31,6 @@ export interface PaginatorJson<TColumns extends ColumnShape = ColumnShape> {
   onFirstPage: boolean
   onLastPage: boolean
 }
-
-export type PaginatedResult = PaginatorJson
 
 export function createPaginator<TColumns extends ColumnShape = ColumnShape>(
   items: ModelInstance<TColumns>[],
@@ -79,14 +75,6 @@ export function createPaginator<TColumns extends ColumnShape = ColumnShape>(
     get onLastPage() {
       return currentPage >= lastPage
     },
-    get count() {
-      return items.length
-    },
-
-    map<T>(fn: (item: ModelInstance<TColumns>) => T): T[] {
-      return items.map(fn)
-    },
-
     toJSON(): PaginatorJson<TColumns> {
       return {
         data: collection.toJSON() as SerializedShape<TColumns>[],

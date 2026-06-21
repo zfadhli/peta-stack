@@ -9,11 +9,6 @@ import type { InsertGraphOptions, UpsertGraphOptions } from "../relations/graph/
 import { isRelationAllowed } from "../relations/graph/index.js"
 import type { QueryBuilder } from "./types.js"
 
-// Helper to create raw SQL expressions compatible with Kysely 0.27
-function rawSql(str: string): ReturnType<typeof kyselySql> {
-  return kyselySql([str] as unknown as TemplateStringsArray)
-}
-
 /** Minimal Kysely ExpressionBuilder interface for aggregate selections. */
 interface AggregateEB {
   fn: {
@@ -30,15 +25,12 @@ interface JoinBuilder {
   onRef(lhs: string, op: string, rhs: string): void
 }
 
-/** Shape of rows returned before bulk delete — we only need `any[]` semantics. */
-type DeletedRows = ModelInstance<ColumnShape>[]
-
 const SAFE_COLUMN = /^[a-zA-Z_*][a-zA-Z0-9_.*]*$/
 
 // ─── CREATE QUERY BUILDER ────────────────────────────────
 export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
   def: ModelDefinition<TColumns>,
-  peta?: { kysely: import("../lib/kysely.js").Database },
+  peta?: { kysely: import("../types.js").Database },
 ): QueryBuilder<TColumns> {
   const db: any = peta?.kysely ?? def._orm?.kysely
   if (!db) throw new Error("Model not registered with an ORM instance")
@@ -50,13 +42,9 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
   let onlyTrashedMode = false
   const omitScopes = new Set<string>()
   let scopesApplied = false
-  let _hasWhere = false
   let hasEffectiveWhere = false
   let selectedColumns: string[] | null = null
   const aggregateColumns: string[] = []
-
-  // Store for aggregate tracking
-  const aggregateAliases: string[] = []
 
   // Store WHERE operations for replay on update/delete builders
   const whereOps: Array<(qb: any) => void> = []
@@ -166,7 +154,6 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
       ? `(SELECT EXISTS(SELECT 1 FROM ${relatedTable} WHERE ${relatedTable}.${fk} = ${def.table}.${lk})) as ${alias}`
       : `(SELECT ${aggregateSql} FROM ${relatedTable} WHERE ${relatedTable}.${fk} = ${def.table}.${lk}) as ${alias}`
     aggregateColumns.push(sql)
-    aggregateAliases.push(alias)
     return self
   }
 
@@ -275,22 +262,6 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
         `COALESCE(SUM(${validateColumn(column)}), 0)`,
         `${relation}_sum_${column}`,
       )
-    },
-
-    withAvg(relation: string, column: string): QueryBuilder<TColumns> {
-      return _withAggregate(relation, `AVG(${validateColumn(column)})`, `${relation}_avg_${column}`)
-    },
-
-    withMin(relation: string, column: string): QueryBuilder<TColumns> {
-      return _withAggregate(relation, `MIN(${validateColumn(column)})`, `${relation}_min_${column}`)
-    },
-
-    withMax(relation: string, column: string): QueryBuilder<TColumns> {
-      return _withAggregate(relation, `MAX(${validateColumn(column)})`, `${relation}_max_${column}`)
-    },
-
-    withExists(relation: string): QueryBuilder<TColumns> {
-      return _withAggregate(relation, "", `${relation}_exists`, true)
     },
 
     // ─── Chunking ─────────────────────────────────────────
@@ -500,7 +471,7 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
       }
 
       // For afterDelete hooks, capture the rows BEFORE deleting
-      let deletedRows: DeletedRows = []
+      let deletedRows: ModelInstance<ColumnShape>[] = []
       if (hasAfter) {
         const previewQb = createQueryBuilder(def)
         for (const op of whereOps) op(previewQb)
@@ -558,7 +529,6 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
     whereIn(column: string, values: unknown[]): QueryBuilder<TColumns> {
       qb = qb.where(validateColumn(column), "in", values)
       whereOps.push((q) => q.where(validateColumn(column), "in", values))
-      _hasWhere = true
       hasEffectiveWhere = values.length > 0
       return self
     },
@@ -570,11 +540,10 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
       const fk = rel.foreignKey
       const lk = rel.localKey
 
-      const existsExpr = rawSql(
+      const existsExpr = kyselySql([
         `EXISTS (SELECT 1 FROM ${relatedTable} WHERE ${relatedTable}.${fk} = ${def.table}.${lk})`,
-      )
+      ] as unknown as TemplateStringsArray)
       qb = qb.where(existsExpr)
-      _hasWhere = true
       hasEffectiveWhere = true
       return self
     },
@@ -596,7 +565,6 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
       }
 
       qb = qb.where(kyselySql`EXISTS ${subQuery}`)
-      _hasWhere = true
       hasEffectiveWhere = true
       return self
     },
@@ -618,7 +586,6 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
       }
 
       qb = qb.where(kyselySql`NOT EXISTS ${subQuery}`)
-      _hasWhere = true
       hasEffectiveWhere = true
       return self
     },
@@ -633,14 +600,12 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
         whereOps.push((q) => q.where(validateColumn(column), operator as string, value))
         hasEffectiveWhere = true
       }
-      _hasWhere = true
       return self
     },
 
     whereRef(col1: string, operator: string, col2: string): QueryBuilder<TColumns> {
       qb = qb.whereRef(validateColumn(col1), operator, validateColumn(col2))
       whereOps.push((q) => q.whereRef(validateColumn(col1), operator, validateColumn(col2)))
-      _hasWhere = true
       hasEffectiveWhere = true
       return self
     },
@@ -653,7 +618,6 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
         qb = qb.orWhere(validateColumn(column), operator as string, value)
         whereOps.push((q) => q.orWhere(validateColumn(column), operator as string, value))
       }
-      _hasWhere = true
       hasEffectiveWhere = true
       return self
     },
@@ -705,7 +669,6 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
 
     having(column: string, operator: string, value: unknown): QueryBuilder<TColumns> {
       qb = qb.having(validateColumn(column), operator, value)
-      _hasWhere = true
       hasEffectiveWhere = true
       return self
     },

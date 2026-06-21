@@ -7,7 +7,10 @@ import { columnDataTypeToSql } from "./column-mapper.js"
  * Creates tables and columns that don't exist yet (no destructive changes).
  * Returns list of tables that were created.
  */
-export async function pushSchema(db: Kysely<unknown>, models: Map<string, ModelDefinition>): Promise<string[]> {
+export async function pushSchema(
+  db: Kysely<unknown>,
+  models: Map<string, ModelDefinition>,
+): Promise<string[]> {
   const createdTables: string[] = []
 
   for (const [, model] of models) {
@@ -18,7 +21,9 @@ export async function pushSchema(db: Kysely<unknown>, models: Map<string, ModelD
     const columns = model.columns as ColumnShape
 
     for (const [name, col] of Object.entries(columns)) {
-      qb = qb.addColumn(name, mapPushType(col) as any, (cb: any) => buildColumn(col, cb))
+      qb = qb.addColumn(name, columnDataTypeToSql(col.dataType, col.args) as any, (cb: any) =>
+        buildColumn(col, cb),
+      )
     }
 
     await qb.execute()
@@ -27,7 +32,11 @@ export async function pushSchema(db: Kysely<unknown>, models: Map<string, ModelD
     // Create non-PK, non-unique indexes
     for (const [colName, col] of Object.entries(columns)) {
       if (col.hasConstraint("index") && !col.isPrimaryKey && !col.isUnique) {
-        await db.schema.createIndex(`${model.table}_${colName}_index`).on(model.table).column(colName).execute()
+        await db.schema
+          .createIndex(`${model.table}_${colName}_index`)
+          .on(model.table)
+          .column(colName)
+          .execute()
       }
     }
   }
@@ -58,7 +67,9 @@ function buildColumn(col: Column, cb: any): any {
   const refConstraint = col.constraints.find((c) => c.type === "references")
   if (refConstraint?.args[0]) {
     const targetClass =
-      typeof refConstraint.args[0] === "function" ? (refConstraint.args[0] as () => unknown)() : refConstraint.args[0]
+      typeof refConstraint.args[0] === "function"
+        ? (refConstraint.args[0] as () => unknown)()
+        : refConstraint.args[0]
     const targetTable = (targetClass as Record<string, unknown>)?.table as string | undefined
     const targetColumns = refConstraint.args[1] as string[] | undefined
     if (typeof targetTable === "string" && targetTable && targetColumns?.length) {
@@ -68,8 +79,4 @@ function buildColumn(col: Column, cb: any): any {
   }
 
   return cb
-}
-
-function mapPushType(col: Column): string {
-  return columnDataTypeToSql(col.dataType, col.args)
 }

@@ -5,14 +5,6 @@ import { PetaAuthError } from "../errors.js"
 const IS_DEVELOPMENT = process.env.NODE_ENV === "development"
 const OAUTH_COOKIE_MAX_AGE = 60 * 10
 
-function encodeBase64Url(input: Uint8Array): string {
-  return Buffer.from(input).toString("base64url")
-}
-
-function getRandomBytes(size = 32): Uint8Array {
-  return crypto.getRandomValues(new Uint8Array(size))
-}
-
 /**
  * Extract the OAuth redirect URL from a request.
  */
@@ -43,11 +35,11 @@ export async function handlePKCE(request: Request): Promise<{
     return { codeVerifier: verifier }
   }
 
-  const verifierBytes = getRandomBytes(32)
-  const verifier = encodeBase64Url(verifierBytes)
+  const verifierBytes = crypto.getRandomValues(new Uint8Array(32))
+  const verifier = Buffer.from(verifierBytes).toString("base64url")
   const encoder = new TextEncoder()
   const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", encoder.encode(verifier)))
-  const codeChallenge = encodeBase64Url(hash)
+  const codeChallenge = Buffer.from(hash).toString("base64url")
 
   return {
     codeChallenge,
@@ -82,8 +74,8 @@ export function handleState(request: Request): {
     }
   }
 
-  const stateBytes = getRandomBytes(8)
-  const state = encodeBase64Url(stateBytes)
+  const stateBytes = crypto.getRandomValues(new Uint8Array(8))
+  const state = Buffer.from(stateBytes).toString("base64url")
 
   return {
     state,
@@ -100,7 +92,6 @@ export function handleState(request: Request): {
 /** Options for {@link requestAccessToken}. */
 export interface RequestAccessTokenOptions {
   body?: Record<string, string | undefined>
-  params?: Record<string, string | undefined>
   headers?: Record<string, string>
 }
 
@@ -116,7 +107,7 @@ export async function requestAccessToken<T = unknown>(
     ...options.headers,
   }
 
-  const bodyParams = options.body ?? options.params ?? {}
+  const bodyParams = options.body ?? {}
   const body = new URLSearchParams()
   for (const [key, value] of Object.entries(bodyParams)) {
     if (value !== undefined) body.append(key, value)

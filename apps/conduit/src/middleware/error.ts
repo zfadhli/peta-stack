@@ -23,29 +23,17 @@ export function onError(err: Error, c: Context): Response {
     const status = err.status
     const message = err.message
 
-    if (status === 401) {
-      // Parse field name from message (e.g. "token: is missing" or "credentials: invalid")
-      const { field, msg } = parseField(message, "token")
-      return c.json({ errors: { [field]: [msg] } }, 401)
-    }
-    if (status === 403) {
-      // Parse field name from message (e.g. "article: forbidden")
-      const { field, msg } = parseField(message, "resource")
-      return c.json({ errors: { [field]: [msg] } }, 403)
-    }
-    if (status === 404) {
-      // Parse field name from message (e.g. "article: not found")
-      const { field, msg } = parseField(message, "resource")
-      return c.json({ errors: { [field]: [msg] } }, 404)
-    }
-    if (status === 409) {
-      const { field, msg } = parseField(message, "resource")
-      return c.json({ errors: { [field]: [msg] } }, 409)
-    }
-    if (status === 422) {
-      return c.json({ errors: { body: [message] } }, 422)
-    }
-    return c.json({ errors: { body: [message] } }, status)
+    if (status === 422) return c.json({ errors: { body: [message] } }, 422)
+
+    const defaultField =
+      (
+        { 401: "token", 403: "resource", 404: "resource", 409: "resource" } as Record<
+          number,
+          string
+        >
+      )[status] ?? "body"
+    const { field, msg } = parseField(message, defaultField)
+    return c.json({ errors: { [field]: [msg] } }, status)
   }
 
   // Unknown errors — 500

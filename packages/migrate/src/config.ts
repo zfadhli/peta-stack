@@ -1,6 +1,5 @@
 import { readdirSync } from "node:fs"
 import { resolve } from "node:path"
-import { sync as globSync } from "fast-glob"
 import type { ModelDefinition } from "peta-orm"
 import type { PetaMigrateConfig } from "./types.js"
 
@@ -75,8 +74,7 @@ export async function loadModels(
     if (!pattern.startsWith("/")) {
       pattern = resolve(cwd, pattern)
     }
-    const files = globSync(pattern, { cwd, onlyFiles: true, dot: false })
-    for (const file of files) {
+    for (const file of new Bun.Glob(pattern).scanSync({ cwd })) {
       const fullPath = resolve(cwd, file)
       try {
         const mod = await import(fullPath)

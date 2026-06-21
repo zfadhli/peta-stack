@@ -47,9 +47,7 @@
   },
   "scripts": {
     "test": "bun test",
-    "test:all": "for f in test/*.ts; do echo === $f ===; bun test $f || exit 1; done",
     "test:integration": "bun test test/integration/",
-    "test:all:integration": "for f in test/integration/*.ts; do echo === $f ===; bun test $f || exit 1; done",
     "typecheck": "bun x tsc --noEmit",
     "build": "tsdown",
     "lint": "bunx biome check src test examples",

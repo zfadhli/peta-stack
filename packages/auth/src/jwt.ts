@@ -1,10 +1,5 @@
-import * as jose from "jose"
 import { normalizePassword, type Password } from "./crypto.js"
 import { PetaAuthError } from "./errors.js"
-
-function toKey(secret: string): Uint8Array {
-  return new TextEncoder().encode(secret)
-}
 
 /** Options for JWT sign / verify operations. */
 export interface JWTOptions {
@@ -37,11 +32,26 @@ export async function signJWT(
     )
   }
 
-  const jwt = new jose.SignJWT(payload).setProtectedHeader({ alg: "HS256" }).setIssuedAt()
-  const ttl = options.expiresIn ?? 86400 // 24 hours default
-  jwt.setExpirationTime(Math.floor(Date.now() / 1000) + ttl)
+  const header = { alg: "HS256", typ: "JWT" }
+  const now = Math.floor(Date.now() / 1000)
+  const ttl = options.expiresIn ?? 86400
+  const claims = { ...payload, iat: now, exp: now + ttl }
 
-  return jwt.sign(toKey(secret))
+  const headerB64 = Buffer.from(JSON.stringify(header)).toString("base64url")
+  const payloadB64 = Buffer.from(JSON.stringify(claims)).toString("base64url")
+  const toSign = `${headerB64}.${payloadB64}`
+
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  )
+  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(toSign))
+  const sigB64 = Buffer.from(sig).toString("base64url")
+
+  return `${toSign}.${sigB64}`
 }
 
 /**
@@ -58,18 +68,43 @@ export async function verifyJWT<T = Record<string, unknown>>(
   token: string,
   options: JWTOptions,
 ): Promise<T | null> {
-  let result: T | null = null
+  let headerB64: string, payloadB64: string, sigB64: string
+  try {
+    const parts = token.split(".")
+    if (parts.length !== 3) return null
+    ;[headerB64, payloadB64, sigB64] = parts as [string, string, string]
+
+    const header = JSON.parse(Buffer.from(headerB64, "base64url").toString())
+    if (header.alg !== "HS256") return null
+  } catch {
+    return null
+  }
 
   const passwords = normalizePassword(options.password)
+  const toSign = `${headerB64}.${payloadB64}`
+  const sig = Buffer.from(sigB64, "base64url")
+  const data = new TextEncoder().encode(toSign)
+
   for (const secret of Object.values(passwords)) {
     if (!secret) continue
     try {
-      const { payload } = await jose.jwtVerify(token, toKey(secret))
-      if (!result) result = payload as T
-    } catch {
-      // try next password
-    }
+      const key = await crypto.subtle.importKey(
+        "raw",
+        new TextEncoder().encode(secret),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["verify"],
+      )
+      const valid = await crypto.subtle.verify("HMAC", key, sig, data)
+      if (!valid) continue
+
+      const payload = JSON.parse(Buffer.from(payloadB64, "base64url").toString()) as T
+      const exp = (payload as Record<string, unknown>)?.exp as number | undefined
+      if (exp !== undefined && exp < Math.floor(Date.now() / 1000)) continue
+
+      return payload
+    } catch {}
   }
 
-  return result
+  return null
 }

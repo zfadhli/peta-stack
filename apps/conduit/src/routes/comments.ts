@@ -3,7 +3,7 @@ import { Hono } from "hono"
 import { route } from "peta-docs/hono"
 import type { ModelInstance } from "peta-orm"
 import { Article, Comment, Follow, User } from "../db/schema.js"
-import { getCurrentUserId, requireAuth } from "../middleware/auth.js"
+import { requireAuth } from "../middleware/auth.js"
 import { onValidationError } from "../middleware/error.js"
 import { http } from "../middleware/http-error.js"
 
@@ -56,7 +56,10 @@ const SlugAndIdParams = type({ slug: "string", id: "string" })
 
 async function isFollowing(authorId: string, currentUserId?: string): Promise<boolean> {
   if (!currentUserId) return false
-  const follow = await Follow.query().where("followerId", "=", currentUserId).where("followeeId", "=", authorId).first()
+  const follow = await Follow.query()
+    .where("followerId", "=", currentUserId)
+    .where("followeeId", "=", authorId)
+    .first()
   return !!follow
 }
 
@@ -100,7 +103,7 @@ app.get(
         .orderBy("createdAt", "asc")
         .execute()
 
-      const currentUserId = getCurrentUserId(c)
+      const currentUserId = c.var.currentUserId
       const items = await Promise.all(comments.map((c) => buildCommentResponse(c, currentUserId)))
       return c.json({ comments: items })
     }),

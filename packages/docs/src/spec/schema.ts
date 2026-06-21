@@ -1,4 +1,3 @@
-import { emitDiagnostic } from "../lib/diagnostics.ts"
 import type { SchemaObject } from "../types.ts"
 
 // ---------------------------------------------------------------------------
@@ -34,12 +33,7 @@ export function toOpenAPISchema(schema: unknown): SchemaObject {
       "[peta-docs] A non-ArkType function was passed where a schema is expected. " +
       "OpenAPI spec generation only supports ArkType types and plain JSON Schema objects. " +
       "Either use an ArkType type, or pre-convert your schema to a JSON Schema object."
-    emitDiagnostic({
-      level: "warn",
-      message: msg,
-      code: "SCHEMA_NOT_ARKTYPE",
-      source: "toOpenAPISchema",
-    })
+    console.warn(msg)
     if (isDev) throw new TypeError(msg)
     return {}
   }
@@ -55,11 +49,9 @@ export function mapContentSchemas(
   content: Record<string, { schema: unknown }>,
   convert: (schema: unknown) => SchemaObject,
 ): Record<string, { schema: SchemaObject }> {
-  const result: Record<string, { schema: SchemaObject }> = {}
-  for (const [mediaType, { schema }] of Object.entries(content)) {
-    result[mediaType] = { schema: convert(schema) }
-  }
-  return result
+  return Object.fromEntries(
+    Object.entries(content).map(([mt, v]) => [mt, { schema: convert(v.schema) }]),
+  )
 }
 
 // ---------------------------------------------------------------------------

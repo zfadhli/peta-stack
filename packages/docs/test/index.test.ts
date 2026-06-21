@@ -2,12 +2,12 @@ import { describe, expect, it } from "bun:test"
 import { symlinkSync } from "node:fs"
 import { type } from "arktype"
 import { Hono } from "hono"
-import { getRouteMeta, route, setOnValidationError } from "../src/hono/route.js"
+import { getRouteMeta, route } from "../src/hono/route.js"
 import { honoScanner } from "../src/hono/scanner.js"
 
 import { serveScalarUI } from "../src/scalar.js"
-import type { RouteScanner } from "../src/scanner.js"
 import { buildOpenAPISpec, getOpenAPISpec } from "../src/spec.js"
+import type { RouteScanner } from "../src/types.js"
 
 function _linkNodeModules(dir: string) {
   try {
@@ -910,30 +910,6 @@ describe("runtime validation", () => {
     expect(res.status).toBe(400)
   })
 
-  it("respects custom validation error handler", async () => {
-    const restore = setOnValidationError((_issues, c) => c.json({ error: "Invalid" }, 422))
-
-    const app = new Hono()
-    app.post(
-      "/pets",
-      route()
-        .requestBody(type({ name: "string>0" }))
-        .response(201, { description: "Created" })
-        .handle((c) => c.json({ ok: true }, 201)),
-    )
-
-    const res = await app.request("/pets", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "" }),
-    })
-
-    expect(res.status).toBe(422)
-    expect((await res.json()) as any).toEqual({ error: "Invalid" })
-
-    restore()
-  })
-
   it("respects per-route validation error handler via chain method", async () => {
     const app = new Hono()
     app.post(
@@ -1028,21 +1004,6 @@ describe("response validation", () => {
 
     const res = await app.request("/empty")
     expect(res.status).toBe(204)
-  })
-
-  it("respects per-route onResponseValidationError handler", async () => {
-    const app = new Hono()
-    app.get(
-      "/pets",
-      route()
-        .onResponseValidationError((_issues, c) => c.json({ error: "Wrong shape!" }, 422))
-        .response(200, type({ name: "string" }))
-        .handle((c) => c.json({ name: 42 })),
-    )
-
-    const res = await app.request("/pets")
-    expect(res.status).toBe(422)
-    expect(await res.json()).toEqual({ error: "Wrong shape!" })
   })
 })
 

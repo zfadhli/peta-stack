@@ -4,7 +4,7 @@ import { route } from "peta-docs/hono"
 import type { ModelInstance } from "peta-orm"
 import { Article, ArticleTag, Comment, Favorite, Follow, Tag, User } from "../db/schema.js"
 import { uniqueSlug } from "../lib/slug.js"
-import { getCurrentUserId, requireAuth } from "../middleware/auth.js"
+import { requireAuth } from "../middleware/auth.js"
 import { onValidationError } from "../middleware/error.js"
 import { http } from "../middleware/http-error.js"
 
@@ -134,13 +134,19 @@ async function getFavoritesCount(articleId: string): Promise<number> {
 
 async function isFavorited(articleId: string, userId?: string): Promise<boolean> {
   if (!userId) return false
-  const fav = await Favorite.query().where("userId", "=", userId).where("articleId", "=", articleId).first()
+  const fav = await Favorite.query()
+    .where("userId", "=", userId)
+    .where("articleId", "=", articleId)
+    .first()
   return !!fav
 }
 
 async function isFollowing(authorId: string, currentUserId?: string): Promise<boolean> {
   if (!currentUserId) return false
-  const follow = await Follow.query().where("followerId", "=", currentUserId).where("followeeId", "=", authorId).first()
+  const follow = await Follow.query()
+    .where("followerId", "=", currentUserId)
+    .where("followeeId", "=", authorId)
+    .first()
   return !!follow
 }
 
@@ -155,7 +161,11 @@ async function getAuthorProfile(authorId: string, currentUserId?: string) {
   }
 }
 
-async function buildArticleResponse(article: ModelInstance, currentUserId?: string, includeBody = true) {
+async function buildArticleResponse(
+  article: ModelInstance,
+  currentUserId?: string,
+  includeBody = true,
+) {
   const articleId = article.get("id") as string
   const tagList = await getTagListForArticle(articleId)
   const authorProfile = await getAuthorProfile(article.get("authorId") as string, currentUserId)
@@ -181,8 +191,14 @@ async function buildArticleResponse(article: ModelInstance, currentUserId?: stri
   return result
 }
 
-async function buildMultipleArticlesResponse(articles: ModelInstance[], totalCount: number, currentUserId?: string) {
-  const items = await Promise.all(articles.map((a) => buildArticleResponse(a, currentUserId, false)))
+async function buildMultipleArticlesResponse(
+  articles: ModelInstance[],
+  totalCount: number,
+  currentUserId?: string,
+) {
+  const items = await Promise.all(
+    articles.map((a) => buildArticleResponse(a, currentUserId, false)),
+  )
   return { articles: items, articlesCount: totalCount }
 }
 
@@ -224,7 +240,9 @@ app.get(
           return c.json({ articles: [], articlesCount: 0 })
         }
         const authorId = author.get("id")
-        const ids = (await Article.query().where("authorId", "=", authorId).execute()).map((a) => a.get("id"))
+        const ids = (await Article.query().where("authorId", "=", authorId).execute()).map((a) =>
+          a.get("id"),
+        )
         if (articleIds !== null) {
           articleIds = articleIds.filter((id) => ids.includes(id))
         } else {
@@ -238,9 +256,9 @@ app.get(
         if (!favUser) {
           return c.json({ articles: [], articlesCount: 0 })
         }
-        const favArticleIds = (await Favorite.query().where("userId", "=", favUser.get("id")).execute()).map((f) =>
-          f.get("articleId"),
-        )
+        const favArticleIds = (
+          await Favorite.query().where("userId", "=", favUser.get("id")).execute()
+        ).map((f) => f.get("articleId"))
         if (articleIds !== null) {
           articleIds = articleIds.filter((id) => favArticleIds.includes(id))
         } else {
@@ -264,9 +282,13 @@ app.get(
       const totalCount = (await countQuery.count()) as number
 
       // Fetch data with ordering and pagination
-      const articles = await dataQuery.orderBy("articles.createdAt", "desc").limit(limit).offset(offset).execute()
+      const articles = await dataQuery
+        .orderBy("articles.createdAt", "desc")
+        .limit(limit)
+        .offset(offset)
+        .execute()
 
-      const currentUserId = getCurrentUserId(c)
+      const currentUserId = c.var.currentUserId
 
       return c.json(await buildMultipleArticlesResponse(articles, totalCount, currentUserId))
     }),
@@ -302,7 +324,11 @@ app.get(
 
       const dataQuery = Article.query().whereIn("authorId", followeeIds)
       const totalCount = await dataQuery.count()
-      const articles = await dataQuery.orderBy("createdAt", "desc").limit(limit).offset(offset).execute()
+      const articles = await dataQuery
+        .orderBy("createdAt", "desc")
+        .limit(limit)
+        .offset(offset)
+        .execute()
 
       return c.json(await buildMultipleArticlesResponse(articles, totalCount, currentUserId))
     }),
@@ -326,7 +352,7 @@ app.get(
       const article = await Article.query().where("slug", "=", slug).first()
       if (!article) throw http.notFound("article: not found")
 
-      const currentUserId = getCurrentUserId(c)
+      const currentUserId = c.var.currentUserId
       return c.json({
         article: await buildArticleResponse(article, currentUserId, true),
       })
@@ -416,7 +442,10 @@ app.put(
       if (body.title !== undefined) {
         updates.title = body.title
         updates.slug = await uniqueSlug(body.title, async (s) => {
-          const existing = await Article.query().where("slug", "=", s).where("id", "!=", articleId).first()
+          const existing = await Article.query()
+            .where("slug", "=", s)
+            .where("id", "!=", articleId)
+            .first()
           return !!existing
         })
       }

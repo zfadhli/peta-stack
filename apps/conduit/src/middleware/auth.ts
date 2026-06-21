@@ -1,4 +1,4 @@
-import type { Context, MiddlewareHandler } from "hono"
+import type { MiddlewareHandler } from "hono"
 import { verifyToken } from "../lib/jwt.js"
 
 /**
@@ -37,12 +37,4 @@ export function requireAuth(): MiddlewareHandler {
     }
     await next()
   }
-}
-
-/**
- * Helper: check if a user is authenticated. Returns the current user's
- * ID or undefined. Useful for auth-optional endpoints.
- */
-export function getCurrentUserId(c: Context): string | undefined {
-  return c.var.currentUserId
 }

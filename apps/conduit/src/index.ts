@@ -24,7 +24,8 @@ const API_COMPONENTS = {
       type: "apiKey",
       in: "header",
       name: "Authorization",
-      description: 'JWT Bearer token. Prefix with "Token ". Obtain a token via POST /api/users/login.',
+      description:
+        'JWT Bearer token. Prefix with "Token ". Obtain a token via POST /api/users/login.',
     },
   },
 }
@@ -57,7 +58,9 @@ export async function createApp(orm?: ReturnType<typeof createORM>): Promise<Hon
 
   // OpenAPI spec + Scalar docs UI
   app.get("/openapi.json", (c) =>
-    c.json(getOpenAPISpec(app, API_INFO, undefined, { basePath: "/api", components: API_COMPONENTS })),
+    c.json(
+      getOpenAPISpec(app, API_INFO, undefined, { basePath: "/api", components: API_COMPONENTS }),
+    ),
   )
   app.get("/docs", serveScalarUI({ specUrl: "/openapi.json", title: "Conduit API" }))
 
@@ -76,12 +79,10 @@ if (import.meta.main) {
 
   Bun.serve({ fetch: app.fetch, port })
 
-  process.on("SIGINT", async () => {
-    await orm.destroy()
-    process.exit(0)
-  })
-  process.on("SIGTERM", async () => {
-    await orm.destroy()
-    process.exit(0)
-  })
+  for (const sig of ["SIGINT", "SIGTERM"] as const) {
+    process.on(sig, async () => {
+      await orm.destroy()
+      process.exit(0)
+    })
+  }
 }

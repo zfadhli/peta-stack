@@ -1,6 +1,5 @@
 import { getRouteMeta } from "../hono/route.ts"
-import type { RouteScanner } from "../scanner.ts"
-import type { RouteEntry } from "../types.ts"
+import type { RouteEntry, RouteScanner } from "../types.ts"
 
 /**
  * Scans an Elysia app instance and extracts route metadata.

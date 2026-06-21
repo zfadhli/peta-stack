@@ -59,14 +59,6 @@ jobs:
       - run: bun install --frozen-lockfile
         working-directory: ./
 
-      - name: Wait for PostgreSQL
-        run: |
-          for i in $(seq 1 10); do
-            bun x tsx -e "const { Pool } = require('pg'); const p = new Pool({ connectionString: 'postgres://postgres:postgres@localhost:5432/peta_orm_test' }); await p.query('SELECT 1'); await p.end(); process.exit(0);" 2>/dev/null && break
-            echo "Waiting for PostgreSQL..."
-            sleep 2
-          done
-
       - run: bun test test/integration/
         env:
           INTEGRATION_SKIP_MYSQL: "1"
@@ -102,14 +94,6 @@ jobs:
 
       - run: bun install --frozen-lockfile
         working-directory: ./
-
-      - name: Wait for MySQL
-        run: |
-          for i in $(seq 1 30); do
-            bun x tsx -e "const mysql = require('mysql2'); const p = mysql.createPool({ uri: 'mysql://root:mysqlroot@localhost:3306/peta_orm_test', connectionLimit: 1 }); const pp = p.promise(); await pp.query('SELECT 1'); await pp.end(); process.exit(0);" 2>/dev/null && break
-            echo "Waiting for MySQL..."
-            sleep 2
-          done
 
       - run: bun test test/integration/
         env:

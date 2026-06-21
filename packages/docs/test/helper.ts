@@ -2,11 +2,11 @@ import { mkdirSync, symlinkSync, writeFileSync } from "node:fs"
 import { type } from "arktype"
 import { Hono } from "hono"
 import { loadRoutes } from "../src/hono/index.js"
-import { getRouteMeta, route, setOnValidationError } from "../src/hono/route.js"
+import { getRouteMeta, route } from "../src/hono/route.js"
 import { honoScanner } from "../src/hono/scanner.js"
 import { serveScalarUI } from "../src/scalar.js"
-import type { RouteScanner } from "../src/scanner.js"
 import { buildOpenAPISpec, getOpenAPISpec } from "../src/spec.js"
+import type { RouteScanner } from "../src/types.js"
 
 export { describe, expect, it } from "bun:test"
 export type { RouteScanner }
@@ -19,7 +19,6 @@ export {
   loadRoutes,
   route,
   serveScalarUI,
-  setOnValidationError,
   type,
 }
 

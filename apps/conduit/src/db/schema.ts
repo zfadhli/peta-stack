@@ -2,7 +2,16 @@ import type { Client } from "@libsql/client"
 import { createClient } from "@libsql/client"
 import { LibsqlDialect } from "@libsql/kysely-libsql"
 import type { ModelDefinition } from "peta-orm"
-import { belongsTo, createORM, defineModel, hasMany, manyToMany, t, timestamps, ulid } from "peta-orm"
+import {
+  belongsTo,
+  createORM,
+  defineModel,
+  hasMany,
+  manyToMany,
+  t,
+  timestamps,
+  ulid,
+} from "peta-orm"
 
 // ---------------------------------------------------------------------------
 // Lazy model references — break circular type inference with explicit casts
@@ -209,9 +218,4 @@ export async function getORM(dialect?: LibsqlDialect): Promise<ReturnType<typeof
     _orm.registerAll(User, Article, Tag, ArticleTag, Comment, Favorite, Follow)
   }
   return _orm
-}
-
-// Lazily initialize on first import in development
-if (process.env.NODE_ENV !== "test") {
-  await getORM()
 }

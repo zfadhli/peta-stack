@@ -13,5 +13,3 @@ export function petaMiddleware(options: PetaHonoMiddlewareOptions) {
     await next()
   }
 }
-
-export const createMiddleware = petaMiddleware

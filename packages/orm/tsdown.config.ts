@@ -8,6 +8,6 @@ export default defineConfig({
   clean: true,
   platform: "node",
   deps: {
-    neverBundle: ["arktype", "cac", "kysely", "ora"],
+    neverBundle: ["arktype", "kysely"],
   },
 })

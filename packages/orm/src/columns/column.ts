@@ -34,7 +34,10 @@ export function createColumn<T>(
   let compiled: unknown | null = null
 
   function withConstraint(type: string, extraArgs: unknown[] = []): never {
-    return createColumn<T>(schema, dataType, args, [...constraints, { type, args: extraArgs }]) as never
+    return createColumn<T>(schema, dataType, args, [
+      ...constraints,
+      { type, args: extraArgs },
+    ]) as never
   }
 
   const col: Column<T> = {
@@ -63,8 +66,7 @@ export function createColumn<T>(
     get defaultValue(): unknown {
       const c = constraints.find((c) => c.type === "default")
       if (!c) return undefined
-      const val = c.args[0]
-      return typeof val === "function" ? val : val
+      return c.args[0]
     },
     hasConstraint(type: string): boolean {
       return constraints.some((c) => c.type === type)

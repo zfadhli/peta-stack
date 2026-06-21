@@ -1,6 +1,8 @@
-export type ModelId = number & { readonly __brand: "ModelId" }
-
+import type { Kysely } from "kysely"
 import type { ColumnShape, ColumnValue } from "./columns/column.js"
+
+export type Database = Kysely<Record<string, never>>
+
 import type { ModelDefinition } from "./model/types.js"
 
 export interface ModelLike<TColumns extends ColumnShape = ColumnShape> {
@@ -10,7 +12,7 @@ export interface ModelLike<TColumns extends ColumnShape = ColumnShape> {
 }
 
 export interface ORMLike {
-  readonly kysely: import("./lib/kysely.js").Database
+  readonly kysely: Database
   register(model: ModelDefinition<any>): void
   registerAll(...models: (ModelDefinition<any> | ModelDefinition<any>[])[]): void
   destroy(): Promise<void>

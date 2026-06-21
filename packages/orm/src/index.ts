@@ -32,7 +32,7 @@ export type { ModelConfig, ModelDefinition, ModelInstance, SerializedShape } fro
 export type { ORMConfig } from "./orm/index.js"
 export { createORM, createORM as createPeta } from "./orm/index.js"
 // ─── Pagination ───────────────────────────────────────────
-export type { PaginatedResult, Paginator, PaginatorJson } from "./pagination/index.js"
+export type { Paginator, PaginatorJson } from "./pagination/index.js"
 export { createPaginator } from "./pagination/index.js"
 // ─── Plugins ────────────────────────────────────────────────
 export type { Plugin } from "./plugins/index.js"
@@ -54,7 +54,6 @@ export { deleteGraph } from "./relations/graph/index.js"
 export {
   belongsTo,
   defineMorphMany,
-  defineMorphOne,
   defineMorphTo,
   hasMany,
   hasManyThrough,
@@ -62,9 +61,9 @@ export {
   manyToMany,
   resolveMorphRelation,
 } from "./relations/index.js"
-export type { MorphManyOptions, MorphOneOptions, MorphToOptions } from "./relations/morph.js"
+export type { MorphManyOptions, MorphToOptions } from "./relations/morph.js"
 export type { QueryMethod, RepoMethods } from "./repo/index.js"
 // ─── Repository Pattern ───────────────────────────────────
 export { createRepo } from "./repo/index.js"
 // ─── Types ─────────────────────────────────────────────────
-export type { ModelId, ORMLike } from "./types.js"
+export type { ORMLike } from "./types.js"

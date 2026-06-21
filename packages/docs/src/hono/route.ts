@@ -20,11 +20,6 @@ interface HandlerWithMeta {
 // ---------------------------------------------------------------------------
 // Pagination options
 // ---------------------------------------------------------------------------
-export interface PaginationOptions {
-  maxLimit?: number
-  defaultLimit?: number
-}
-
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
@@ -66,17 +61,8 @@ async function validateOrError<T>(
 // ---------------------------------------------------------------------------
 export type ValidationErrorHandler = (issues: unknown[], c: Context) => Response | Promise<Response>
 
-let onValidationError: ValidationErrorHandler = (issues, c) => {
+const onValidationError: ValidationErrorHandler = (issues, c) => {
   return c.json({ error: "Validation failed", issues }, 400)
-}
-
-/** @deprecated Use {@link RouteBuilder.onValidationError} on the route chain instead. Per-route handlers take precedence over the global handler. */
-export function setOnValidationError(handler: ValidationErrorHandler): () => void {
-  const prev = onValidationError
-  onValidationError = handler
-  return () => {
-    onValidationError = prev
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -162,7 +148,6 @@ export class RouteBuilder<
     security?: string[]
     responses: Record<string, ArkTypeSchema | string | Record<string, unknown>>
     onValidationError?: ValidationErrorHandler
-    onResponseValidationError?: ValidationErrorHandler
   } = { responses: {} }
 
   private static readonly VALIDATOR_MAP = [
@@ -265,12 +250,10 @@ export class RouteBuilder<
     return this
   }
 
-  onResponseValidationError(handler: ValidationErrorHandler): this {
-    this._config.onResponseValidationError = handler
-    return this
-  }
-
-  paginated(options?: PaginationOptions): RouteBuilder<B, Q, P, Hd, Pagination, F, Sr, Ir, Fs> {
+  paginated(options?: {
+    maxLimit?: number
+    defaultLimit?: number
+  }): RouteBuilder<B, Q, P, Hd, Pagination, F, Sr, Ir, Fs> {
     this._config.pagination = {
       maxLimit: options?.maxLimit ?? 100,
       defaultLimit: options?.defaultLimit ?? 20,
@@ -449,7 +432,7 @@ export class RouteBuilder<
         const response =
           (await handler(c as unknown as TypedContext<B, Q, P, Hd, Pg, F, Sr, Ir, Fs>)) ?? undefined
         if (response) {
-          const onError = this._config.onResponseValidationError ?? onResponseValidationError
+          const onError = onResponseValidationError
           return (await this.validateResponse(response, c, onError)) ?? undefined
         }
         return response

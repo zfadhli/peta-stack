@@ -9,7 +9,6 @@ export {
   computeBatchAtRuntime,
   getComputedConfig,
   setComputedConfig,
-  sqlComputed,
 } from "./computed.js"
 export { deleteModel, forceDeleteModel, restoreModel, trashedModel } from "./delete.js"
 export { createInstance } from "./factory.js"
@@ -20,8 +19,16 @@ export {
   registerSoftDeletesFor,
   registerTimestampsFor,
 } from "./hooks.js"
-export { getModelDef, loadModelRelations, setModelDef } from "./relation.js"
-export { getConfig, insertManyModel, insertModel, reloadModel, saveModel, setConfig, updateModel } from "./save.js"
+export { loadModelRelations } from "./relation.js"
+export {
+  getConfig,
+  insertManyModel,
+  insertModel,
+  reloadModel,
+  saveModel,
+  setConfig,
+  updateModel,
+} from "./save.js"
 export { addScope, getScopes, removeScope } from "./scopes.js"
 export { modelToJSON } from "./serialize.js"
 export type { ModelConfig, ModelDefinition, ModelInstance } from "./types.js"

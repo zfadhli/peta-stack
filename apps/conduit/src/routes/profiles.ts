@@ -2,7 +2,7 @@ import { type } from "arktype"
 import { Hono } from "hono"
 import { route } from "peta-docs/hono"
 import { Follow, User } from "../db/schema.js"
-import { getCurrentUserId, requireAuth } from "../middleware/auth.js"
+import { requireAuth } from "../middleware/auth.js"
 import { onValidationError } from "../middleware/error.js"
 import { http } from "../middleware/http-error.js"
 
@@ -63,7 +63,7 @@ app.get(
     .onValidationError(onValidationError)
     .handle(async (c) => {
       const { username } = c.req.valid("param")
-      const currentUserId = getCurrentUserId(c)
+      const currentUserId = c.var.currentUserId
       return c.json(await buildProfile(username, currentUserId))
     }),
 )
@@ -137,7 +137,10 @@ app.delete(
 
       const targetId = target.get("id")
 
-      await Follow.query().where("followerId", "=", currentUserId).where("followeeId", "=", targetId).deleteMany()
+      await Follow.query()
+        .where("followerId", "=", currentUserId)
+        .where("followeeId", "=", targetId)
+        .deleteMany()
 
       return c.json(await buildProfile(username, currentUserId))
     }),

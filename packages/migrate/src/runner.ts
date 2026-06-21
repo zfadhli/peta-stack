@@ -13,18 +13,7 @@ interface Migration {
   down?: (db: Kysely<any>) => Promise<void>
 }
 
-export interface MigrationRunner {
-  ensureTable(): Promise<void>
-  getCompleted(): Promise<MigrationRecord[]>
-  up(migrations: MigrationFile[]): Promise<void>
-  down(migrations: MigrationFile[]): Promise<void>
-  status(migrations: MigrationFile[]): Promise<MigrationStatus>
-}
-
-export function createMigrationRunner(
-  db: Kysely<any>,
-  table = "_peta_migrations",
-): MigrationRunner {
+export function createMigrationRunner(db: Kysely<any>, table = "_peta_migrations") {
   /**
    * Create a Kysely MigrationProvider from our MigrationFile[].
    */
@@ -112,6 +101,8 @@ export function createMigrationRunner(
 
   return { ensureTable, getCompleted, up, down, status }
 }
+
+export type MigrationRunner = ReturnType<typeof createMigrationRunner>
 
 function byName(a: { name: string }, b: { name: string }): number {
   return a.name.localeCompare(b.name)

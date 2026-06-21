@@ -1,8 +1,7 @@
 import type { Context, MiddlewareHandler } from "hono"
 import { honoScanner, route } from "../src/hono/index.js"
 import { buildOpenAPISpec, getOpenAPISpec } from "../src/index.js"
-import type { RouteScanner } from "../src/scanner.js"
-import type { OpenAPIObject, RouteEntry } from "../src/types.js"
+import type { OpenAPIObject, RouteEntry, RouteScanner } from "../src/types.js"
 
 type AssertEqual<T, U> = [T] extends [U] ? ([U] extends [T] ? true : false) : false
 type Expect<T extends true> = T

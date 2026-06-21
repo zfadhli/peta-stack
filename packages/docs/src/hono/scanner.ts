@@ -1,6 +1,4 @@
-import { emitDiagnostic } from "../lib/diagnostics.ts"
-import type { RouteScanner } from "../scanner.ts"
-import type { RouteEntry } from "../types.ts"
+import type { RouteEntry, RouteScanner } from "../types.ts"
 import { getRouteMeta } from "./route.ts"
 
 function routeProp(obj: unknown, key: string): unknown {
@@ -21,14 +19,10 @@ export const honoScanner: RouteScanner = {
 
     const raw = routeProp(app, "routes")
     if (!Array.isArray(raw)) {
-      emitDiagnostic({
-        level: "warn",
-        message:
-          `[peta-docs] honoScanner: expected app.routes to be an array, got ${typeof raw}. ` +
+      console.warn(
+        `[peta-docs] honoScanner: expected app.routes to be an array, got ${typeof raw}. ` +
           "Is this a Hono app? Provide a custom RouteScanner for other frameworks.",
-        code: "SCANNER_NOT_HONO",
-        source: "honoScanner",
-      })
+      )
       return entries
     }
 

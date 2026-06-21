@@ -2,7 +2,6 @@ import { DatabaseError, isUniqueConstraintError, normalizeError } from "../../er
 import type { ModelDefinition, ModelInstance } from "../../model/types.js"
 import type { Relation } from "../base.js"
 import { processBelongsTo, processNode } from "./insert.js"
-import { getMorphType, getMorphTypeValue, isMorphManyRelation } from "./morph.js"
 import {
   collectRefs,
   extractGraphRelationData,
@@ -230,9 +229,9 @@ async function upsertHasMany(
 
     // Insert new (or existing not found)
     const parentData: Record<string, unknown> = { [fk]: pkValue }
-    if (isMorphManyRelation(relation)) {
-      const typeCol = getMorphType(relation)!
-      const typeVal = getMorphTypeValue(relation)
+    if (relation._morphType !== undefined && relation._morphMap === undefined) {
+      const typeCol = relation._morphType!
+      const typeVal = relation._morphTypeValue
       if (typeVal !== undefined) parentData[typeCol] = typeVal
     }
     await processNode(item, relatedDef, parentData, options, context, path)

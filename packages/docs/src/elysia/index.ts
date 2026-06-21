@@ -9,5 +9,4 @@
  * @module
  */
 
-export { elysiaRoute } from "./route.ts"
 export { elysiaScanner } from "./scanner.ts"

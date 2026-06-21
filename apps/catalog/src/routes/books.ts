@@ -2,7 +2,7 @@ import { type } from "arktype"
 import { Hono } from "hono"
 import { route } from "peta-docs/hono"
 import type { ModelInstance } from "peta-orm"
-import { Book } from "../db/schema.js"
+import { Author, Book } from "../db/schema.js"
 import { pick } from "../helpers.js"
 import { requireRole } from "../middleware/auth.js"
 import { http } from "../middleware/http-error.js"
@@ -15,7 +15,6 @@ const app = new Hono()
 
 /** Look up the author ID linked to a user's session (for non-admin role). */
 async function getOwnAuthorId(userId: string): Promise<string | null> {
-  const { Author } = await import("../db/schema.js")
   const author = await Author.query().where("userId", "=", userId).first()
   return author?.get("id") ?? null
 }
@@ -103,7 +102,9 @@ app.get(
     .include(["author", "categories"])
     .response(200, BookListResponse)
     .handle(async (c) => {
-      const { page, limit, sort, include, authorId, inStock, price__gte, price__lte } = c.req.valid("query") as {
+      const { page, limit, sort, include, authorId, inStock, price__gte, price__lte } = c.req.valid(
+        "query",
+      ) as {
         page: number
         limit: number
         authorId?: string
@@ -132,7 +133,9 @@ app.get(
         .paginate(page, limit)
 
       return c.json({
-        data: paginator.data.map((b) => pick(b.$toJSON(), "id", "title", "isbn", "price", "inStock", "authorId")),
+        data: paginator.data.map((b) =>
+          pick(b.$toJSON(), "id", "title", "isbn", "price", "inStock", "authorId"),
+        ),
         total: paginator.total,
         perPage: paginator.perPage,
         currentPage: paginator.currentPage,
@@ -159,7 +162,10 @@ app.post(
       const body = c.req.valid("json")
 
       // Admin can set any authorId; authors are locked to their own author profile
-      const authorId = c.var.session.userRole === "admin" ? body.authorId : await getOwnAuthorId(c.var.session.userId!)
+      const authorId =
+        c.var.session.userRole === "admin"
+          ? body.authorId
+          : await getOwnAuthorId(c.var.session.userId!)
 
       if (!authorId) throw http.forbidden()
 
@@ -223,7 +229,9 @@ app.patch(
       const rawId = c.req.param("id")!
       const body = c.req.valid("json") as Record<string, unknown>
 
-      const books = await (Book.query().where("id", "=", rawId).execute() as Promise<ModelInstance[]>)
+      const books = await (Book.query().where("id", "=", rawId).execute() as Promise<
+        ModelInstance[]
+      >)
       const book = books[0]
       if (!book) throw http.notFound()
 
@@ -266,7 +274,9 @@ app.delete(
     .response(403, "Forbidden")
     .handle(async (c) => {
       const rawId = c.req.param("id")!
-      const books = await (Book.query().where("id", "=", rawId).execute() as Promise<ModelInstance[]>)
+      const books = await (Book.query().where("id", "=", rawId).execute() as Promise<
+        ModelInstance[]
+      >)
       const book = books[0]
       if (!book) throw http.notFound()
 

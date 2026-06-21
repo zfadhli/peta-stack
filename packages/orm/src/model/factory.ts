@@ -154,7 +154,7 @@ export function createInstance<TColumns extends ColumnShape = ColumnShape>(
 
   if (exists) {
     // DB read path — apply casts, NO set mutators
-    const applied = applyCastsToData(config, data || {}, "get")
+    const applied = applyCastsToData(config, data || {})
     initState(instance, applied, true)
   } else {
     // New record path — start empty, fill via set pipeline, then sync original

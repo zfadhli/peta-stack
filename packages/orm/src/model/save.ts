@@ -63,9 +63,7 @@ export async function saveModel(
       const result = await db.insertInto(def.table).values(data).returningAll().executeTakeFirst()
 
       if (result) {
-        const applied = config?.casts
-          ? applyCastsToData(config as any, result as any, "get")
-          : result
+        const applied = config?.casts ? applyCastsToData(config as any, result as any) : result
         for (const [key, value] of Object.entries(applied as Record<string, unknown>)) {
           getState(model).attributes[key] = value
         }
@@ -205,7 +203,7 @@ export async function insertManyModel(
   }
 
   const models = results.map((row) => {
-    const applied = config?.casts ? applyCastsToData(config as any, row as any, "get") : row
+    const applied = config?.casts ? applyCastsToData(config as any, row as any) : row
     return createInstance(def, config ?? { columns: def.columns }, applied, true)
   })
 
@@ -505,7 +503,7 @@ export async function reloadModel(def: ModelDefinition, model: ModelInstance): P
 
     if (row) {
       const config = getConfig(def)
-      const applied = config?.casts ? applyCastsToData(config as any, row as any, "get") : row
+      const applied = config?.casts ? applyCastsToData(config as any, row as any) : row
       const state = getState(model)
       state.attributes = { ...(applied as Record<string, unknown>) }
       state.original = { ...(applied as Record<string, unknown>) }

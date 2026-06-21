@@ -7,6 +7,7 @@ import {
 import { getDb } from "../lib/model-helpers.js"
 import type { ModelDefinition, ModelInstance } from "../model/types.js"
 import type { Relation } from "./base.js"
+import { findRelated, getPivotInfo, resolveTargetId } from "./helpers.js"
 
 // ─── TYPES FOR RELATION OPERATIONS ────────────────────────────
 
@@ -207,41 +208,4 @@ async function processManyToManyCreate(
       }
     }
   }
-}
-
-// ─── HELPERS ──────────────────────────────────────────────────
-
-function getPivotInfo(relation: Relation): {
-  throughTable: string
-  foreignPivotKey: string
-  relatedPivotKey: string
-} {
-  if (relation.type !== "manyToMany" || !relation.throughTable) {
-    throw new Error("Not a many-to-many relation")
-  }
-  return {
-    throughTable: relation.throughTable,
-    foreignPivotKey: relation.foreignPivotKey ?? "",
-    relatedPivotKey: relation.relatedPivotKey ?? "",
-  }
-}
-
-async function findRelated(
-  def: ModelDefinition,
-  conditions: Record<string, unknown>,
-): Promise<ModelInstance | undefined> {
-  const key = Object.keys(conditions)[0]!
-  return def.query().where(key, "=", conditions[key]).executeTakeFirst()
-}
-
-async function resolveTargetId(
-  def: ModelDefinition,
-  target: number | string | Record<string, unknown>,
-): Promise<unknown> {
-  if (typeof target === "number" || typeof target === "string") {
-    return target
-  }
-  const found = await findRelated(def, target)
-  if (found) return found.get("id")
-  return undefined
 }

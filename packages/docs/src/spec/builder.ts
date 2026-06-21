@@ -3,7 +3,6 @@ import type {
   OpenAPIObject,
   OperationObject,
   ParameterObject,
-  PathItemObject,
   PathsObject,
   ResponsesObject,
   RouteEntry,
@@ -25,14 +24,7 @@ function honoPathToOpenAPI(path: string): string {
 }
 
 function parsePathParams(path: string): string[] {
-  const params: string[] = []
-  const regex = /{(\w+)}/g
-  let match: RegExpExecArray | null = regex.exec(path)
-  while (match !== null) {
-    params.push(match[1]!)
-    match = regex.exec(path)
-  }
-  return params
+  return [...path.matchAll(/{(\w+)}/g)].map((m) => m[1]!)
 }
 
 function extractProperties(
@@ -55,7 +47,6 @@ function extractProperties(
 function autoOperationId(method: string, path: string): string {
   const cleanPath = path
     .replace(/{(\w+)}/g, (_m, name) => `By${name[0]!.toUpperCase() + name.slice(1)}`)
-    .replace(/:(\w+)/g, (_m, name) => `By${name[0]!.toUpperCase() + name.slice(1)}`)
     .replace(/\/+/g, "/")
     .replace(/^\//, "")
   const segments = cleanPath.split("/").filter(Boolean)
@@ -80,6 +71,8 @@ const METHOD_ORDER: Record<string, number> = {
   delete: 3,
   patch: 4,
 }
+
+const VALID_METHODS = new Set(Object.keys(METHOD_ORDER))
 
 export function buildOpenAPISpec(
   routes: RouteEntry[],
@@ -329,18 +322,8 @@ export function buildOpenAPISpec(
     operation.responses = responses
 
     const methodLower = method.toLowerCase()
-    const validMethods = [
-      "get",
-      "post",
-      "put",
-      "delete",
-      "patch",
-    ] as const satisfies readonly (keyof PathItemObject)[]
-    const key = validMethods.includes(methodLower as (typeof validMethods)[number])
-      ? (methodLower as (typeof validMethods)[number])
-      : undefined
-    if (key) {
-      pathItem[key] = operation
+    if (VALID_METHODS.has(methodLower)) {
+      ;(pathItem as Record<string, OperationObject>)[methodLower] = operation
     }
   }
 

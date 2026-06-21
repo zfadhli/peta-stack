@@ -2,9 +2,8 @@ import { pathToFileURL } from "node:url"
 import type { Dialect } from "kysely"
 import { Kysely } from "kysely"
 import type { ColumnShape } from "../columns/column.js"
-import type { Database } from "../lib/kysely.js"
 import type { ModelDefinition } from "../model/types.js"
-import type { ORMLike } from "../types.js"
+import type { Database, ORMLike } from "../types.js"
 
 export interface ORMConfig {
   /** Kysely dialect to create an internal Kysely instance. Required unless `kysely` is provided. */
@@ -78,8 +77,18 @@ export function createORM(config: ORMConfig): ORMLike & { kysely: Database } {
     },
 
     async discover(pattern: string): Promise<ModelDefinition<any>[]> {
-      const fg = await import("fast-glob")
-      const entries = await fg.glob(pattern, { absolute: true, onlyFiles: true })
+      const entries: string[] = []
+      const glob = new Bun.Glob("**/*.ts")
+      // Extract base dir from pattern (strip /** or /* suffix)
+      const starIdx = pattern.lastIndexOf("*")
+      const baseDir = starIdx >= 0 ? pattern.slice(0, pattern.lastIndexOf("/", starIdx)) : pattern
+      try {
+        for await (const match of glob.scan({ cwd: baseDir, absolute: true, onlyFiles: true })) {
+          entries.push(match)
+        }
+      } catch {
+        // Bun.Glob throws on nonexistent directories — treat as empty
+      }
 
       if (entries.length === 0) {
         throw new Error(`discover: no files matched pattern "${pattern}"`)

@@ -90,11 +90,6 @@ export interface ModelDefinition<TColumns extends ColumnShape = ColumnShape> {
   beforeDelete(callback: import("../hooks/static.js").StaticHookCallback): () => void
   afterDelete(callback: import("../hooks/static.js").StaticHookCallback): () => void
   beforeUpdate(callback: import("../hooks/static.js").StaticHookCallback): () => void
-  afterUpdate(callback: import("../hooks/static.js").StaticHookCallback): () => void
-  beforeCreate(callback: import("../hooks/static.js").StaticHookCallback): () => void
-  afterCreate(callback: import("../hooks/static.js").StaticHookCallback): () => void
-  beforeFind(callback: import("../hooks/static.js").StaticHookCallback): () => void
-  afterFind(callback: import("../hooks/static.js").StaticHookCallback): () => void
 
   addGlobalScope(name: string, callback: (qb: QueryBuilder) => void): void
   removeGlobalScope(name: string): void

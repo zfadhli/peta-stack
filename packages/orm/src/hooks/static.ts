@@ -14,21 +14,17 @@ export interface StaticHookArgs {
 
 export type StaticHookCallback = (args: StaticHookArgs) => void | Promise<void>
 
-export type StaticHookEvent =
-  | "beforeCreate"
-  | "afterCreate"
-  | "beforeUpdate"
-  | "afterUpdate"
-  | "beforeDelete"
-  | "afterDelete"
-  | "beforeFind"
-  | "afterFind"
+export type StaticHookEvent = "beforeUpdate" | "beforeDelete" | "afterDelete"
 
 // ─── STORE ───────────────────────────────────────────────────
 
 const staticHooks = new WeakMap<ModelDefinition, Map<StaticHookEvent, StaticHookCallback[]>>()
 
-export function addStaticHook(def: ModelDefinition, event: StaticHookEvent, callback: StaticHookCallback): () => void {
+export function addStaticHook(
+  def: ModelDefinition,
+  event: StaticHookEvent,
+  callback: StaticHookCallback,
+): () => void {
   let hooks = staticHooks.get(def)
   if (!hooks) {
     hooks = new Map()
