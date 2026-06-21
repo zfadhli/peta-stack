@@ -1,6 +1,6 @@
 // peta.config.ts — Configuration for the Peta CLI migration tools
 
-import { defineConfig } from "peta-orm/migrator"
+import { defineConfig } from "peta-migrate"
 
 // Option A: explicit model array (no discovery overhead)
 // import { User, Post, Comment, Tag } from "./src/models"

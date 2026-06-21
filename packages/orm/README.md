@@ -310,25 +310,10 @@ const posts = await Post.query()
 
 ## Migrations
 
-Generate and run migrations from model definitions:
+See the [peta-migrate](../migrate/README.md) package for migration generation and running.
 
 ```ts
-import { createMigrationRunner, createMigrationGenerator } from "peta-orm/migrator"
-
-const runner = createMigrationRunner(kysely)
-const gen = createMigrationGenerator()
-
-const code = gen.generateInitialMigration(models)
-await runner.up(migrationFiles)
-```
-
-Or via the CLI:
-
-```bash
-bun run bin/peta migrate:init
-bun run bin/peta migrate:generate
-bun run bin/peta migrate:up
-bun run bin/peta migrate:status
+import { createMigrationRunner, createMigrationGenerator } from "peta-migrate"
 ```
 
 ---
