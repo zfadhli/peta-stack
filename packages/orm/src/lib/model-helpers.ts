@@ -11,5 +11,6 @@ export function getPrimaryKeyColumn(def: ModelDefinition): string {
 
 export function getDb(def: ModelDefinition): any {
   if (!def._orm) throw new ModelNotRegisteredError(def.name)
+  if ((def._orm as any)._trx) return (def._orm as any)._trx
   return (def._orm as any).kysely
 }

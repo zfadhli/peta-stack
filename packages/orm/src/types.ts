@@ -14,9 +14,7 @@ export interface ORMLike {
   register(model: ModelDefinition<any>): void
   registerAll(...models: (ModelDefinition<any> | ModelDefinition<any>[])[]): void
   destroy(): Promise<void>
-  transaction<T>(
-    fn: (trx: import("kysely").Kysely<Record<string, never>>) => Promise<T>,
-  ): Promise<T>
+  transaction<T>(fn: (orm: ORMLike) => Promise<T>): Promise<T>
   readonly models: ReadonlyMap<string, ModelDefinition<any>>
   getModel<T extends ColumnShape = ColumnShape>(name: string): ModelDefinition<T> | undefined
   /**

@@ -4,7 +4,6 @@ import { LibsqlDialect } from "@libsql/kysely-libsql"
 import { t } from "../src/columns/index.js"
 import { createHookManager, createPeta, defineModel } from "../src/index.js"
 
-
 const Dummy = defineModel("dummy", {
   columns: { id: t.integer().primaryKey(), name: t.string(255) },
 })
@@ -72,7 +71,7 @@ describe("Model lifecycle hooks", () => {
     const log: string[] = []
     HooksTest.on("beforeUpdate", (m: any) => {
       log.push("beforeUpdate")
-      m.set("counter", (m.get("counter")) + 1)
+      m.set("counter", m.get("counter") + 1)
     })
     HooksTest.on("afterUpdate", (_m: any) => {
       log.push("afterUpdate")
@@ -161,7 +160,9 @@ describe("SoftDeletes", () => {
 
   beforeAll(async () => {
     await db.execute("PRAGMA journal_mode = WAL")
-    await db.execute("CREATE TABLE soft_deletable (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, deletedAt TEXT)")
+    await db.execute(
+      "CREATE TABLE soft_deletable (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, deletedAt TEXT)",
+    )
     peta = createPeta({ dialect: new LibsqlDialect({ client: db }) })
     peta.registerAll(SoftDeletable)
     SoftDeletable.registerSoftDeletes()
@@ -213,7 +214,9 @@ describe("Custom errors", () => {
 
   beforeAll(async () => {
     await db.execute("PRAGMA journal_mode = WAL")
-    await db.execute("CREATE TABLE err_users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
+    await db.execute(
+      "CREATE TABLE err_users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)",
+    )
     peta = createPeta({ dialect: new LibsqlDialect({ client: db }) })
     peta.registerAll(ErrUser)
     await ErrUser.insert({ name: "Alice" })
@@ -350,7 +353,7 @@ describe("Serialization control", () => {
 
 describe("Transaction", () => {
   const _txDir = new URL("../../../.tmp/", import.meta.url).pathname
-  const db = createClient({ url: "file:" + _txDir + "hooks-tx-" + Date.now() + ".db" })
+  const db = createClient({ url: `file:${_txDir}hooks-tx-${Date.now()}.db` })
   let peta: ReturnType<typeof createPeta>
 
   const TxUser = defineModel("tx_users", {
@@ -358,7 +361,9 @@ describe("Transaction", () => {
   })
 
   beforeAll(async () => {
-    await db.execute("CREATE TABLE tx_users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)")
+    await db.execute(
+      "CREATE TABLE tx_users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)",
+    )
     peta = createPeta({ dialect: new LibsqlDialect({ client: db }) })
     peta.registerAll(TxUser)
   })
@@ -369,8 +374,8 @@ describe("Transaction", () => {
   })
 
   it("Model.transaction via orm", async () => {
-    await peta.transaction(async (trx) => {
-      await trx.insertInto("tx_users").values({ name: "Tx Alice" }).execute()
+    await peta.transaction(async (_orm) => {
+      await TxUser.insert({ name: "Tx Alice" })
     })
     const user = await TxUser.query().where("name", "=", "Tx Alice").first()
     expect(user).toBeDefined()

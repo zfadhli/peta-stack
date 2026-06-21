@@ -1,6 +1,6 @@
+import { pathToFileURL } from "node:url"
 import type { Dialect } from "kysely"
 import { Kysely } from "kysely"
-import { pathToFileURL } from "url"
 import type { ColumnShape } from "../columns/column.js"
 import type { Database } from "../lib/kysely.js"
 import type { ModelDefinition } from "../model/types.js"
@@ -25,7 +25,9 @@ export interface ORMConfig {
  */
 export function createORM(config: ORMConfig): ORMLike & { kysely: Database } {
   if (!config.dialect && !config.kysely) {
-    throw new Error("createORM: provide either `dialect` (to create a Kysely instance) or `kysely` (to reuse one)")
+    throw new Error(
+      "createORM: provide either `dialect` (to create a Kysely instance) or `kysely` (to reuse one)",
+    )
   }
 
   const kysely = (config.kysely ??
@@ -56,8 +58,15 @@ export function createORM(config: ORMConfig): ORMLike & { kysely: Database } {
       await kysely.destroy()
     },
 
-    async transaction<T>(fn: (trx: Database) => Promise<T>): Promise<T> {
-      return kysely.transaction().execute((trx: any) => fn(trx))
+    async transaction<T>(fn: (orm: ORMLike) => Promise<T>): Promise<T> {
+      return kysely.transaction().execute(async (trx) => {
+        ;(this as any)._trx = trx
+        try {
+          return await fn(this)
+        } finally {
+          delete (this as any)._trx
+        }
+      })
     },
 
     get models(): ReadonlyMap<string, ModelDefinition> {

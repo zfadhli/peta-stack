@@ -326,6 +326,16 @@ describe("Thenable query builder", () => {
   })
 })
 
+describe("Transactions", () => {
+  it("transaction runs without error", async () => {
+    const result = await peta.transaction(async () => {
+      const user = await User.insert({ name: "TxUser", email: "tx@test.com" })
+      return user.get("id")
+    })
+    expect(result).not.toBeUndefined()
+  })
+})
+
 describe("Computed columns", () => {
   const db = createClient({ url: ":memory:" })
   let peta: ReturnType<typeof createPeta>
