@@ -1,7 +1,7 @@
 {
   "name": "peta-auth",
   "private": false,
-  "version": "0.2.3",
+  "version": "0.3.0",
   "description": "Encrypted cookie sessions for Bun — Hono, ElysiaJS & Nuxt adapters",
   "license": "MIT",
   "repository": {
@@ -61,8 +61,7 @@
   "dependencies": {
     "@node-rs/argon2": "^2.0.2",
     "cookie": "^1.1.1",
-    "iron-webcrypto": "^2.0.0",
-    "jose": "^6.2.3"
+    "iron-webcrypto": "^2.0.0"
   },
   "peerDependencies": {
     "elysia": ">=1.0.0",

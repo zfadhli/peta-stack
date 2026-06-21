@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [peta-orm@0.6.0, peta-auth@0.3.0, peta-docs@0.4.0, peta-migrate@0.3.0] - 2026-06-22
+
+### Removed
+
+- **orm**: `defineMorphOne`, `MorphOneOptions`, `withAvg`, `withMin`, `withMax`, `withExists`, `applyComputedColumns` (sync), `sqlComputed`, `ModelId`, `PaginatedResult`, `setModelDef`, `getModelDef`, `HookManager.clone()`, `Paginator.count`, `Paginator.map`, `collection.each`, `createMiddleware` alias — all unused or superseded APIs
+- **orm**: `fast-glob` dependency — replaced with `Bun.Glob`
+- **auth**: `jose` dependency — replaced with `crypto.subtle.sign/verify`
+- **auth**: v1 seal backwards-compatibility — `sealData`/`unsealData` no longer handle legacy v1 format
+- **auth**: `RequestAccessTokenOptions.params` field — never used
+- **docs**: `createHonoDocsApp`, `HonoDocsConfig`, `elysiaRoute`, `setOnValidationError`, `setOnDiagnostic`, `Diagnostic`, `DiagnosticLevel`, `emitDiagnostic`, per-route `onResponseValidationError`, `PaginationOptions` — all unused, deprecated, or replaced
+- **docs**: `arktype` moved from `optionalDependencies` to `devDependencies` — install manually if using ArkType schemas
+- **migrate**: `GeneratorOptions` interface — unused
+- **migrate**: `fast-glob` dependency — replaced with `Bun.Glob`
+- **migrate**: `MigrationRunner`/`MigrationGenerator` changed from interfaces to type aliases (`ReturnType<typeof createMigrationRunner>`)
+
+### Changed
+
+- **orm**: Consolidated duplicated helpers (`getPivotInfo`, `findRelated`, `resolveTargetId`) into `relations/helpers.ts`
+- **orm**: Inlined `graph/morph.ts` accessor wrappers, deleted the file
+- **orm**: Folded `lib/kysely.ts` (`Database` type) into `types.ts`
+- **orm**: Inlined `rawSql`, `DeletedRows`, `defName` helpers; collapsed `defaultValue` ternary; removed dead `"set"` branch in `applyCastsToData`
+- **auth**: Replaced `jose` with native `crypto.subtle.sign/verify` (JWT API signatures unchanged)
+- **auth**: Inlined `encodeBase64Url`, `getRandomBytes`, `toKey` one-liner wrappers
+- **docs**: Replaced `emitDiagnostic` calls with `console.warn`
+- **docs**: Inlined `mapContentSchemas`, `parsePathParams`, `validMethods` as one-liners
+- **migrate**: Inlined `mapType`/`mapPushType`/`mapSnapshotType` wrappers
+- **ci**: Removed redundant wait-for-health loops from test.yml (GitHub Actions `--health-cmd` already blocks)
+- **ci**: Replaced `softprops/action-gh-release` with native `gh release create`
+- **config**: Hoisted shared TypeScript options to `tsconfig.base.json` (slimmed all package tsconfigs)
+- **config**: Removed default-override Biome settings, unused npm scripts, empty `orm/bin/` directory
+
 ## [0.2.2] - 2026-06-20
 
 ### Fixed

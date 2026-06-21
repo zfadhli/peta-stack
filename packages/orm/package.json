@@ -2,7 +2,7 @@
   "name": "peta-orm",
   "type": "module",
   "private": false,
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "ORM for Bun, built on Kysely",
   "license": "MIT",
   "repository": {
@@ -25,7 +25,6 @@
   ],
   "dependencies": {
     "arktype": "^2.2.0",
-    "fast-glob": "^3.3.3",
     "ulid": "^3.0.2"
   },
   "peerDependencies": {

@@ -2,7 +2,7 @@
   "name": "peta-migrate",
   "type": "module",
   "private": false,
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "Migration tools for peta-orm",
   "license": "MIT",
   "repository": {
@@ -29,7 +29,6 @@
   ],
   "dependencies": {
     "cac": "^7.0.0",
-    "fast-glob": "^3.3.3",
     "ora": "^9.4.0"
   },
   "peerDependencies": {
