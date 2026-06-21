@@ -41,6 +41,7 @@ export { createQueryBuilder } from "./query/builder.js"
 export type { QueryBuilder } from "./query/types.js"
 // ─── Relations ────────────────────────────────────────────
 export type { Relation, RelationOptions, RelationType } from "./relations/base.js"
+export type { BelongsToOp, HasManyOp, ManyToManyOp, RelationData } from "./relations/crud.js"
 export type { InsertGraphOptions, UpsertGraphOptions } from "./relations/graph/index.js"
 export {
   belongsTo,
