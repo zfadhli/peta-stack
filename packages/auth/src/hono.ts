@@ -20,7 +20,7 @@ import {
  */
 export function session<T extends Record<string, unknown> = Record<string, unknown>>(
   options: SessionOptions,
-): MiddlewareHandler<{ Variables: { session: T & IronSession } }> {
+): MiddlewareHandler<{ Variables: { session: IronSession<T> } }> {
   return createMiddleware(async (c, next) => {
     c.set(
       "session",

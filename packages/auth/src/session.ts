@@ -31,17 +31,14 @@ export interface SessionOptions {
   cookieOptions?: Omit<SerializeOptions, "encode">
 }
 
-/** A session instance returned by {@link createSessionFromAdapter}. */
-export interface IronSession {
-  /** Persist the session to the response cookie. */
+export interface SessionMethods {
   save(): Promise<void>
-  /** Clear the session cookie. */
   destroy(): void
-  /** Update session config at runtime. */
   updateConfig(options: SessionOptions): void
-  /** Arbitrary session data keys. */
-  [key: string]: unknown
 }
+
+export type IronSession<T extends Record<string, unknown> = Record<string, unknown>> = T &
+  SessionMethods
 
 /** Check whether a session has any user data keys beyond the built-in methods. */
 export function sessionHasData(session: Record<string, unknown>, key?: string): boolean {
@@ -116,7 +113,7 @@ export interface SessionAdapter {
  */
 export async function createSessionFromAdapter<
   T extends Record<string, unknown> = Record<string, unknown>,
->(adapter: SessionAdapter, options: SessionOptions): Promise<T & IronSession> {
+>(adapter: SessionAdapter, options: SessionOptions): Promise<IronSession<T>> {
   let config = resolveConfig(options)
 
   const seal = adapter.getCookie(config.cookieName)
@@ -124,7 +121,7 @@ export async function createSessionFromAdapter<
     ? await unsealData<T>(seal, { password: config.password, ttl: config.timeToLive })
     : ({} as T)
 
-  const session = data as T & IronSession
+  const session = data as IronSession<T>
 
   session.save = async () => {
     const s = await sealData(session, { password: config.password, ttl: config.timeToLive })

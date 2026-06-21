@@ -52,7 +52,8 @@ export function requireSession<K extends string>(key: K): (app: Elysia) => Elysi
 export function requireSession(key?: string) {
   return (app: Elysia): Elysia => {
     app.onBeforeHandle((context) => {
-      const session = (context as unknown as { session: IronSession }).session
+      const session = (context as unknown as { session: IronSession<Record<string, unknown>> })
+        .session
       const hasData = sessionHasData(session, key)
       if (!hasData) {
         return new Response(JSON.stringify({ error: "unauthorized" }), {

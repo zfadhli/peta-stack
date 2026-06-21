@@ -4,7 +4,7 @@ import { createSessionFromAdapter, type IronSession } from "../src/session.js"
 
 const password = { 1: "a".repeat(32) }
 
-async function makeSession(): Promise<IronSession> {
+async function makeSession(): Promise<IronSession<Record<string, unknown>>> {
   return createSessionFromAdapter(
     {
       getCookie: () => undefined,
