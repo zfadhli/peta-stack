@@ -385,13 +385,32 @@ export async function updateModel(
         const fpk = relation.foreignPivotKey!
         const rpk = relation.relatedPivotKey!
 
+        // Batch-resolve object targets (Site 3a: N+1 fix)
+        const connectLookup = new Map<unknown, unknown>()
+        const connectObjects = (mop.connect as any[]).filter(
+          (t) => typeof t !== "number" && typeof t !== "string",
+        ) as Record<string, unknown>[]
+        if (connectObjects.length > 0) {
+          const byKey = new Map<string, unknown[]>()
+          for (const t of connectObjects) {
+            const k = Object.keys(t)[0]!
+            if (!byKey.has(k)) byKey.set(k, [])
+            byKey.get(k)!.push(t[k])
+          }
+          for (const [k, vals] of byKey) {
+            const records = await relatedDef
+              .query()
+              .whereIn(k, vals as any[])
+              .execute()
+            for (const r of records) connectLookup.set(r.get(k), r.get("id"))
+          }
+        }
+
         for (const target of mop.connect) {
           let targetId: unknown = target
           if (typeof target !== "number" && typeof target !== "string") {
             const t = target as Record<string, unknown>
-            const key = Object.keys(t)[0]!
-            const found = await relatedDef.query().where(key, "=", t[key]).executeTakeFirst()
-            targetId = found?.get("id")
+            targetId = connectLookup.get(t[Object.keys(t)[0]!])
           }
           if (targetId != null) {
             try {
@@ -441,13 +460,32 @@ export async function updateModel(
         const currentIds = new Set(current.map((r: any) => r[rpk]))
         const desiredIds = new Set<unknown>()
 
+        // Batch-resolve object targets in set (Site 3b: N+1 fix)
+        const setLookup = new Map<unknown, unknown>()
+        const setObjects = (mop.set as any[]).filter(
+          (t) => typeof t !== "number" && typeof t !== "string",
+        ) as Record<string, unknown>[]
+        if (setObjects.length > 0) {
+          const byKey = new Map<string, unknown[]>()
+          for (const t of setObjects) {
+            const k = Object.keys(t)[0]!
+            if (!byKey.has(k)) byKey.set(k, [])
+            byKey.get(k)!.push(t[k])
+          }
+          for (const [k, vals] of byKey) {
+            const records = await relatedDef
+              .query()
+              .whereIn(k, vals as any[])
+              .execute()
+            for (const r of records) setLookup.set(r.get(k), r.get("id"))
+          }
+        }
+
         for (const target of mop.set) {
           let targetId: unknown = target
           if (typeof target !== "number" && typeof target !== "string") {
             const t = target as Record<string, unknown>
-            const key = Object.keys(t)[0]!
-            const found = await relatedDef.query().where(key, "=", t[key]).executeTakeFirst()
-            targetId = found?.get("id")
+            targetId = setLookup.get(t[Object.keys(t)[0]!])
           }
           if (targetId != null) {
             desiredIds.add(targetId)
