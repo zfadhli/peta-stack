@@ -5,10 +5,12 @@ import { addStaticHook } from "../hooks/static.js"
 import type { QueryBuilder } from "../query/index.js"
 import { createQueryBuilder } from "../query/index.js"
 import type { ORMLike } from "../types.js"
+import { setComputedConfig } from "./computed.js"
 import { createInstance } from "./factory.js"
 import { getHooksFor, registerSoftDeletesFor, registerTimestampsFor } from "./hooks.js"
 import { setConfig } from "./save.js"
 import { addScope, getScopes, removeScope } from "./scopes.js"
+import { setConfig as setSerializeConfig } from "./serialize.js"
 import type { ModelConfig, ModelDefinition, ModelInstance } from "./types.js"
 
 // ─── DEFINE MODEL FACTORY ────────────────────────────────────
@@ -147,15 +149,15 @@ export function defineModel<TColumns extends ColumnShape>(
       // Store config in save module
       setConfig(def, config)
       // Also store config in serialize module
-      import("./serialize.js").then((mod) => mod.setConfig?.(def, config))
+      setSerializeConfig?.(def, config)
     },
   }
 
   // Store config immediately on both save and serialize modules
   setConfig(def, config)
-  import("./serialize.js").then((mod) => mod.setConfig?.(def, config))
+  setSerializeConfig?.(def, config)
   if (config.computed) {
-    import("./computed.js").then((mod) => mod.setComputedConfig?.(def, config.computed!))
+    setComputedConfig?.(def, config.computed!)
   }
   // Add backward-compat convenience methods
   def.registerTimestamps = (createdAtCol?: string, updatedAtCol?: string) => {
