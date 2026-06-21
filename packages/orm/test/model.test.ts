@@ -133,6 +133,31 @@ describe("Model CRUD", () => {
     expect(found).toBeUndefined()
   })
 
+  it("updateMany", async () => {
+    const u1 = await User.insert({ name: "UM One", email: "um1@example.com", age: 10 })
+    const u2 = await User.insert({ name: "UM Two", email: "um2@example.com", age: 20 })
+    const count = await User.updateMany({ age: 99 }, [{ id: u1.get("id") }, { id: u2.get("id") }])
+    expect(count).toBe(2)
+    const r1 = await User.find(u1.get("id"))
+    expect(r1!.get("age")).toBe(99)
+    const r2 = await User.find(u2.get("id"))
+    expect(r2!.get("age")).toBe(99)
+  })
+
+  it("deleteMany", async () => {
+    const u1 = await User.insert({ name: "DM One", email: "dm1@example.com" })
+    const u2 = await User.insert({ name: "DM Two", email: "dm2@example.com" })
+    const u3 = await User.insert({ name: "DM Keep", email: "dm3@example.com" })
+    const count = await User.deleteMany([{ id: u1.get("id") }, { id: u2.get("id") }])
+    expect(count).toBe(2)
+    const found1 = await User.find(u1.get("id"))
+    expect(found1).toBeUndefined()
+    const found2 = await User.find(u2.get("id"))
+    expect(found2).toBeUndefined()
+    const kept = await User.find(u3.get("id"))
+    expect(kept).toBeDefined()
+  })
+
   it("reloads a record", async () => {
     const user = await User.insert({
       name: "Reload",
