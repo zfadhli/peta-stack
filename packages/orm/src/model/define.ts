@@ -74,6 +74,13 @@ export function defineModel<TColumns extends ColumnShape>(
       return mod.upsertGraph(def, data, options)
     },
 
+    async deleteGraph(idOrInstance: any, options?: any) {
+      const model = typeof idOrInstance === "object" ? idOrInstance : await def.find(idOrInstance)
+      if (!model) return
+      const { deleteGraph: deleteGraphFn } = await import("../relations/graph/index.js")
+      return deleteGraphFn(def, model, options)
+    },
+
     async delete(id) {
       const model = await this.findOrFail(id)
       const mod = await import("./delete.js")
