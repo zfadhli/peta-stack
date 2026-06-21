@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "bun:test"
 import {
+  defineOAuthHandler,
   getOAuthRedirectURL,
   handlePKCE,
   handleState,
@@ -117,5 +118,63 @@ describe("requestAccessToken", () => {
     expect(requestAccessToken("https://example.com/token", {})).rejects.toThrow(
       "OAuth token request failed: 500",
     )
+  })
+})
+
+describe("defineOAuthHandler full callback", () => {
+  const mockProvider = {
+    name: "mock",
+    resolveConfig: (config: any) => ({
+      clientId: config.clientId ?? "mock-id",
+      clientSecret: config.clientSecret ?? "mock-secret",
+      authorizationURL: "https://mock.com/auth",
+      tokenURL: "https://mock.com/token",
+      scope: ["openid"],
+      authorizationParams: {},
+      apiURL: "https://mock.com/api",
+    }),
+    buildAuthUrl: (config: any, _redirectURL: string, state: any) => ({
+      url: `${config.authorizationURL}?client_id=${config.clientId}&state=${state.state}`,
+      cookies: state.setCookie,
+    }),
+    requestTokenBody: (config: any, redirectURL: string, code: string) => ({
+      grant_type: "authorization_code",
+      client_id: config.clientId,
+      client_secret: config.clientSecret,
+      redirect_uri: redirectURL,
+      code,
+    }),
+    fetchUser: async (_config: any, _tokens: any) => ({ id: "user-1", name: "Mock User" }),
+  }
+
+  it("executes full callback: state validation → token exchange → user fetch → onSuccess", async () => {
+    const originalFetch = globalThis.fetch
+    const handler = defineOAuthHandler(mockProvider, {
+      config: { clientId: "cid", clientSecret: "cs" },
+      onSuccess: async ({ user, tokens }) =>
+        new Response(JSON.stringify({ userId: user.id, token: (tokens as any).access_token }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+    })
+
+    globalThis.fetch = async () =>
+      new Response(JSON.stringify({ access_token: "final-token" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
+
+    try {
+      const res = await handler(
+        new Request("http://localhost/auth/mock?code=abc&state=xyz", {
+          headers: { cookie: "peta-auth-state=xyz" },
+        }),
+      )
+      const body = await res.json()
+      expect(body.userId).toBe("user-1")
+      expect(body.token).toBe("final-token")
+    } finally {
+      globalThis.fetch = originalFetch
+    }
   })
 })
