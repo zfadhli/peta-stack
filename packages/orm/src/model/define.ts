@@ -54,6 +54,10 @@ export function defineModel<TColumns extends ColumnShape>(
       return mod.insertModel(def, data) as Promise<ModelInstance<TColumns>>
     },
 
+    upsert(data: Record<string, unknown>): Promise<ModelInstance<TColumns>> {
+      return (this.query() as any).all().upsert(data) as Promise<ModelInstance<TColumns>>
+    },
+
     async insertMany(dataArray) {
       const mod = await import("./save.js")
       return mod.insertManyModel(def, dataArray) as Promise<ModelInstance<TColumns>[]>

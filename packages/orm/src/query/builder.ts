@@ -1,6 +1,8 @@
 import { sql as kyselySql } from "kysely"
 import type { Column, ColumnShape } from "../columns/column.js"
 import { ModelNotFoundError, RelationNotAllowedError, RelationNotFoundError } from "../errors.js"
+import { getPrimaryKeyColumn } from "../lib/model-helpers.js"
+import { insertModel } from "../model/save.js"
 import type { ModelDefinition, ModelInstance } from "../model/types.js"
 import { type EagerLoad, EagerLoader } from "../relations/eager.js"
 import type { InsertGraphOptions, UpsertGraphOptions } from "../relations/graph/index.js"
@@ -395,6 +397,27 @@ export function createQueryBuilder<TColumns extends ColumnShape = ColumnShape>(
         ...options,
         allowGraph: allowedGraphSet ? [...allowedGraphSet] : options?.allowGraph,
       })
+    },
+
+    async upsert(data: Record<string, unknown>): Promise<ModelInstance<TColumns>> {
+      const pk = getPrimaryKeyColumn(def)
+      const pkValue = data[pk]
+
+      if (pkValue != null) {
+        const existing = await db
+          .selectFrom(def.table)
+          .selectAll()
+          .where(pk, "=", pkValue)
+          .executeTakeFirst()
+
+        if (existing) {
+          const instance = def.hydrate(existing as Record<string, unknown>)
+          instance.fill(data)
+          return instance.$save()
+        }
+      }
+
+      return insertModel(def, data) as Promise<ModelInstance<TColumns>>
     },
 
     // ─── Bulk CRUD ────────────────────────────────────────

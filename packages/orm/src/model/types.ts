@@ -75,6 +75,7 @@ export interface ModelDefinition<TColumns extends ColumnShape = ColumnShape> {
     data: Record<string, unknown> | Record<string, unknown>[],
     options?: UpsertGraphOptions,
   ): Promise<any>
+  upsert(data: Record<string, unknown>): Promise<ModelInstance<TColumns>>
 
   hydrate(row: Record<string, unknown>): ModelInstance<TColumns>
 
