@@ -55,7 +55,7 @@ export async function handlePKCE(request: Request): Promise<{
     setCookie: serialize("peta-auth-pkce", verifier, {
       path: "/",
       httpOnly: true,
-      sameSite: "lax",
+      sameSite: "strict",
       secure: !IS_DEVELOPMENT,
       maxAge: OAUTH_COOKIE_MAX_AGE,
     }),
@@ -90,7 +90,7 @@ export function handleState(request: Request): {
     setCookie: serialize("peta-auth-state", state, {
       path: "/",
       httpOnly: true,
-      sameSite: "lax",
+      sameSite: "strict",
       secure: !IS_DEVELOPMENT,
       maxAge: OAUTH_COOKIE_MAX_AGE,
     }),
