@@ -60,13 +60,22 @@ export interface ModelDefinition<TColumns extends ColumnShape = ColumnShape> {
   insertMany(dataArray: Record<string, unknown>[]): Promise<ModelInstance<TColumns>[]>
   update(id: number | string, data: Record<string, unknown>): Promise<ModelInstance<TColumns>>
   delete(id: number | string): Promise<void>
-  insertGraph(data: Record<string, unknown> | Record<string, unknown>[], options?: InsertGraphOptions): Promise<any>
-  upsertGraph(data: Record<string, unknown> | Record<string, unknown>[], options?: UpsertGraphOptions): Promise<any>
+  insertGraph(
+    data: Record<string, unknown> | Record<string, unknown>[],
+    options?: InsertGraphOptions,
+  ): Promise<any>
+  upsertGraph(
+    data: Record<string, unknown> | Record<string, unknown>[],
+    options?: UpsertGraphOptions,
+  ): Promise<any>
+  upsert(data: Record<string, unknown>): Promise<ModelInstance<TColumns>>
 
   hydrate(row: Record<string, unknown>): ModelInstance<TColumns>
 
   use(plugin: import("../plugins/index.js").Plugin): ModelDefinition<TColumns>
-  makeHelper<A extends any[], R>(fn: (qb: import("../query/index.js").QueryBuilder, ...args: A) => R): (...args: A) => R
+  makeHelper<A extends any[], R>(
+    fn: (qb: import("../query/index.js").QueryBuilder, ...args: A) => R,
+  ): (...args: A) => R
   on(event: string, callback: (model: ModelInstance<TColumns>) => void | Promise<void>): () => void
   getHooks(): import("../hooks/index.js").HookManager
 

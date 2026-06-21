@@ -47,6 +47,7 @@ export interface QueryBuilder<TColumns extends ColumnShape = ColumnShape>
     data: Record<string, unknown> | Record<string, unknown>[],
     options?: UpsertGraphOptions,
   ): Promise<any>
+  upsert(data: Record<string, unknown>): Promise<ModelInstance<TColumns>>
 
   // Eager loading
   with(

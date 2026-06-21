@@ -153,6 +153,45 @@ describe("Model CRUD", () => {
   })
 })
 
+describe("Upsert", () => {
+  it("inserts a new record when pk is not present", async () => {
+    const user = await User.upsert({
+      name: "Upsert New",
+      email: "upsert-new@example.com",
+      age: 25,
+    })
+    expect(user).toBeDefined()
+    expect(user.get("name")).toBe("Upsert New")
+    expect(user.get("email")).toBe("upsert-new@example.com")
+    expect(user.get("age")).toBe(25)
+    expect(user.get("id")).toBeGreaterThan(0)
+    expect(user.exists).toBe(true)
+  })
+
+  it("updates an existing record when pk matches", async () => {
+    const existing = await User.insert({
+      name: "Before Upsert",
+      email: "upsert-existing@example.com",
+      age: 30,
+    })
+    const id = existing.get("id") as number
+
+    const updated = await User.upsert({
+      id,
+      name: "After Upsert",
+      email: "upsert-existing@example.com",
+      age: 31,
+    })
+    expect(updated.get("name")).toBe("After Upsert")
+    expect(updated.get("age")).toBe(31)
+    expect(updated.get("id")).toBe(id)
+
+    const reloaded = await User.find(id)
+    expect(reloaded!.get("name")).toBe("After Upsert")
+    expect(reloaded!.get("age")).toBe(31)
+  })
+})
+
 describe("Validation", () => {
   it("inserts with nullable column as null", async () => {
     const user = await User.insert({
