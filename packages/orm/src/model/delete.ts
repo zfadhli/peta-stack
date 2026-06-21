@@ -1,24 +1,8 @@
-import { DatabaseError, ModelNotRegisteredError, normalizeError } from "../errors.js"
+import { DatabaseError, normalizeError } from "../errors.js"
+import { getDb, getPrimaryKeyColumn } from "../lib/model-helpers.js"
 import { getHooksFor, getSoftDeleteConfig, hasSoftDelete } from "./hooks.js"
 import { setExists } from "./state.js"
 import type { ModelDefinition, ModelInstance } from "./types.js"
-
-function getTable(def: ModelDefinition): string {
-  return def.table
-}
-
-function getDb(def: ModelDefinition): any {
-  if (!def._orm) throw new ModelNotRegisteredError(def.name)
-  return (def._orm as any).kysely
-}
-
-function getPrimaryKeyColumn(def: ModelDefinition): string {
-  const cols = def.columns as Record<string, { isPrimaryKey?: boolean }>
-  for (const [name, col] of Object.entries(cols)) {
-    if (col.isPrimaryKey) return name
-  }
-  return "id"
-}
 
 // ─── DELETE MODEL ────────────────────────────────────────────
 export async function deleteModel(def: ModelDefinition, model: ModelInstance): Promise<void> {
@@ -39,12 +23,12 @@ export async function deleteModel(def: ModelDefinition, model: ModelInstance): P
 
     try {
       await db
-        .updateTable(getTable(def))
+        .updateTable(def.table)
         .set({ [config.column]: new Date().toISOString() })
         .where(pk, "=", pkValue)
         .execute()
     } catch (e: any) {
-      throw normalizeError(e, getTable(def))
+      throw normalizeError(e, def.table)
     }
 
     model.set(config.column, new Date().toISOString())
@@ -55,9 +39,9 @@ export async function deleteModel(def: ModelDefinition, model: ModelInstance): P
     const db = getDb(def)
 
     try {
-      await db.deleteFrom(getTable(def)).where(pk, "=", pkValue).execute()
+      await db.deleteFrom(def.table).where(pk, "=", pkValue).execute()
     } catch (e: any) {
-      throw normalizeError(e, getTable(def))
+      throw normalizeError(e, def.table)
     }
 
     setExists(model, false)
@@ -79,9 +63,9 @@ export async function forceDeleteModel(def: ModelDefinition, model: ModelInstanc
 
   const db = getDb(def)
   try {
-    await db.deleteFrom(getTable(def)).where(pk, "=", pkValue).execute()
+    await db.deleteFrom(def.table).where(pk, "=", pkValue).execute()
   } catch (e: any) {
-    throw normalizeError(e, getTable(def))
+    throw normalizeError(e, def.table)
   }
 
   setExists(model, false)
@@ -103,12 +87,12 @@ export async function restoreModel(def: ModelDefinition, model: ModelInstance): 
   const db = getDb(def)
   try {
     await db
-      .updateTable(getTable(def))
+      .updateTable(def.table)
       .set({ [config.column]: null })
       .where(pk, "=", pkValue)
       .execute()
   } catch (e: any) {
-    throw normalizeError(e, getTable(def))
+    throw normalizeError(e, def.table)
   }
 
   model.set(config.column, null)

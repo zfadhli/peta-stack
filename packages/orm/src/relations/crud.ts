@@ -1,10 +1,10 @@
 import {
   DatabaseError,
   isUniqueConstraintError,
-  ModelNotRegisteredError,
   normalizeError,
   RelationNotFoundError,
 } from "../errors.js"
+import { getDb } from "../lib/model-helpers.js"
 import type { ModelDefinition, ModelInstance } from "../model/types.js"
 import type { Relation } from "./base.js"
 
@@ -83,13 +83,6 @@ export function extractRelationData(
   }
 
   return { columnData, relationOps }
-}
-
-// ─── GET DB ───────────────────────────────────────────────────
-
-function getDb(def: ModelDefinition): any {
-  if (!def._orm) throw new ModelNotRegisteredError(def.name)
-  return (def._orm as any).kysely
 }
 
 // ─── PROCESS RELATIONS ON CREATE ──────────────────────────────

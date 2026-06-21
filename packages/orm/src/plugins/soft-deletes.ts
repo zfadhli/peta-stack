@@ -1,4 +1,5 @@
-import { isUniqueConstraintError, ModelNotRegisteredError, normalizeError } from "../errors.js"
+import { isUniqueConstraintError, normalizeError } from "../errors.js"
+import { getDb, getPrimaryKeyColumn } from "../lib/model-helpers.js"
 import { registerSoftDeletesFor } from "../model/hooks.js"
 import type { Plugin } from "./index.js"
 
@@ -39,17 +40,4 @@ export function softDeletes(opts?: { column?: string }): Plugin {
       }
     })
   }
-}
-
-function getDb(def: any): any {
-  if (!def._orm) throw new ModelNotRegisteredError(def.name)
-  return (def._orm as any).kysely
-}
-
-function getPrimaryKeyColumn(def: any): string {
-  const cols = def.columns as Record<string, any>
-  for (const [name, col] of Object.entries(cols)) {
-    if (col.isPrimaryKey) return name
-  }
-  return "id"
 }

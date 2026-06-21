@@ -1,22 +1,8 @@
-import { ModelNotRegisteredError } from "../../errors.js"
+export { getDb, getPrimaryKeyColumn } from "../../lib/model-helpers.js"
+
 import type { ModelDefinition, ModelInstance } from "../../model/types.js"
 import type { Relation } from "../base.js"
 import type { GraphContext, RefEntry } from "./types.js"
-
-// ─── HELPERS ───────────────────────────────────────────────────
-
-export function getPrimaryKeyColumn(def: ModelDefinition): string {
-  const cols = def.columns as Record<string, any>
-  for (const [name, col] of Object.entries(cols)) {
-    if (col.isPrimaryKey) return name
-  }
-  return "id"
-}
-
-export function getDb(def: ModelDefinition): any {
-  if (!def._orm) throw new ModelNotRegisteredError(def.name)
-  return (def._orm as any).kysely
-}
 
 export function getPivotInfo(relation: Relation): {
   throughTable: string

@@ -1,32 +1,10 @@
-import {
-  DatabaseError,
-  isUniqueConstraintError,
-  ModelNotRegisteredError,
-  normalizeError,
-} from "../errors.js"
+import { DatabaseError, isUniqueConstraintError, normalizeError } from "../errors.js"
+import { getDb, getPrimaryKeyColumn } from "../lib/model-helpers.js"
 import { applyCastsToData, prepareForDb } from "./casts.js"
 import { createInstance } from "./factory.js"
 import { getHooksFor } from "./hooks.js"
 import { getExists, getState, setExists, syncOriginal } from "./state.js"
 import type { ModelConfig, ModelDefinition, ModelInstance } from "./types.js"
-
-// ─── HELPERS ─────────────────────────────────────────────────
-function getPrimaryKeyColumn(def: ModelDefinition): string {
-  const cols = def.columns as Record<string, any>
-  for (const [name, col] of Object.entries(cols)) {
-    if (col.isPrimaryKey) return name
-  }
-  return "id"
-}
-
-function getTable(def: ModelDefinition): string {
-  return def.table
-}
-
-function getDb(def: ModelDefinition): any {
-  if (!def._orm) throw new ModelNotRegisteredError(def.name)
-  return (def._orm as any).kysely
-}
 
 // ─── SAVE MODEL ──────────────────────────────────────────────
 export async function saveModel(
@@ -60,9 +38,9 @@ export async function saveModel(
 
     const pkValue = model.get(pk)
     try {
-      await db.updateTable(getTable(def)).set(changed).where(pk, "=", pkValue).execute()
+      await db.updateTable(def.table).set(changed).where(pk, "=", pkValue).execute()
     } catch (e: any) {
-      throw normalizeError(e, getTable(def))
+      throw normalizeError(e, def.table)
     }
 
     syncOriginal(model)
@@ -82,11 +60,7 @@ export async function saveModel(
     }
 
     try {
-      const result = await db
-        .insertInto(getTable(def))
-        .values(data)
-        .returningAll()
-        .executeTakeFirst()
+      const result = await db.insertInto(def.table).values(data).returningAll().executeTakeFirst()
 
       if (result) {
         const applied = config?.casts
@@ -97,7 +71,7 @@ export async function saveModel(
         }
       }
     } catch (e: any) {
-      throw normalizeError(e, getTable(def))
+      throw normalizeError(e, def.table)
     }
 
     setExists(model, true)
@@ -222,13 +196,12 @@ export async function insertManyModel(
 
   let results: Record<string, unknown>[]
   try {
-    results = (await db
-      .insertInto(getTable(def))
-      .values(prepared)
-      .returningAll()
-      .execute()) as Record<string, unknown>[]
+    results = (await db.insertInto(def.table).values(prepared).returningAll().execute()) as Record<
+      string,
+      unknown
+    >[]
   } catch (e: any) {
-    throw normalizeError(e, getTable(def))
+    throw normalizeError(e, def.table)
   }
 
   const models = results.map((row) => {
@@ -525,7 +498,7 @@ export async function reloadModel(def: ModelDefinition, model: ModelInstance): P
   const db = getDb(def)
   try {
     const row = await db
-      .selectFrom(getTable(def))
+      .selectFrom(def.table)
       .selectAll()
       .where(pk, "=", pkValue)
       .executeTakeFirst()
@@ -538,7 +511,7 @@ export async function reloadModel(def: ModelDefinition, model: ModelInstance): P
       state.original = { ...(applied as Record<string, unknown>) }
     }
   } catch (e: any) {
-    throw normalizeError(e, getTable(def))
+    throw normalizeError(e, def.table)
   }
 }
 
