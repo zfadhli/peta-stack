@@ -12,10 +12,14 @@ import { createSessionFromAdapter, sessionHasData } from "./session.js"
  * app.get("/me", ({ session }) => session)
  * ```
  */
-export function session<T extends Record<string, unknown> = Record<string, unknown>>(options: SessionOptions) {
+export function session<T extends Record<string, unknown> = Record<string, unknown>>(
+  options: SessionOptions,
+) {
   return new Elysia({ name: "peta-auth" }).derive({ as: "scoped" }, async ({ headers, set }) => {
     const cookieString =
-      headers instanceof Headers ? (headers.get("cookie") ?? "") : ((headers as Record<string, string>).cookie ?? "")
+      headers instanceof Headers
+        ? (headers.get("cookie") ?? "")
+        : ((headers as Record<string, string>).cookie ?? "")
 
     const session = await createSessionFromAdapter<T>(
       {
@@ -46,7 +50,7 @@ export function session<T extends Record<string, unknown> = Record<string, unkno
 export function requireSession(): (app: Elysia) => Elysia
 export function requireSession<K extends string>(key: K): (app: Elysia) => Elysia
 export function requireSession(key?: string) {
-  return (app: Elysia): Elysia =>
+  return (app: Elysia): Elysia => {
     app.onBeforeHandle((context) => {
       const session = (context as unknown as { session: IronSession }).session
       const hasData = sessionHasData(session, key)
@@ -56,5 +60,7 @@ export function requireSession(key?: string) {
           headers: { "Content-Type": "application/json" },
         })
       }
-    }) as unknown as Elysia
+    })
+    return app
+  }
 }
