@@ -74,7 +74,10 @@ export function resolveConfig(options: SessionOptions): ResolvedConfig {
 
   for (const secret of Object.values(passwordsMap)) {
     if (secret.length < 32) {
-      throw new PetaAuthError("PASSWORD_TOO_SHORT", "peta-auth: password must be at least 32 characters")
+      throw new PetaAuthError(
+        "PASSWORD_TOO_SHORT",
+        "peta-auth: password must be at least 32 characters",
+      )
     }
   }
 
@@ -111,14 +114,15 @@ export interface SessionAdapter {
  * await session.save()
  * ```
  */
-export async function createSessionFromAdapter<T extends Record<string, unknown> = Record<string, unknown>>(
-  adapter: SessionAdapter,
-  options: SessionOptions,
-): Promise<T & IronSession> {
+export async function createSessionFromAdapter<
+  T extends Record<string, unknown> = Record<string, unknown>,
+>(adapter: SessionAdapter, options: SessionOptions): Promise<T & IronSession> {
   let config = resolveConfig(options)
 
   const seal = adapter.getCookie(config.cookieName)
-  const data: T = seal ? await unsealData<T>(seal, { password: config.password, ttl: config.timeToLive }) : ({} as T)
+  const data: T = seal
+    ? await unsealData<T>(seal, { password: config.password, ttl: config.timeToLive })
+    : ({} as T)
 
   const session = data as T & IronSession
 
@@ -127,7 +131,10 @@ export async function createSessionFromAdapter<T extends Record<string, unknown>
     const cookieValue = serialize(config.cookieName, s, config.cookieOptions)
 
     if (cookieValue.length > 4096) {
-      throw new PetaAuthError("COOKIE_TOO_LARGE", `peta-auth: cookie too large (${cookieValue.length} bytes)`)
+      throw new PetaAuthError(
+        "COOKIE_TOO_LARGE",
+        `peta-auth: cookie too large (${cookieValue.length} bytes)`,
+      )
     }
 
     adapter.setCookie(cookieValue)

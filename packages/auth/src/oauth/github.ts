@@ -103,7 +103,8 @@ const githubProvider: OAuthProviderConfig<GitHubTokens, GitHubUser> = {
       })
 
       if (emailsResponse.ok) {
-        const emails: Array<{ email: string; primary: boolean; verified: boolean }> = await emailsResponse.json()
+        const emails: Array<{ email: string; primary: boolean; verified: boolean }> =
+          await emailsResponse.json()
         const primaryEmail = emails.find((entry) => entry.primary)
         if (primaryEmail) {
           user.email = primaryEmail.email
@@ -130,7 +131,11 @@ const githubProvider: OAuthProviderConfig<GitHubTokens, GitHubUser> = {
  */
 export function defineOAuthGitHubEventHandler(options: {
   config?: OAuthGitHubConfig
-  onSuccess: (event: { user: GitHubUser; tokens: GitHubTokens; request: Request }) => Response | Promise<Response>
+  onSuccess: (event: {
+    user: GitHubUser
+    tokens: GitHubTokens
+    request: Request
+  }) => Response | Promise<Response>
   onError?: (error: Error) => Response | Promise<Response>
 }): (request: Request) => Promise<Response> {
   return defineOAuthHandler<GitHubTokens, GitHubUser>(githubProvider, options)

@@ -60,7 +60,9 @@ describe("Elysia adapter", () => {
     expect((await login.json()).ok).toBe(true)
 
     const cookie = login.headers.getSetCookie()[0]
-    const profile = await app.handle(new Request("http://localhost/profile", { headers: { cookie } }))
+    const profile = await app.handle(
+      new Request("http://localhost/profile", { headers: { cookie } }),
+    )
     expect((await profile.json()).name).toBe("Jason")
   })
 
@@ -92,10 +94,14 @@ describe("Elysia adapter", () => {
     )
     const cookie = login.headers.getSetCookie()[0]
 
-    const logout = await app.handle(new Request("http://localhost/logout", { method: "POST", headers: { cookie } }))
+    const logout = await app.handle(
+      new Request("http://localhost/logout", { method: "POST", headers: { cookie } }),
+    )
     const clearedCookie = logout.headers.getSetCookie()[0]
 
-    const profile = await app.handle(new Request("http://localhost/profile", { headers: { cookie: clearedCookie } }))
+    const profile = await app.handle(
+      new Request("http://localhost/profile", { headers: { cookie: clearedCookie } }),
+    )
     expect(profile.status).toBe(401)
   })
 })
@@ -136,7 +142,9 @@ describe("Elysia requireSession", () => {
       }),
     )
     const cookie = login.headers.getSetCookie()[0]
-    const profile = await app.handle(new Request("http://localhost/profile", { headers: { cookie } }))
+    const profile = await app.handle(
+      new Request("http://localhost/profile", { headers: { cookie } }),
+    )
     expect(profile.status).toBe(200)
     expect((await profile.json()).name).toBe("Alice")
   })
@@ -159,7 +167,9 @@ describe("Elysia requireSession with key", () => {
       }),
     )
     const cookie = login.headers.getSetCookie()[0]
-    const res = await app.handle(new Request("http://localhost/admin/profile", { headers: { cookie } }))
+    const res = await app.handle(
+      new Request("http://localhost/admin/profile", { headers: { cookie } }),
+    )
     expect(res.status).toBe(401)
   })
 
@@ -172,7 +182,9 @@ describe("Elysia requireSession with key", () => {
       }),
     )
     const cookie = login.headers.getSetCookie()[0]
-    const res = await app.handle(new Request("http://localhost/admin/profile", { headers: { cookie } }))
+    const res = await app.handle(
+      new Request("http://localhost/admin/profile", { headers: { cookie } }),
+    )
     expect(res.status).toBe(200)
   })
 })

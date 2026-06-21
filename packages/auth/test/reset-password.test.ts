@@ -1,6 +1,10 @@
 import { describe, expect, it } from "bun:test"
 import { verifyJWT } from "../src/jwt.js"
-import { createPasswordResetToken, resetPassword, verifyPasswordResetToken } from "../src/reset-password.js"
+import {
+  createPasswordResetToken,
+  resetPassword,
+  verifyPasswordResetToken,
+} from "../src/reset-password.js"
 
 const secret = "a".repeat(32)
 

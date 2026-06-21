@@ -20,7 +20,10 @@ export interface PasswordResetOptions {
  * const token = await createPasswordResetToken(userId, { password: "..." })
  * ```
  */
-export async function createPasswordResetToken(userId: string, options: PasswordResetOptions): Promise<string> {
+export async function createPasswordResetToken(
+  userId: string,
+  options: PasswordResetOptions,
+): Promise<string> {
   return signJWT(
     { userId, purpose: "password-reset" },
     { password: options.password, expiresIn: options.expiresIn ?? DEFAULT_EXPIRES_IN },
@@ -32,7 +35,10 @@ export async function createPasswordResetToken(userId: string, options: Password
  *
  * Returns the user ID when the token is valid, or `null` if expired/invalid.
  */
-export async function verifyPasswordResetToken(token: string, password: Password): Promise<{ userId: string } | null> {
+export async function verifyPasswordResetToken(
+  token: string,
+  password: Password,
+): Promise<{ userId: string } | null> {
   const payload = await verifyJWT<{ userId: string; purpose: string }>(token, { password })
   if (payload?.purpose !== "password-reset") return null
   return { userId: payload.userId }

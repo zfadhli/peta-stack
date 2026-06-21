@@ -12,10 +12,14 @@ import { createSessionFromAdapter, sessionHasData } from "./session.js"
  * app.get("/me", ({ session }) => session)
  * ```
  */
-export function session<T extends Record<string, unknown> = Record<string, unknown>>(options: SessionOptions) {
+export function session<T extends Record<string, unknown> = Record<string, unknown>>(
+  options: SessionOptions,
+) {
   return new Elysia({ name: "peta-auth" }).derive({ as: "scoped" }, async ({ headers, set }) => {
     const cookieString =
-      headers instanceof Headers ? (headers.get("cookie") ?? "") : ((headers as Record<string, string>).cookie ?? "")
+      headers instanceof Headers
+        ? (headers.get("cookie") ?? "")
+        : ((headers as Record<string, string>).cookie ?? "")
 
     const session = await createSessionFromAdapter<T>(
       {

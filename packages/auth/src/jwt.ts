@@ -22,13 +22,19 @@ export interface JWTOptions {
  * const token = await signJWT({ userId: "abc" }, { password: "my-32-char-secret...", expiresIn: 3600 })
  * ```
  */
-export async function signJWT(payload: Record<string, unknown>, options: JWTOptions): Promise<string> {
+export async function signJWT(
+  payload: Record<string, unknown>,
+  options: JWTOptions,
+): Promise<string> {
   const map = normalizePassword(options.password)
   const id = Math.max(...Object.keys(map).map(Number)).toString()
   const secret = map[id]
 
   if (!secret || secret.length < 32) {
-    throw new PetaAuthError("JWT_PASSWORD_TOO_SHORT", "peta-auth/jwt: password must be at least 32 characters")
+    throw new PetaAuthError(
+      "JWT_PASSWORD_TOO_SHORT",
+      "peta-auth/jwt: password must be at least 32 characters",
+    )
   }
 
   const jwt = new jose.SignJWT(payload).setProtectedHeader({ alg: "HS256" }).setIssuedAt()
@@ -48,7 +54,10 @@ export async function signJWT(payload: Record<string, unknown>, options: JWTOpti
  * const payload = await verifyJWT<{ userId: string }>(token, { password: "my-32-char-secret..." })
  * ```
  */
-export async function verifyJWT<T = Record<string, unknown>>(token: string, options: JWTOptions): Promise<T | null> {
+export async function verifyJWT<T = Record<string, unknown>>(
+  token: string,
+  options: JWTOptions,
+): Promise<T | null> {
   let result: T | null = null
 
   const passwords = normalizePassword(options.password)

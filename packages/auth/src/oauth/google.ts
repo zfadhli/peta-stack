@@ -110,7 +110,11 @@ const googleProvider: OAuthProviderConfig<GoogleTokens, GoogleUser> = {
  */
 export function defineOAuthGoogleEventHandler(options: {
   config?: OAuthGoogleConfig
-  onSuccess: (event: { user: GoogleUser; tokens: GoogleTokens; request: Request }) => Response | Promise<Response>
+  onSuccess: (event: {
+    user: GoogleUser
+    tokens: GoogleTokens
+    request: Request
+  }) => Response | Promise<Response>
   onError?: (error: Error) => Response | Promise<Response>
 }): (request: Request) => Promise<Response> {
   return defineOAuthHandler<GoogleTokens, GoogleUser>(googleProvider, options)
