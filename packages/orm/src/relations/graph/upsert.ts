@@ -1,4 +1,4 @@
-import { DatabaseError } from "../../errors.js"
+import { DatabaseError, isUniqueConstraintError, normalizeError } from "../../errors.js"
 import type { ModelDefinition, ModelInstance } from "../../model/types.js"
 import type { Relation } from "../base.js"
 import { processBelongsTo, processNode } from "./insert.js"
@@ -12,7 +12,13 @@ import {
   resolveRefs,
   resolveTargetId,
 } from "./parser.js"
-import { assertRelationAllowed, isRelPathAllowed, joinPath, relNameFromPath, resolveAllowGraph } from "./security.js"
+import {
+  assertRelationAllowed,
+  isRelPathAllowed,
+  joinPath,
+  relNameFromPath,
+  resolveAllowGraph,
+} from "./security.js"
 import type { GraphContext, RelationOperationShape, UpsertGraphOptions } from "./types.js"
 
 // ─── UPSERT GRAPH ─────────────────────────────────────────────
@@ -106,7 +112,8 @@ async function upsertNode(
     if (isRelPathAllowed(pkCol, options.noUpdate as any)) {
       // noUpdate is set for this — skip update, just use existing
       const existing = await def.find(idValue as number | string)
-      if (!existing) throw new DatabaseError(`Cannot find ${def.name} with id ${idValue}`, "UNKNOWN")
+      if (!existing)
+        throw new DatabaseError(`Cannot find ${def.name} with id ${idValue}`, "UNKNOWN")
       instance = existing
     } else {
       const existing = await def.find(idValue as number | string)
@@ -130,7 +137,8 @@ async function upsertNode(
 
   // Process post-insert relations
   const pkValue = instance.get(pkCol)
-  if (pkValue == null) throw new DatabaseError("Cannot process relations without primary key", "MISSING_ID")
+  if (pkValue == null)
+    throw new DatabaseError("Cannot process relations without primary key", "MISSING_ID")
 
   for (const [relName, op] of Object.entries(relationOps)) {
     const relation = def.relations[relName]
@@ -194,7 +202,10 @@ async function upsertHasMany(
         const existing = existingMap.get(itemId)
         if (existing) {
           // Extract only column data — don't try to fill relation keys as columns
-          const { columnData: colData, relationOps: nestedOps } = extractGraphRelationData(relatedDef, item)
+          const { columnData: colData, relationOps: nestedOps } = extractGraphRelationData(
+            relatedDef,
+            item,
+          )
           existing.fill(colData)
           await existing.$save()
           if (item["#id"]) context.processedRefs.set(item["#id"] as string, existing)
@@ -291,8 +302,8 @@ async function upsertManyToMany(
             .insertInto(throughTable)
             .values({ [foreignPivotKey]: pkValue, [relatedPivotKey]: id })
             .execute()
-        } catch {
-          /* skip */
+        } catch (e) {
+          if (!isUniqueConstraintError(e)) throw normalizeError(e, throughTable)
         }
       }
       continue
@@ -320,8 +331,8 @@ async function upsertManyToMany(
             .insertInto(throughTable)
             .values({ [foreignPivotKey]: pkValue, [relatedPivotKey]: itemId })
             .execute()
-        } catch {
-          /* skip */
+        } catch (e) {
+          if (!isUniqueConstraintError(e)) throw normalizeError(e, throughTable)
         }
       }
     } else {
@@ -335,8 +346,8 @@ async function upsertManyToMany(
             .insertInto(throughTable)
             .values({ [foreignPivotKey]: pkValue, [relatedPivotKey]: relatedId })
             .execute()
-        } catch {
-          /* skip */
+        } catch (e) {
+          if (!isUniqueConstraintError(e)) throw normalizeError(e, throughTable)
         }
       }
     }
@@ -354,8 +365,8 @@ async function upsertManyToMany(
             .insertInto(throughTable)
             .values({ [foreignPivotKey]: pkValue, [relatedPivotKey]: targetId })
             .execute()
-        } catch {
-          /* skip */
+        } catch (e) {
+          if (!isUniqueConstraintError(e)) throw normalizeError(e, throughTable)
         }
       }
     }
@@ -377,8 +388,8 @@ async function upsertManyToMany(
               .where(foreignPivotKey, "=", pkValue)
               .where(relatedPivotKey, "=", pivotId)
               .execute()
-          } catch {
-            /* skip */
+          } catch (e) {
+            if (!isUniqueConstraintError(e)) throw normalizeError(e, throughTable)
           }
         } else if (shouldDelete) {
           await (await relatedDef.find(pivotId as number | string))?.$delete()
@@ -388,8 +399,8 @@ async function upsertManyToMany(
               .where(foreignPivotKey, "=", pkValue)
               .where(relatedPivotKey, "=", pivotId)
               .execute()
-          } catch {
-            /* skip */
+          } catch (e) {
+            if (!isUniqueConstraintError(e)) throw normalizeError(e, throughTable)
           }
         }
       }

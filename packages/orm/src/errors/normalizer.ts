@@ -12,7 +12,12 @@ export function normalizeError(e: unknown, table?: string): DatabaseError {
 
   // Bun SQLite: code = "SQLITE_CONSTRAINT_UNIQUE", errno = 2067
   if (raw.code === "SQLITE_CONSTRAINT_UNIQUE" || raw.code === "SQLITE_CONSTRAINT") {
-    return new DatabaseError(`Unique constraint violation on ${table}: ${msg}`, "UNIQUE_CONSTRAINT", table, msg)
+    return new DatabaseError(
+      `Unique constraint violation on ${table}: ${msg}`,
+      "UNIQUE_CONSTRAINT",
+      table,
+      msg,
+    )
   }
   if (raw.code === "SQLITE_CONSTRAINT_FOREIGNKEY" || raw.code === "SQLITE_CONSTRAINT_FOREIGN_KEY") {
     return new DatabaseError(
@@ -23,10 +28,20 @@ export function normalizeError(e: unknown, table?: string): DatabaseError {
     )
   }
   if (raw.code === "SQLITE_CONSTRAINT_NOTNULL" || raw.code === "SQLITE_CONSTRAINT_NOT_NULL") {
-    return new DatabaseError(`Not null constraint violation on ${table}: ${msg}`, "NOT_NULL_CONSTRAINT", table, msg)
+    return new DatabaseError(
+      `Not null constraint violation on ${table}: ${msg}`,
+      "NOT_NULL_CONSTRAINT",
+      table,
+      msg,
+    )
   }
   if (raw.code === "SQLITE_CONSTRAINT_CHECK") {
-    return new DatabaseError(`Check constraint violation on ${table}: ${msg}`, "CHECK_CONSTRAINT", table, msg)
+    return new DatabaseError(
+      `Check constraint violation on ${table}: ${msg}`,
+      "CHECK_CONSTRAINT",
+      table,
+      msg,
+    )
   }
 
   // SQLite generic constraint (errno 19 or 2067)
@@ -58,7 +73,12 @@ export function normalizeError(e: unknown, table?: string): DatabaseError {
 
   // MySQL error codes
   if (raw.code === "ER_DUP_ENTRY" || raw.errno === 1062) {
-    return new DatabaseError(`Unique constraint violation on ${table}: ${msg}`, "UNIQUE_CONSTRAINT", table, msg)
+    return new DatabaseError(
+      `Unique constraint violation on ${table}: ${msg}`,
+      "UNIQUE_CONSTRAINT",
+      table,
+      msg,
+    )
   }
   if (raw.code === "ER_NO_REFERENCED_ROW_2" || raw.errno === 1452) {
     return new DatabaseError(
@@ -69,8 +89,28 @@ export function normalizeError(e: unknown, table?: string): DatabaseError {
     )
   }
   if (raw.code === "ER_BAD_NULL_ERROR" || raw.errno === 1048) {
-    return new DatabaseError(`Not null constraint violation on ${table}: ${msg}`, "NOT_NULL_CONSTRAINT", table, msg)
+    return new DatabaseError(
+      `Not null constraint violation on ${table}: ${msg}`,
+      "NOT_NULL_CONSTRAINT",
+      table,
+      msg,
+    )
   }
 
   return new DatabaseError(msg || "Unknown database error", "UNKNOWN", table, msg)
+}
+
+export function isUniqueConstraintError(error: unknown): boolean {
+  if (error instanceof Error) {
+    const msg = error.message.toLowerCase()
+    if (msg.includes("unique") || msg.includes("sqlite_constraint")) return true
+    if (msg.includes("23505")) return true
+    if (msg.includes("1062") || msg.includes("duplicate entry")) return true
+  }
+  if (error && typeof error === "object" && "code" in error) {
+    const code = (error as Record<string, unknown>).code
+    if (code === "23505" || code === "ER_DUP_ENTRY" || code === "SQLITE_CONSTRAINT_UNIQUE")
+      return true
+  }
+  return false
 }

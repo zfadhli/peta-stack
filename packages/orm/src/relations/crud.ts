@@ -1,4 +1,10 @@
-import { DatabaseError, ModelNotRegisteredError, RelationNotFoundError } from "../errors.js"
+import {
+  DatabaseError,
+  isUniqueConstraintError,
+  ModelNotRegisteredError,
+  normalizeError,
+  RelationNotFoundError,
+} from "../errors.js"
 import type { ModelDefinition, ModelInstance } from "../model/types.js"
 import type { Relation } from "./base.js"
 
@@ -202,8 +208,8 @@ async function processManyToManyCreate(
             .insertInto(throughTable)
             .values({ [foreignPivotKey]: pkValue, [relatedPivotKey]: relatedId })
             .execute()
-        } catch {
-          // Skip duplicates
+        } catch (e) {
+          if (!isUniqueConstraintError(e)) throw normalizeError(e, throughTable)
         }
       }
     }

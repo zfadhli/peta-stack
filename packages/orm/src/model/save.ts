@@ -1,4 +1,9 @@
-import { DatabaseError, ModelNotRegisteredError, normalizeError } from "../errors.js"
+import {
+  DatabaseError,
+  isUniqueConstraintError,
+  ModelNotRegisteredError,
+  normalizeError,
+} from "../errors.js"
 import { applyCastsToData, prepareForDb } from "./casts.js"
 import { createInstance } from "./factory.js"
 import { getHooksFor } from "./hooks.js"
@@ -369,8 +374,8 @@ export async function updateModel(
               .insertInto(throughTable)
               .values({ [fpk]: pkValue, [rpk]: child.get(relation.localKey ?? "id") })
               .execute()
-          } catch {
-            /* skip duplicate */
+          } catch (e) {
+            if (!isUniqueConstraintError(e)) throw normalizeError(e, throughTable)
           }
         }
       }
@@ -394,8 +399,8 @@ export async function updateModel(
                 .insertInto(throughTable)
                 .values({ [fpk]: pkValue, [rpk]: targetId })
                 .execute()
-            } catch {
-              /* skip duplicate */
+            } catch (e) {
+              if (!isUniqueConstraintError(e)) throw normalizeError(e, throughTable)
             }
           }
         }
@@ -452,7 +457,9 @@ export async function updateModel(
                   .insertInto(throughTable)
                   .values({ [fpk]: pkValue, [rpk]: targetId })
                   .execute()
-              } catch {}
+              } catch (e) {
+                if (!isUniqueConstraintError(e)) throw normalizeError(e, throughTable)
+              }
             }
           }
         }

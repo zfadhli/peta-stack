@@ -15,4 +15,4 @@ export {
   RelationNotFoundError,
   ValidationError,
 } from "./errors/classes.js"
-export { normalizeError } from "./errors/normalizer.js"
+export { isUniqueConstraintError, normalizeError } from "./errors/normalizer.js"
