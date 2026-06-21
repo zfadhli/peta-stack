@@ -1,11 +1,5 @@
+import { registerSoftDeletesFor } from "../model/hooks.js"
 import type { Plugin } from "./index.js"
-
-// Lazy-loaded module references
-let _hooksMod: any = null
-async function getHooksMod() {
-  if (!_hooksMod) _hooksMod = await import("../model/hooks.js")
-  return _hooksMod
-}
 
 /**
  * Plugin that enables soft-delete behavior on a model.
@@ -22,7 +16,7 @@ export function softDeletes(opts?: { column?: string }): Plugin {
 
   return (def) => {
     // Register with the soft-delete system for query builder filtering
-    getHooksMod().then((mod) => mod.registerSoftDeletesFor(def as any, column))
+    registerSoftDeletesFor(def as any, column)
 
     // Override delete via beforeDelete instance hook to set deletedAt instead
     def.on("beforeDelete", async (model: any) => {
